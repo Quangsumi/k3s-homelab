@@ -33,7 +33,7 @@ sudo kubectl -n argocd patch configmap argocd-cmd-params-cm \
 sudo kubectl -n argocd rollout restart deploy argocd-server
 
 
-sudo kubectl apply -f argocd-tailnet-ingress.yaml
+sudo kubectl apply -f argocd-tailscale-ingress.yaml
 
 
 admin

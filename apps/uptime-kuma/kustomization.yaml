@@ -1,0 +1,9 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - 00-namespace.yaml
+  - 05-pvc.yaml
+  - 10-deployment.yaml
+  #- 20-loadbalancer-service.yaml
+  - 21-service.yaml
+  - 22-tailscale-ingress.yaml

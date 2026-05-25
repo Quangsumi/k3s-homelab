@@ -160,3 +160,22 @@ spec:
         resources:
           requests:
             storage: 300Mi
+
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: prometheus-tailscale
+  namespace: litellm-stack
+  #annotations:
+  #  tailscale.com/funnel: "true"
+spec:
+  ingressClassName: tailscale
+  defaultBackend:
+    service:
+      name: prometheus
+      port:
+        number: 9090
+  tls:
+    - hosts:
+        - prometheus

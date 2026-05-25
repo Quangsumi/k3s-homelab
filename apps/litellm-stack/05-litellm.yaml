@@ -1,0 +1,144 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: litellm
+  namespace: litellm-stack
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: litellm
+  template:
+    metadata:
+      labels:
+        app: litellm
+    spec:
+      nodeSelector:
+        role: master
+      containers:
+        - name: litellm
+          image: ghcr.io/berriai/litellm-database:1.86.0
+          imagePullPolicy: IfNotPresent
+          args:
+            - "--host"
+            - "0.0.0.0"
+            - "--port"
+            - "4000"
+            - "--config"
+            - "/app/config.yaml"
+            - "--num_workers"
+            - "1"
+          ports:
+            - name: http
+              containerPort: 4000
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: litellm-secret
+                  key: DATABASE_URL
+            - name: LITELLM_MASTER_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: litellm-secret
+                  key: LITELLM_MASTER_KEY
+            - name: LITELLM_SALT_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: litellm-secret
+                  key: LITELLM_SALT_KEY
+            - name: LITELLM_MODE
+              value: "PRODUCTION"
+            - name: USE_PRISMA_MIGRATE
+              value: "True"
+            - name: LITELLM_LOG
+              value: "INFO"
+            - name: STORE_MODEL_IN_DB
+              value: "True"
+          readinessProbe:
+            httpGet:
+              path: /health/readiness
+              port: http
+            initialDelaySeconds: 60
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 12
+          livenessProbe:
+            tcpSocket:
+              port: http
+            initialDelaySeconds: 180
+            periodSeconds: 20
+            timeoutSeconds: 5
+            failureThreshold: 12
+          startupProbe:
+            tcpSocket:
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            failureThreshold: 120
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+            limits:
+              memory: 1500Mi
+          volumeMounts:
+            - name: litellm-config
+              mountPath: /app/config.yaml
+              subPath: config.yaml
+              readOnly: true
+      volumes:
+        - name: litellm-config
+          configMap:
+            name: litellm-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: litellm
+  namespace: litellm-stack
+spec:
+  type: ClusterIP
+  selector:
+    app: litellm
+  ports:
+    - name: http
+      port: 4000
+      targetPort: http
+# ---
+# apiVersion: v1
+# kind: Service
+# metadata:
+#   name: litellm-lb
+#   namespace: litellm-stack
+#   annotations:
+#     metallb.io/loadBalancerIPs: 192.168.63.205
+# spec:
+#   type: LoadBalancer
+#   selector:
+#     app: litellm
+#   ports:
+#     - name: http
+#       port: 80
+#       targetPort: http
+
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: litellm-tailscale
+  namespace: litellm-stack
+  #annotations:
+  #  tailscale.com/funnel: "true"
+spec:
+  ingressClassName: tailscale
+  defaultBackend:
+    service:
+      name: litellm
+      port:
+        number: 4000
+  tls:
+    - hosts:
+        - litellm

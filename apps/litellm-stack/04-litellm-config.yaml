@@ -1,0 +1,18 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: litellm-config
+  namespace: litellm-stack
+data:
+  config.yaml: |
+    general_settings:
+      database_connection_pool_limit: 5
+      proxy_batch_write_at: 60
+      allow_requests_on_db_unavailable: false
+
+    litellm_settings:
+      callbacks: ["prometheus"]
+      service_callback: ["prometheus_system"]
+      request_timeout: 600
+      set_verbose: false
+      json_logs: true

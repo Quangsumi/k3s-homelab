@@ -1,15 +1,15 @@
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: argocd-tailnet
-  namespace: argocd
+  name: k8s-dashboard-tailscale
+  namespace: kubernetes-dashboard
 spec:
   ingressClassName: tailscale
   defaultBackend:
     service:
-      name: argocd-server
+      name: kubernetes-dashboard-kong-proxy
       port:
-        name: http
+        number: 443
   tls:
     - hosts:
-        - argocd
+        - k8s-dashboard

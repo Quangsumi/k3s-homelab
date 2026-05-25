@@ -1,0 +1,3 @@
+resources:
+  - 00-dashboard-admin.yaml
+  - 20-tailscale-ingress.yaml

@@ -1,0 +1,20 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: litellm-stack
+  namespace: argocd
+spec:
+  project: default
+
+  source:
+    repoURL: https://github.com/Quangsumi/k3s-homelab.git
+    targetRevision: main
+    path: apps/litellm-stack
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: litellm-stack
+
+  syncPolicy:
+    syncOptions:
+      - CreateNamespace=true

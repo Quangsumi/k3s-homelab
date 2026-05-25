@@ -1,0 +1,20 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: pi-dashboard
+  namespace: pi-dashboard
+  labels:
+    app: pi-dashboard
+spec:
+  ingressClassName: traefik
+  rules:
+    - host: pi-dashboard.local
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: pi-dashboard
+                port:
+                  number: 80

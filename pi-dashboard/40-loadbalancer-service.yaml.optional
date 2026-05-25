@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: pi-dashboard-lb
+  namespace: pi-dashboard
+  labels:
+    app: pi-dashboard
+spec:
+  type: LoadBalancer
+  loadBalancerIP: 192.168.63.202
+  selector:
+    app: pi-dashboard
+  ports:
+    - name: http
+      port: 80
+      targetPort: http

@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: pi-dashboard
+  namespace: pi-dashboard
+  labels:
+    app: pi-dashboard
+spec:
+  type: ClusterIP
+  selector:
+    app: pi-dashboard
+  ports:
+    - name: http
+      port: 80
+      targetPort: http

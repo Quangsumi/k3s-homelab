@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: longhorn-frontend-lb
+  namespace: longhorn-system
+  annotations:
+    metallb.io/loadBalancerIPs: 192.168.63.204
+spec:
+  type: LoadBalancer
+  selector:
+    app: longhorn-ui
+  ports:
+    - name: http
+      port: 80
+      targetPort: 8000

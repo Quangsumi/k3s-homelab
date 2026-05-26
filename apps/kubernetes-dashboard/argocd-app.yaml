@@ -16,7 +16,7 @@ spec:
         app:
           scheduling:
             nodeSelector:
-              kubernetes.io/hostname: rpivn
+              role: worker
 
   destination:
     server: https://kubernetes.default.svc

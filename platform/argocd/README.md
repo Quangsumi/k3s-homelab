@@ -1,7 +1,17 @@
 ```
+mkdir -p ~/.kube 
+sudo cp /etc/rancher/k3s/k3s.yaml ~/.kube/config
+sudo chown $(id -u):$(id -g) ~/.kube/config 
+chmod 600 ~/.kube/config
+export KUBECONFIG=~/.kube/config
+```
+
+```
 kubectl create namespace argocd
 helm repo add argo https://argoproj.github.io/argo-helm
 helm repo update
+helm install argocd argo/argo-cd - n argocd
+
 helm upgrade --install argocd argo/argo-cd \
   -n argocd \
   -f argocd-pi-values.yaml \

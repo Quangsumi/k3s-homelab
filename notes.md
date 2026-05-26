@@ -3,7 +3,8 @@
 sudo apt install -y open-iscsi nfs-common
 sudo systemctl restart k3s-agent
 
-curl -sfL https://get.k3s.io | K3S_URL=https://192.168.63.102:6443 K3S_TOKEN=K102ae10f3cac576f50a96bfa2bbb0460f17a12698303c1f603894474844a0548fc::server:40bb620e439ba93da0757db3364407b6 sh -
+curl -sfL https://get.k3s.io | K3S_URL=https://192.168.63.102:6443 K3S_TOKEN=K10004b057c1607ab9c71f0e09d906ff591fb4e4a7594e0108ff251a98b4a44ab78::server:3b3c7ffdbb5b6c010556b7f5b2369903 sh -
+
 curl -sfL https://get.k3s.io | sh -s - server --token K10299eadbcc120bb2aa44e6adcb1b3c7a1a91e90f08848a799663c73901f8ada85::server:86bedc7ec4983e566c4c352bb359da2b --server https://192.168.63.102:6443
 ```
 
@@ -43,6 +44,10 @@ sudo kubectl -n uptime-kuma rollout restart deploy uptime-kuma
 ```
 sudo ip link set wlan0 promisc on
 
+DISPLAY=:0 nohup firefox --kiosk https://pi-dashboard.tailee75a4.ts.net --safe-mode &
+
+firefox --kiosk https://pi-dashboard.tailee75a4.ts.net --safe-mode
+
 chromium \
   --kiosk \
   --app="http://192.168.63.202/" \
@@ -69,4 +74,15 @@ sudo kubectl -n argocd get secret argocd-initial-admin-secret \
 ```
 sudo kubectl drain winterfall --ignore-daemonsets --delete-emptydir-data
 kubectl uncordon winterfall
+```
+
+
+```
+cat /proc/sys/vm/swappiness
+sudo sysctl vm.swappiness=30
+
+free -m
+sudo swapoff -a
+free -m
+swapon -a 
 ```

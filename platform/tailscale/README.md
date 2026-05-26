@@ -1,3 +1,7 @@
+```
+kubectl create namespace tailscale
+```
+
 `tailscale-auth.yaml`
 ```
 apiVersion: v1

@@ -1,1 +1,34 @@
-# manage Helm installation
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: longhorn
+  namespace: argocd
+spec:
+  project: default
+
+  source:
+    repoURL: https://charts.longhorn.io
+    chart: longhorn
+    targetRevision: 1.7.2
+    helm:
+      releaseName: longhorn
+      values: |
+        persistence:
+          defaultClass: true            # local-path is default, mark this will make longhorn default StorageClass
+          defaultClassReplicaCount: 2
+          reclaimPolicy: Retain         # Delete PVC ->  PV remains Released -> data still exists -> manually recover or delete later
+
+        defaultSettings:
+          storageOverProvisioningPercentage: 100
+          defaultDataPath: /var/lib/longhorn
+
+        preUpgradeChecker:
+          jobEnabled: false
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: longhorn-system
+
+  syncPolicy:
+    syncOptions:
+      - CreateNamespace=true

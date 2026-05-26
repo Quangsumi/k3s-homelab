@@ -16,7 +16,7 @@ spec:
         app: litellm
     spec:
       nodeSelector:
-        role: master
+        role: worker
       containers:
         - name: litellm
           image: ghcr.io/berriai/litellm-database:1.86.0

@@ -11,6 +11,5 @@ spec:
   selector:
     app: argocd-server
   ports:
-    - name: http
-      port: 80
+    - port: 80
       targetPort: http

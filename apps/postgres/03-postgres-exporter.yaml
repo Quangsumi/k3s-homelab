@@ -23,11 +23,11 @@ spec:
             - name: metrics
               containerPort: 9187
           env:
-            - name: DATA_SOURCE_NAME
+            - name: DATA_SOURCE_LITELLM
               valueFrom:
                 secretKeyRef:
                   name: postgres-exporter-secret
-                  key: DATA_SOURCE_NAME
+                  key: DATA_SOURCE_LITELLM
           readinessProbe:
             httpGet:
               path: /metrics

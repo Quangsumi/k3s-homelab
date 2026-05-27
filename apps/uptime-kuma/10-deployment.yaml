@@ -15,8 +15,6 @@ spec:
       labels:
         app: uptime-kuma
     spec:
-      nodeSelector:
-        role: worker
       containers:
         - name: uptime-kuma
           image: louislam/uptime-kuma:latest

@@ -2,7 +2,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: litellm-config
-  namespace: litellm-stack
+  namespace: litellm
 data:
   config.yaml: |
     general_settings:

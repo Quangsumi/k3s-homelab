@@ -3,9 +3,6 @@ kind: Kustomization
 resources:
   - 00-namespace.yaml
   - 01-secrets.yaml
-  - 02-postgres.yaml
-  - 03-postgres-exporter.yaml
   - 04-litellm-config.yaml
   - 05-litellm.yaml
-  - 06-prometheus.yaml
-  - 07-grafana.yaml
+  

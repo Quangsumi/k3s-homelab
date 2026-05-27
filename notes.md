@@ -40,6 +40,14 @@ sudo kubectl -n litellm-stack rollout restart statefulset postgres
 sudo kubectl -n uptime-kuma rollout restart deploy uptime-kuma
 ```
 
+```
+sudo kubectl -n litellm run pg-test --rm -it --restart=Never \
+  --image=postgres:16-alpine \
+  -- sh
+
+pg_isready -h postgres.dev-db.svc.cluster.local -p 5432
+```
+
 # after reboot Pi
 ```
 sudo ip link set wlan0 promisc on

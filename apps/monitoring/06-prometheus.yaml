@@ -22,12 +22,12 @@ data:
           credentials_file: /etc/prometheus/secrets/litellm/LITELLM_MASTER_KEY
         static_configs:
           - targets:
-              - litellm:4000
+              - litellm.litellm.svc.cluster.local:4000
 
       - job_name: postgres-exporter
         static_configs:
           - targets:
-              - postgres-exporter:9187
+              - postgres-exporter.postgres.svc.cluster.local:9187
 ---
 apiVersion: apps/v1
 kind: StatefulSet

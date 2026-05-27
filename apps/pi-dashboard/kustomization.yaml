@@ -5,3 +5,4 @@ resources:
   - 10-deployment.yaml
   - 20-service.yaml
   - 31-ingress-tailscale.yaml
+  - 40-loadbalancer-service.yaml

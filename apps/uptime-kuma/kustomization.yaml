@@ -4,6 +4,6 @@ resources:
   - 00-namespace.yaml
   - 05-pvc.yaml
   - 10-deployment.yaml
-  #- 20-loadbalancer-service.yaml
+  - 20-loadbalancer-service.yaml
   - 21-service.yaml
   - 22-tailscale-ingress.yaml

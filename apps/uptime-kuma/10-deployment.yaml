@@ -24,6 +24,24 @@ spec:
           ports:
           - name: http
             containerPort: 3001
+          
+          readinessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 60
+            periodSeconds: 10
+            timeoutSeconds: 10
+            failureThreshold: 12
+          
+          livenessProbe:
+            tcpSocket:
+              port: http
+            initialDelaySeconds: 180
+            periodSeconds: 20
+            timeoutSeconds: 10
+            failureThreshold: 12
+
           volumeMounts:
           - name: kuma-data
             mountPath: /app/data

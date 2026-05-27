@@ -3,13 +3,13 @@ kind: Service
 metadata:
   name: argocd-lb
   namespace: argocd
-  labels:
-    app: argocd
 spec:
   type: LoadBalancer
   loadBalancerIP: 192.168.63.203
   selector:
     app: argocd-server
   ports:
-    - port: 80
-      targetPort: http
+    - name: http
+      port: 80
+      targetPort: 8080
+      protocol: TCP

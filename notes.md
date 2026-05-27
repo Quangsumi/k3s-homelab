@@ -50,8 +50,6 @@ pg_isready -h postgres.dev-db.svc.cluster.local -p 5432
 
 # after reboot Pi
 ```
-sudo ip link set wlan0 promisc on
-
 DISPLAY=:0 nohup firefox --kiosk https://pi-dashboard.tailee75a4.ts.net --safe-mode &
 
 firefox --kiosk https://pi-dashboard.tailee75a4.ts.net --safe-mode

@@ -46,8 +46,6 @@ spec:
       labels:
         app: prometheus
     spec:
-      nodeSelector:
-        role: worker
       securityContext:
         fsGroup: 65534
       initContainers:

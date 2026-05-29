@@ -120,7 +120,7 @@ metadata:
   name: litellm-lb
   namespace: litellm
   annotations:
-    metallb.io/loadBalancerIPs: 192.168.63.205
+    metallb.io/loadBalancerIPs: 192.168.63.219
 spec:
   type: LoadBalancer
   selector:

@@ -3,11 +3,11 @@ kind: L2Advertisement
 metadata:
   name: l2-advertisement
   namespace: metallb-system
-spec:
-  ipAddressPools:
-    - default-pool
-  nodeSelectors:
-    - matchLabels:
-        kubernetes.io/hostname: rpivn
-  interfaces:
-    - wlan0
+spec: # Leaving ipAddressPools empty makes MetalLB advertise all your available pools
+  # ipAddressPools:
+  #   - default-pool
+  # nodeSelectors:
+  #   - matchLabels:
+  #       kubernetes.io/hostname: rpivn
+  # interfaces:
+  #   - wlp2s0

@@ -4,7 +4,7 @@ metadata:
   name: longhorn-frontend-lb
   namespace: longhorn-system
   annotations:
-    metallb.io/loadBalancerIPs: 192.168.63.211
+    metallb.io/loadBalancerIPs: 192.168.63.212
 spec:
   type: LoadBalancer
   selector:

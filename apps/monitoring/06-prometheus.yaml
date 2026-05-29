@@ -156,7 +156,7 @@ metadata:
   namespace: monitoring
 spec:
   type: LoadBalancer
-  loadBalancerIP: 192.168.63.206
+  loadBalancerIP: 192.168.63.215
   selector:
     app: prometheus
   ports:

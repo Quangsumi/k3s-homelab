@@ -13,6 +13,11 @@ spec:
       labels:
         app: pi-dashboard
     spec:
+      tolerations:
+      - key: "role-purpose"
+        operator: "Equal"
+        value: "display"
+        effect: "NoSchedule"
       containers:
         - name: pi-dashboard
           image: quangsumi/pi-dashboard:latest

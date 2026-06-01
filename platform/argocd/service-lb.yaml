@@ -5,7 +5,7 @@ metadata:
   namespace: argocd
 spec:
   type: LoadBalancer
-  loadBalancerIP: 192.168.63.203
+  loadBalancerIP: 192.168.63.220
   externalTrafficPolicy: Cluster
   selector:
     app.kubernetes.io/instance: argocd

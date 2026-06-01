@@ -15,6 +15,11 @@ spec:
       labels:
         app: uptime-kuma
     spec:
+      tolerations:
+      - key: "role-purpose"
+        operator: "Equal"
+        value: "display"
+        effect: "NoSchedule"
       containers:
         - name: uptime-kuma
           image: louislam/uptime-kuma:latest

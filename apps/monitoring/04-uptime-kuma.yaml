@@ -22,7 +22,7 @@ spec:
         effect: "NoSchedule"
       containers:
         - name: uptime-kuma
-          image: louislam/uptime-kuma:latest
+          image: louislam/uptime-kuma:2.4.0
           imagePullPolicy: IfNotPresent
           ports:
           - name: http
@@ -65,7 +65,7 @@ spec:
     - ReadWriteOnce
   resources:
     requests:
-      storage: 200Mi
+      storage: 1Gi
 
 ---
 apiVersion: v1

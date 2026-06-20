@@ -70,7 +70,7 @@ spec:
               mountPath: /prometheus
       containers:
         - name: prometheus
-          image: prom/prometheus:v3.11.3
+          image: prom/prometheus:v3.5.4
           imagePullPolicy: IfNotPresent
           args:
             - "--config.file=/etc/prometheus/prometheus.yml"
@@ -109,7 +109,7 @@ spec:
               cpu: 100m
               memory: 256Mi
             limits:
-              memory: 400Mi
+              memory: 1Gi
           volumeMounts:
             - name: prometheus-config
               mountPath: /etc/prometheus/prometheus.yml
@@ -139,7 +139,7 @@ spec:
         storageClassName: longhorn
         resources:
           requests:
-            storage: 1Gi
+            storage: 3Gi
 
 ---
 apiVersion: v1

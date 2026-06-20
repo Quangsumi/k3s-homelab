@@ -50,7 +50,7 @@ spec:
 
       containers:
         - name: grafana
-          image: grafana/grafana-oss:latest
+          image: grafana/grafana-oss:13.0.2
           imagePullPolicy: IfNotPresent
           ports:
             - name: http
@@ -109,7 +109,7 @@ spec:
               cpu: 100m
               memory: 128Mi
             limits:
-              memory: 512Mi
+              memory: 1Gi
 
           volumeMounts:
             - name: grafana-data
@@ -139,7 +139,7 @@ spec:
   storageClassName: longhorn
   resources:
     requests:
-      storage: 1Gi
+      storage: 3Gi
 
 ---
 apiVersion: v1

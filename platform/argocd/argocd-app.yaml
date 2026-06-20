@@ -1,0 +1,32 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: argocd
+  namespace: argocd
+spec:
+  project: default
+
+  sources:
+    - repoURL: https://argoproj.github.io/argo-helm
+      chart: argo-cd
+      targetRevision: 9.5.22
+      helm:
+        releaseName: argocd
+        valuesObject:
+          # Tailscale terminates TLS at the Ingress, so the Argo CD server
+          # serves plain HTTP inside the cluster.
+          configs:
+            params:
+              server.insecure: 'true'
+
+    - repoURL: https://github.com/Quangsumi/k3s-homelab.git
+      targetRevision: main
+      path: platform/argocd
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: argocd
+
+  syncPolicy:
+    syncOptions:
+      - CreateNamespace=true

@@ -1,1 +1,28 @@
-# manages Helm chart
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: metallb
+  namespace: argocd
+spec:
+  project: default
+
+  # Keep the upstream chart and this repository's configuration in one sync so
+  # Argo CD installs the CRDs before applying the MetalLB custom resources.
+  sources:
+    - repoURL: https://metallb.github.io/metallb
+      chart: metallb
+      targetRevision: 0.16.1
+      helm:
+        releaseName: metallb
+
+    - repoURL: https://github.com/Quangsumi/k3s-homelab.git
+      targetRevision: main
+      path: platform/metallb
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: metallb-system
+
+  syncPolicy:
+    syncOptions:
+      - CreateNamespace=true

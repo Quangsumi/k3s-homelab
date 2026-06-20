@@ -1,4 +1,15 @@
 apiVersion: v1
+kind: Secret
+metadata:
+  name: grafana-admin-secret
+  namespace: monitoring
+type: Opaque
+stringData:
+  GF_SECURITY_ADMIN_USER: admin
+  GF_SECURITY_ADMIN_PASSWORD: "sk-1234"
+
+---
+apiVersion: v1
 kind: ConfigMap
 metadata:
   name: grafana-datasources

@@ -5,7 +5,9 @@ metadata:
   namespace: postgres
 type: Opaque
 stringData:
-  DATA_SOURCE_LITELLM: "postgresql://quangsumi:dbpassword9090@postgres:5432/litellm?sslmode=disable"
+  DATA_SOURCE_URI: "postgres:5432/litellm?sslmode=disable"
+  DATA_SOURCE_USER: "quangsumi" # Ideally, postgres_exporter should have its own read-only PostgreSQL account instead of using the LiteLLM application account.
+  DATA_SOURCE_PASS: "dbpassword9090"
 
 ---
 apiVersion: apps/v1
@@ -31,11 +33,24 @@ spec:
             - name: metrics
               containerPort: 9187
           env:
-            - name: DATA_SOURCE_LITELLM
+            - name: DATA_SOURCE_URI
               valueFrom:
                 secretKeyRef:
                   name: postgres-exporter-secret
-                  key: DATA_SOURCE_LITELLM
+                  key: DATA_SOURCE_URI
+
+            - name: DATA_SOURCE_USER
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-exporter-secret
+                  key: DATA_SOURCE_USER
+
+            - name: DATA_SOURCE_PASS
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-exporter-secret
+                  key: DATA_SOURCE_PASS
+
           readinessProbe:
             httpGet:
               path: /metrics

@@ -27,7 +27,7 @@ spec:
 
     - repoURL: https://github.com/Quangsumi/k3s-homelab.git
       targetRevision: main
-      path: platform/longhorn   
+      path: infrastructure/longhorn   
 
   destination:
     server: https://kubernetes.default.svc

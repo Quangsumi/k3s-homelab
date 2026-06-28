@@ -21,7 +21,7 @@ spec:
 
     - repoURL: https://github.com/Quangsumi/k3s-homelab.git
       targetRevision: main
-      path: platform/argocd
+      path: infrastructure/argocd
 
   destination:
     server: https://kubernetes.default.svc

@@ -11,7 +11,7 @@ helm upgrade --install argocd argo/argo-cd \
   --create-namespace \
   --version 9.5.22
 
-kubectl apply -f platform/argocd/argocd-app.yaml
+kubectl apply -f argocd-app.yaml
 ```
 
 ```

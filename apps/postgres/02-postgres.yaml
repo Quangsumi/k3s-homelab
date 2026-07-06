@@ -114,3 +114,20 @@ spec:
   ports:
   - port: 5432
     targetPort: 5432
+
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: postgres-tailscale
+  namespace: postgres
+spec:
+  ingressClassName: tailscale
+  defaultBackend:
+    service:
+      name: postgres
+      port:
+        number: 5432
+  tls:
+    - hosts:
+        - postgres

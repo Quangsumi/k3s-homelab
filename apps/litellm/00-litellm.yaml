@@ -157,22 +157,22 @@ spec:
       port: 4000
       targetPort: http
 
----
-apiVersion: v1
-kind: Service 
-metadata:
-  name: litellm-lb
-  namespace: litellm
-  annotations:
-    metallb.io/loadBalancerIPs: 192.168.63.219
-spec:
-  type: LoadBalancer
-  selector:
-    app: litellm
-  ports:
-    - name: http
-      port: 80
-      targetPort: http
+# ---
+# apiVersion: v1
+# kind: Service 
+# metadata:
+#   name: litellm-lb
+#   namespace: litellm
+#   annotations:
+#     metallb.io/loadBalancerIPs: 192.168.63.219
+# spec:
+#   type: LoadBalancer
+#   selector:
+#     app: litellm
+#   ports:
+#     - name: http
+#       port: 80
+#       targetPort: http
 
 ---
 apiVersion: networking.k8s.io/v1

@@ -91,3 +91,23 @@ spec:
   tls:
     - hosts:
         - pi-dashboard
+
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: pi-dashboard
+  namespace: pi-dashboard
+spec:
+  ingressClassName: traefik
+  rules:
+    - host: pi-dashboard.home.arpa
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: pi-dashboard
+                port:
+                  number: 80

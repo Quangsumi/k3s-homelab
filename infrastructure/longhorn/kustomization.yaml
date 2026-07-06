@@ -3,3 +3,4 @@ kind: Kustomization
 resources:
   # - 00-service-lb.yaml
   - 10-tailscale-ingress.yaml
+  - 20-traefik-ingress.yaml

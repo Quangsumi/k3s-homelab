@@ -3,3 +3,4 @@ kind: Kustomization
 resources:
   # - service-lb.yaml
   - argocd-tailscale-ingress.yaml
+  - traefik-ingress.yaml

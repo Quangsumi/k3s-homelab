@@ -4,7 +4,7 @@ metadata:
   name: traefik-tailscale
   namespace: kube-system
   annotations:
-    tailscale.com/hostname: homelab
+    tailscale.com/hostname: homelab-traefik
 spec:
   type: LoadBalancer
   loadBalancerClass: tailscale
@@ -19,4 +19,8 @@ spec:
     - name: websecure
       port: 443
       targetPort: websecure
+      protocol: TCP
+    - name: postgres
+      port: 5432
+      targetPort: postgres
       protocol: TCP

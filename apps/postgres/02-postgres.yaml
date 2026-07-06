@@ -132,22 +132,22 @@ spec:
 #     - hosts:
 #         - postgres
 
----
-apiVersion: networking.k8s.io/v1
-kind: Ingress
-metadata:
-  name: postgres
-  namespace: postgres
-spec:
-  ingressClassName: traefik
-  rules:
-    - host: postgres.home
-      http:
-        paths:
-          - path: /
-            pathType: Prefix
-            backend:
-              service:
-                name: postgres
-                port:
-                  number: 5432
+# ---
+# apiVersion: networking.k8s.io/v1
+# kind: Ingress
+# metadata:
+#   name: postgres
+#   namespace: postgres
+# spec:
+#   ingressClassName: traefik
+#   rules:
+#     - host: postgres.home
+#       http:
+#         paths:
+#           - path: /
+#             pathType: Prefix
+#             backend:
+#               service:
+#                 name: postgres
+#                 port:
+#                   number: 5432

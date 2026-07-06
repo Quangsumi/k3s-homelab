@@ -101,7 +101,7 @@ metadata:
 spec:
   ingressClassName: traefik
   rules:
-    - host: pi-dashboard.home.arpa
+    - host: pi-dashboard.home
       http:
         paths:
           - path: /

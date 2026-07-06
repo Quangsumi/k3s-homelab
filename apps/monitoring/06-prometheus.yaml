@@ -200,7 +200,7 @@ metadata:
 spec:
   ingressClassName: traefik
   rules:
-    - host: prometheus.home.arpa
+    - host: prometheus.home
       http:
         paths:
           - path: /

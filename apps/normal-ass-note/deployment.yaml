@@ -11,7 +11,7 @@ metadata:
   namespace: normal-ass-note
 type: Opaque
 stringData:
-  ConnectionStrings__DefaultConnection: "Host=postgres.home;Port=5432;Database=normal-ass-note;Username=quangsumi;Password=dbpassword9090"
+  ConnectionStrings__DefaultConnection: "Host=postgres.postgres.svc.cluster.local;Port=5432;Database=normal-ass-note;Username=quangsumi;Password=dbpassword9090"
   Jwt__SigningKey: "development-only-signing-key-change-this-before-production"
 
 ---

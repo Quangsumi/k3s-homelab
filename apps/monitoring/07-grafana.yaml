@@ -172,22 +172,22 @@ spec:
 #       port: 80
 #       targetPort: http
 
----
-apiVersion: networking.k8s.io/v1
-kind: Ingress
-metadata:
-  name: grafana-tailscale
-  namespace: monitoring
-spec:
-  ingressClassName: tailscale
-  defaultBackend:
-    service:
-      name: grafana
-      port:
-        number: 3000
-  tls:
-    - hosts:
-        - grafana
+# ---
+# apiVersion: networking.k8s.io/v1
+# kind: Ingress
+# metadata:
+#   name: grafana-tailscale
+#   namespace: monitoring
+# spec:
+#   ingressClassName: tailscale
+#   defaultBackend:
+#     service:
+#       name: grafana
+#       port:
+#         number: 3000
+#   tls:
+#     - hosts:
+#         - grafana
 
 ---
 apiVersion: networking.k8s.io/v1

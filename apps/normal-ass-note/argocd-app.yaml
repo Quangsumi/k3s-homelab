@@ -7,9 +7,9 @@ spec:
   project: default
 
   source:
-    repoURL: https://github.com/Quangsumi/normal-ass-note.git
+    repoURL: https://github.com/Quangsumi/k3s-homelab.git
     targetRevision: main
-    path: k8n
+    path: apps/normal-ass-note
 
   destination:
     server: https://kubernetes.default.svc

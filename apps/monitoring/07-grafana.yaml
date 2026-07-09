@@ -198,7 +198,7 @@ metadata:
 spec:
   ingressClassName: traefik
   rules:
-    - host: grafana.home
+    - host: grafana.lab
       http:
         paths:
           - path: /

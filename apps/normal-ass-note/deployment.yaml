@@ -146,7 +146,7 @@ metadata:
 spec:
   ingressClassName: traefik
   rules:
-    - host: note.home
+    - host: note.lab
       http:
         paths:
           - path: /

@@ -202,7 +202,7 @@ metadata:
 spec:
   ingressClassName: traefik
   rules:
-    - host: litellm.home
+    - host: litellm.lab
       http:
         paths:
           - path: /

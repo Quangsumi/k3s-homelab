@@ -21,13 +21,18 @@ sudo chown $(id -u):$(id -g) ~/.kube/config
 chmod 600 ~/.kube/config
 export KUBECONFIG=~/.kube/config
 ```
+```
 kubectl -n argocd get pods
 kubectl -n argocd get ingress argocd-tailscale
 ```
 
+- Make it permanent
 ```
 nano ~/.bashrc
+
 alias k='kubectl'
+export KUBECONFIG=~/.kube/config
+
 source ~/.bashrc
 ```
 

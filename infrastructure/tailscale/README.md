@@ -79,4 +79,10 @@ spec:
           default: true
         exposedPort: 5432
         protocol: TCP
+
+    providers:
+      kubernetesIngress:
+        publishedService:
+          enabled: true
+          pathOverride: kube-system/traefik-tailscale
 ```

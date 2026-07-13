@@ -15,7 +15,7 @@ spec:
         values: |
           persistence:
             defaultClass: true            # local-path is default, mark this will make longhorn default StorageClass
-            defaultClassReplicaCount: 2
+            defaultClassReplicaCount: 3
             reclaimPolicy: Retain         # Delete PVC ->  PV remains Released -> data still exists -> manually recover or delete later
 
           defaultSettings:

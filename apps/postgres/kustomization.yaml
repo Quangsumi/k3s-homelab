@@ -4,3 +4,4 @@ resources:
   - 00-namespace.yaml
   - 02-postgres.yaml
   #- 03-postgres-exporter.yaml
+  - 04-pgadmin.yaml

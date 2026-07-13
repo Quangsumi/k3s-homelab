@@ -54,3 +54,29 @@ spec:
     - hosts:
         - uptime-kuma
 ```
+
+```
+Open postgres port in Traefik
+Save it. K3s will automatically reconcile the packaged Traefik chart.
+
+sudo nano /var/lib/rancher/k3s/server/manifests/traefik-config.yaml
+
+apiVersion: helm.cattle.io/v1
+kind: HelmChartConfig
+metadata:
+  name: traefik
+  namespace: kube-system
+spec:
+  valuesContent: |-
+    service:
+      spec:
+        type: ClusterIP
+
+    ports:
+      postgres:
+        port: 5432
+        expose:
+          default: true
+        exposedPort: 5432
+        protocol: TCP
+```

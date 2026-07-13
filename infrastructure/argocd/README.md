@@ -9,7 +9,7 @@ helm repo update
 helm upgrade --install argocd argo/argo-cd \
   --namespace argocd \
   --create-namespace \
-  --version 9.5.22
+  --version 10.1.3
 
 kubectl apply -f argocd-app.yaml
 ```
@@ -23,6 +23,12 @@ export KUBECONFIG=~/.kube/config
 ```
 kubectl -n argocd get pods
 kubectl -n argocd get ingress argocd-tailscale
+```
+
+```
+nano ~/.bashrc
+alias k='kubectl'
+source ~/.bashrc
 ```
 
 - Tailscale Ingress handles HTTPS externally, configure Argo CD server to serve HTTP internally:

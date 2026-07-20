@@ -4,15 +4,30 @@ metadata:
   name: normal-ass-note
 
 ---
-apiVersion: v1
-kind: Secret
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
 metadata:
-  name: normal-ass-note-secret
+  name: normal-ass-note-credentials
   namespace: normal-ass-note
-type: Opaque
-stringData:
-  ConnectionStrings__DefaultConnection: "Host=postgres.postgres.svc.cluster.local;Port=5432;Database=normal-ass-note;Username=quangsumi;Password=dbpassword9090"
-  Jwt__SigningKey: "development-only-signing-key-change-this-before-production"
+spec:
+  refreshInterval: 1h
+
+  secretStoreRef:
+    name: infisical
+    kind: ClusterSecretStore
+
+  target:
+    name: normal-ass-note-secret-infisical
+    creationPolicy: Owner
+
+  data:
+    - secretKey: ConnectionStrings__DefaultConnection
+      remoteRef:
+        key: /normal-ass-note/ConnectionStrings__DefaultConnection
+
+    - secretKey: Jwt__SigningKey
+      remoteRef:
+        key: /normal-ass-note/Jwt__SigningKey
 
 ---
 apiVersion: v1
@@ -57,7 +72,7 @@ spec:
             - configMapRef:
                 name: normal-ass-note-config
             - secretRef:
-                name: normal-ass-note-secret
+                name: normal-ass-note-secret-infisical
           readinessProbe:
             httpGet:
               path: /healthz

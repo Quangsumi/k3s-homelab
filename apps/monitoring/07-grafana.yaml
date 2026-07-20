@@ -1,12 +1,27 @@
-apiVersion: v1
-kind: Secret
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
 metadata:
-  name: grafana-admin-secret
+  name: grafana-admin-credentials
   namespace: monitoring
-type: Opaque
-stringData:
-  GF_SECURITY_ADMIN_USER: admin
-  GF_SECURITY_ADMIN_PASSWORD: "sk-1234"
+spec:
+  refreshInterval: 1h
+
+  secretStoreRef:
+    name: infisical
+    kind: ClusterSecretStore
+
+  target:
+    name: grafana-admin-secret-infisical
+    creationPolicy: Owner
+
+  data:
+    - secretKey: GF_SECURITY_ADMIN_USER
+      remoteRef:
+        key: /grafana/GF_SECURITY_ADMIN_USER
+
+    - secretKey: GF_SECURITY_ADMIN_PASSWORD
+      remoteRef:
+        key: /grafana/GF_SECURITY_ADMIN_PASSWORD
 
 ---
 apiVersion: v1
@@ -55,30 +70,9 @@ spec:
           ports:
             - name: http
               containerPort: 3000
-
-          env:
-            - name: GF_SECURITY_ADMIN_USER
-              valueFrom:
-                secretKeyRef:
-                  name: grafana-admin-secret
-                  key: GF_SECURITY_ADMIN_USER
-            - name: GF_SECURITY_ADMIN_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: grafana-admin-secret
-                  key: GF_SECURITY_ADMIN_PASSWORD
-
-            # External URL through Tailscale. Needed for redirect link email, alert, oauth, ...
-            #- name: GF_SERVER_ROOT_URL
-            #  value: "https://grafana.tailee75a4.ts.net"
-
-            # Reduce some unnecessary background behavior for a small lab.
-            - name: GF_ANALYTICS_REPORTING_ENABLED
-              value: "false"
-            - name: GF_ANALYTICS_CHECK_FOR_UPDATES
-              value: "false"
-            - name: GF_USERS_ALLOW_SIGN_UP
-              value: "false"
+          envFrom:
+            - secretRef:
+                name: grafana-admin-secret-infisical
 
           readinessProbe:
             tcpSocket:

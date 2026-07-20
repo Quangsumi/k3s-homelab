@@ -1,13 +1,31 @@
-apiVersion: v1
-kind: Secret
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
 metadata:
-  name: postgres-exporter-secret
+  name: postgres-exporter-credentials
   namespace: postgres
-type: Opaque
-stringData:
-  DATA_SOURCE_URI: "postgres:5432/litellm?sslmode=disable"
-  DATA_SOURCE_USER: "quangsumi" # Ideally, postgres_exporter should have its own read-only PostgreSQL account instead of using the LiteLLM application account.
-  DATA_SOURCE_PASS: "dbpassword9090"
+spec:
+  refreshInterval: 1h
+
+  secretStoreRef:
+    name: infisical
+    kind: ClusterSecretStore
+
+  target:
+    name: postgres-exporter-secret-infisical
+    creationPolicy: Owner
+
+  data:
+    - secretKey: DATA_SOURCE_URI
+      remoteRef:
+        key: /postgres-exporter/DATA_SOURCE_URI
+
+    - secretKey: DATA_SOURCE_USER
+      remoteRef:
+        key: /postgres-exporter/DATA_SOURCE_USER
+    
+    - secretKey: DATA_SOURCE_PASS
+      remoteRef:
+        key: /postgres-exporter/DATA_SOURCE_PASS
 
 ---
 apiVersion: apps/v1
@@ -32,25 +50,9 @@ spec:
           ports:
             - name: metrics
               containerPort: 9187
-          env:
-            - name: DATA_SOURCE_URI
-              valueFrom:
-                secretKeyRef:
-                  name: postgres-exporter-secret
-                  key: DATA_SOURCE_URI
-
-            - name: DATA_SOURCE_USER
-              valueFrom:
-                secretKeyRef:
-                  name: postgres-exporter-secret
-                  key: DATA_SOURCE_USER
-
-            - name: DATA_SOURCE_PASS
-              valueFrom:
-                secretKeyRef:
-                  name: postgres-exporter-secret
-                  key: DATA_SOURCE_PASS
-
+          envFrom:
+            - secretRef:
+                name: postgres-exporter-secret-infisical
           readinessProbe:
             httpGet:
               path: /metrics

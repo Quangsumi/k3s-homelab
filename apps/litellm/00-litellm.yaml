@@ -4,24 +4,42 @@ metadata:
   name: litellm
 
 ---
-apiVersion: v1
-kind: Secret
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
 metadata:
-  name: litellm-secret
+  name: litellm-credentials
   namespace: litellm
-type: Opaque
-stringData:
-  # Must start with sk-. This is the admin/master key for LiteLLM.
-  LITELLM_MASTER_KEY: "sk-1234"
+spec:
+  refreshInterval: 1h
 
-  # Generate a long random value and do not change it after LiteLLM stores model keys in DB.
-  LITELLM_SALT_KEY: "CHANGE_ME_LONG_RANDOM_SALT_KEY_DO_NOT_CHANGE_LATER"
+  secretStoreRef:
+    name: infisical
+    kind: ClusterSecretStore
 
-  # DATABASE_URL: "postgresql://litellm:dbpassword9090@postgres:5432/litellm"   # postgres on same namespace
-  DATABASE_URL: "postgresql://quangsumi:dbpassword9090@postgres.postgres.svc.cluster.local:5432/litellm" # postgress on diff namespace
+  target:
+    name: litellm-secret-infisical
+    creationPolicy: Owner
 
-  UI_USERNAME: "admin"
-  UI_PASSWORD: "sk-1234"
+  data:
+    - secretKey: LITELLM_MASTER_KEY
+      remoteRef:
+        key: /litellm/LITELLM_MASTER_KEY
+
+    - secretKey: LITELLM_SALT_KEY
+      remoteRef:
+        key: /litellm/LITELLM_SALT_KEY
+
+    - secretKey: DATABASE_URL
+      remoteRef:
+        key: /litellm/DATABASE_URL
+
+    - secretKey: UI_USERNAME
+      remoteRef:
+        key: /litellm/UI_USERNAME
+
+    - secretKey: UI_PASSWORD
+      remoteRef:
+        key: /litellm/UI_PASSWORD
 
 ---
 apiVersion: v1
@@ -81,17 +99,17 @@ spec:
             - name: DATABASE_URL
               valueFrom:
                 secretKeyRef:
-                  name: litellm-secret
+                  name: litellm-secret-infisical
                   key: DATABASE_URL
             - name: LITELLM_MASTER_KEY
               valueFrom:
                 secretKeyRef:
-                  name: litellm-secret
+                  name: litellm-secret-infisical
                   key: LITELLM_MASTER_KEY
             - name: LITELLM_SALT_KEY
               valueFrom:
                 secretKeyRef:
-                  name: litellm-secret
+                  name: litellm-secret-infisical
                   key: LITELLM_SALT_KEY
             - name: LITELLM_MODE
               value: "PRODUCTION"

@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: infisical-universal-auth
+  namespace: external-secrets
+type: Opaque
+stringData:
+  clientId: |-
+    xxx
+  clientSecret: |-
+    xxx

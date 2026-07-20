@@ -1,0 +1,74 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: external-secrets
+  namespace: argocd
+spec:
+  project: default
+
+  source:
+    repoURL: https://charts.external-secrets.io
+    chart: external-secrets
+    targetRevision: "2.7.0"
+
+    helm:
+      releaseName: external-secrets
+      valuesObject:
+        # Let the chart install and upgrade the ESO CRDs.
+        installCRDs: true
+        
+        replicaCount: 1
+
+        # Only Kubernetes Secrets, not ConfigMaps or arbitrary custom resources
+        genericTargets:
+          enabled: false
+
+        webhook:
+          create: true
+
+        certController:
+          create: true
+
+        serviceAccount:
+          create: true
+          name: external-secrets
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: external-secrets
+
+  syncPolicy:
+    syncOptions:
+      - CreateNamespace=true
+      - RespectIgnoreDifferences=true
+
+  # ESO's certificate controller updates this CA bundle at runtime.
+  # Argo should not continuously revert it.
+  ignoreDifferences:
+    - group: admissionregistration.k8s.io
+      kind: ValidatingWebhookConfiguration
+      name: external-secrets-webhook
+      jqPathExpressions:
+        - '.webhooks[]?.clientConfig.caBundle'
+
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: external-secrets-config
+  namespace: argocd
+spec:
+  project: default
+
+  source:
+    repoURL: https://github.com/Quangsumi/k3s-homelab.git
+    targetRevision: main
+    path: infrastructure/eso
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: external-secrets
+
+  syncPolicy:
+    syncOptions:
+      - CreateNamespace=true

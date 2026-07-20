@@ -11,20 +11,16 @@ metadata:
   namespace: normal-ass-note
 spec:
   refreshInterval: 1h
-
   secretStoreRef:
     name: infisical
     kind: ClusterSecretStore
-
   target:
     name: normal-ass-note-secret-infisical
     creationPolicy: Owner
-
   data:
     - secretKey: ConnectionStrings__DefaultConnection
       remoteRef:
         key: /normal-ass-note/ConnectionStrings__DefaultConnection
-
     - secretKey: Jwt__SigningKey
       remoteRef:
         key: /normal-ass-note/Jwt__SigningKey

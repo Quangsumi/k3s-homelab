@@ -5,15 +5,12 @@ metadata:
   namespace: monitoring
 spec:
   refreshInterval: 1h
-
   secretStoreRef:
     name: infisical
     kind: ClusterSecretStore
-
   target:
     name: litellm-prometheus-job-secret-infisical
     creationPolicy: Owner
-
   data:
     - secretKey: LITELLM_MASTER_KEY
       remoteRef:

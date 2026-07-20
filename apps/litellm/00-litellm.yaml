@@ -11,32 +11,25 @@ metadata:
   namespace: litellm
 spec:
   refreshInterval: 1h
-
   secretStoreRef:
     name: infisical
     kind: ClusterSecretStore
-
   target:
     name: litellm-secret-infisical
     creationPolicy: Owner
-
   data:
     - secretKey: LITELLM_MASTER_KEY
       remoteRef:
         key: /litellm/LITELLM_MASTER_KEY
-
     - secretKey: LITELLM_SALT_KEY
       remoteRef:
         key: /litellm/LITELLM_SALT_KEY
-
     - secretKey: DATABASE_URL
       remoteRef:
         key: /litellm/DATABASE_URL
-
     - secretKey: UI_USERNAME
       remoteRef:
         key: /litellm/UI_USERNAME
-
     - secretKey: UI_PASSWORD
       remoteRef:
         key: /litellm/UI_PASSWORD

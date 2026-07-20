@@ -5,24 +5,19 @@ metadata:
   namespace: postgres
 spec:
   refreshInterval: 1h
-
   secretStoreRef:
     name: infisical
     kind: ClusterSecretStore
-
   target:
     name: postgres-exporter-secret-infisical
     creationPolicy: Owner
-
   data:
     - secretKey: DATA_SOURCE_URI
       remoteRef:
         key: /postgres-exporter/DATA_SOURCE_URI
-
     - secretKey: DATA_SOURCE_USER
       remoteRef:
         key: /postgres-exporter/DATA_SOURCE_USER
-    
     - secretKey: DATA_SOURCE_PASS
       remoteRef:
         key: /postgres-exporter/DATA_SOURCE_PASS

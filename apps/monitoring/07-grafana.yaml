@@ -5,20 +5,16 @@ metadata:
   namespace: monitoring
 spec:
   refreshInterval: 1h
-
   secretStoreRef:
     name: infisical
     kind: ClusterSecretStore
-
   target:
     name: grafana-admin-secret-infisical
     creationPolicy: Owner
-
   data:
     - secretKey: GF_SECURITY_ADMIN_USER
       remoteRef:
         key: /grafana/GF_SECURITY_ADMIN_USER
-
     - secretKey: GF_SECURITY_ADMIN_PASSWORD
       remoteRef:
         key: /grafana/GF_SECURITY_ADMIN_PASSWORD

@@ -5,20 +5,16 @@ metadata:
   namespace: postgres
 spec:
   refreshInterval: 1h
-
   secretStoreRef:
     name: infisical
     kind: ClusterSecretStore
-
   target:
     name: pgadmin-secret-infisical
     creationPolicy: Owner
-
   data:
     - secretKey: PGADMIN_DEFAULT_EMAIL
       remoteRef:
         key: /postgres/PGADMIN_DEFAULT_EMAIL
-    
     - secretKey: PGADMIN_DEFAULT_PASSWORD
       remoteRef:
         key: /postgres/PGADMIN_DEFAULT_PASSWORD

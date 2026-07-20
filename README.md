@@ -1,3 +1,4 @@
+```
                           ┌─────────────────────┐
                           │ Pi-hole DNS          │
                           │ grafana.lab         │
@@ -33,3 +34,5 @@ Grafana pod
 
 *kube-system/traefik-tailscale act as a LB in your tailnet
 like metallb (but for LAN)
+
+```

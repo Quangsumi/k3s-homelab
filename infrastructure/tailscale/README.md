@@ -55,10 +55,8 @@ spec:
         - uptime-kuma
 ```
 
+# Config Traefik
 ```
-Open postgres port in Traefik
-Save it. K3s will automatically reconcile the packaged Traefik chart.
-
 sudo nano /var/lib/rancher/k3s/server/manifests/traefik-config.yaml
 
 apiVersion: helm.cattle.io/v1
@@ -70,10 +68,13 @@ spec:
   valuesContent: |-
     service:
       spec:
-        type: ClusterIP
+        type: ClusterIP  # override default (LB), LB is now using Tailscale. TailScale LB -> Traefik -> app pods
+
+    deployment:
+      replicas: 3  # HA with traefik-ingress-proxies
 
     ports:
-      postgres:
+      postgres:         # Open postgres port in Traefik. Save it. K3s will automatically reconcile the packaged Traefik chart.
         port: 5432
         expose:
           default: true
@@ -84,5 +85,5 @@ spec:
       kubernetesIngress:
         publishedService:
           enabled: true
-          pathOverride: kube-system/traefik-tailscale
+          pathOverride: kube-system/traefik-tailscale-ha  # fix ArgoCD stuck at Processing
 ```

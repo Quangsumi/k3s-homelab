@@ -1,10 +1,11 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: traefik-tailscale
+  name: traefik-tailscale-ha
   namespace: kube-system
   annotations:
-    tailscale.com/hostname: homelab-traefik
+    tailscale.com/hostname: homelab-traefik-ha
+    tailscale.com/proxy-group: traefik-ingress-proxies
 spec:
   type: LoadBalancer
   loadBalancerClass: tailscale

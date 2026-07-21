@@ -1,0 +1,9 @@
+# Highly available ingress proxies
+# A ProxyGroup can run two or three active proxy replicas simultaneously. 
+apiVersion: tailscale.com/v1alpha1
+kind: ProxyGroup
+metadata:
+  name: traefik-ingress-proxies
+spec:
+  type: ingress
+  replicas: 3

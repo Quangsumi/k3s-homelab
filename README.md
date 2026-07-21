@@ -15,11 +15,11 @@ http://grafana.lab                  │
 100.70.21.100 over Tailscale ◄───────┘
         │
         ▼
-kube-system/traefik-tailscale
+kube-system/traefik-tailscale-ha
 LoadBalancer class tailscale
         │
         ▼
-Traefik pod
+Traefik pods with HA
         │
         ▼
 Ingress: grafana.lab
@@ -32,7 +32,6 @@ ClusterIP Service
 Grafana pod
 
 
-*kube-system/traefik-tailscale act as a LB in your tailnet
-like metallb (but for LAN)
+*kube-system/traefik-tailscale-ha act as a LB in your tailnet, like metallb (but for LAN)
 
 ```

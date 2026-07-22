@@ -187,6 +187,10 @@ metadata:
   namespace: monitoring
 spec:
   ingressClassName: traefik
+  tls:
+    - hosts:
+        - grafana.lab
+      secretName: lab-wildcard-tls
   rules:
     - host: grafana.lab
       http:

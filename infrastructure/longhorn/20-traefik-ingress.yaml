@@ -5,6 +5,10 @@ metadata:
   namespace: longhorn-system
 spec:
   ingressClassName: traefik
+  tls:
+    - hosts:
+        - longhorn.lab
+      secretName: lab-wildcard-tls
   rules:
     - host: longhorn.lab
       http:

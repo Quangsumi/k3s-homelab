@@ -156,6 +156,10 @@ metadata:
   namespace: normal-ass-note
 spec:
   ingressClassName: traefik
+  tls:
+    - hosts:
+        - note.lab
+      secretName: lab-wildcard-tls
   rules:
     - host: note.lab
       http:

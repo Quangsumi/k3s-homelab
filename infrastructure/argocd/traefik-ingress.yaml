@@ -5,6 +5,10 @@ metadata:
   namespace: argocd
 spec:
   ingressClassName: traefik
+  tls:
+    - hosts:
+        - argocd.lab
+      secretName: lab-wildcard-tls
   rules:
     - host: argocd.lab
       http:

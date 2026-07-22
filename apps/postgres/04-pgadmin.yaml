@@ -122,6 +122,10 @@ metadata:
   namespace: postgres
 spec:
   ingressClassName: traefik
+  tls:
+    - hosts:
+        - pgadmin.lab
+      secretName: lab-wildcard-tls
   rules:
     - host: pgadmin.lab
       http:

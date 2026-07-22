@@ -208,6 +208,10 @@ metadata:
   namespace: monitoring
 spec:
   ingressClassName: traefik
+  tls:
+    - hosts:
+        - prometheus.lab
+      secretName: lab-wildcard-tls
   rules:
     - host: prometheus.lab
       http:

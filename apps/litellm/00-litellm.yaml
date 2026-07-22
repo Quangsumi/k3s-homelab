@@ -212,6 +212,10 @@ metadata:
   namespace: litellm
 spec:
   ingressClassName: traefik
+  tls:
+    - hosts:
+        - litellm.lab
+      secretName: lab-wildcard-tls
   rules:
     - host: litellm.lab
       http:

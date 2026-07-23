@@ -1,0 +1,7 @@
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer # cluster wide, can issue certificates in every namespace
+metadata:
+  name: homelab-ca
+spec:
+  ca:
+    secretName: homelab-ca-key-pair # secret homelab-ca-key-pair is scoped in cert-manager namespace 

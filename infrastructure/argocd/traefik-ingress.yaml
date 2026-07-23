@@ -3,12 +3,14 @@ kind: Ingress
 metadata:
   name: argocd
   namespace: argocd
+  annotations:
+    cert-manager.io/cluster-issuer: homelab-ca
 spec:
   ingressClassName: traefik
   tls:
     - hosts:
         - argocd.lab
-      secretName: lab-wildcard-tls
+      secretName: argocd-lab-tls
   rules:
     - host: argocd.lab
       http:

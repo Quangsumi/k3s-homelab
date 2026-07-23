@@ -1,0 +1,68 @@
+apiVersion: traefik.io/v1alpha1
+kind: ServersTransport
+metadata:
+  name: deepsix
+  namespace: external-services
+spec:
+  serverName: deepsix.lab
+  insecureSkipVerify: true          # disable tls verification from traefik to pi apps/proxmox nodes
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: deepsix
+  namespace: external-services
+  annotations:
+    traefik.ingress.kubernetes.io/service.serversscheme: https
+    traefik.ingress.kubernetes.io/service.serverstransport: external-services-deepsix@kubernetescrd
+spec:
+  ports:
+    - name: https
+      port: 8006
+      targetPort: 8006
+
+---
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
+metadata:
+  name: deepsix
+  namespace: external-services
+  labels:
+    kubernetes.io/service-name: deepsix
+addressType: IPv4
+ports:
+  - name: https
+    protocol: TCP
+    port: 8006
+endpoints:
+  - addresses:
+      - 192.168.63.11
+    conditions:
+      ready: true
+
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: deepsix
+  namespace: external-services
+  annotations:
+    cert-manager.io/cluster-issuer: homelab-ca
+spec:
+  ingressClassName: traefik
+  tls:
+    - hosts:
+        - deepsix.lab
+      secretName: deepsix-lab-tls
+  rules:
+    - host: deepsix.lab
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: deepsix
+                port:
+                  name: https

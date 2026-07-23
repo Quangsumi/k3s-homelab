@@ -1,0 +1,68 @@
+apiVersion: traefik.io/v1alpha1
+kind: ServersTransport
+metadata:
+  name: endgame
+  namespace: external-services
+spec:
+  serverName: endgame.lab
+  insecureSkipVerify: true          # disable tls verification from traefik to pi apps/proxmox nodes
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: endgame
+  namespace: external-services
+  annotations:
+    traefik.ingress.kubernetes.io/service.serversscheme: https
+    traefik.ingress.kubernetes.io/service.serverstransport: external-services-endgame@kubernetescrd
+spec:
+  ports:
+    - name: https
+      port: 8006
+      targetPort: 8006
+
+---
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
+metadata:
+  name: endgame
+  namespace: external-services
+  labels:
+    kubernetes.io/service-name: endgame
+addressType: IPv4
+ports:
+  - name: https
+    protocol: TCP
+    port: 8006
+endpoints:
+  - addresses:
+      - 192.168.63.10
+    conditions:
+      ready: true
+
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: endgame
+  namespace: external-services
+  annotations:
+    cert-manager.io/cluster-issuer: homelab-ca
+spec:
+  ingressClassName: traefik
+  tls:
+    - hosts:
+        - endgame.lab
+      secretName: endgame-lab-tls
+  rules:
+    - host: endgame.lab
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: endgame
+                port:
+                  name: https

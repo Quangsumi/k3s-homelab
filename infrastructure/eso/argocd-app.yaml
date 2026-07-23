@@ -43,6 +43,8 @@ spec:
   syncPolicy:
     syncOptions:
       - CreateNamespace=true
+      - ServerSideApply=true
+      - ClientSideApplyMigration=false
       - RespectIgnoreDifferences=true
 
   # ESO's certificate controller updates this CA bundle at runtime.

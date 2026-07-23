@@ -6,32 +6,35 @@ metadata:
 spec:
   project: default
 
-  source:
-    repoURL: https://charts.external-secrets.io
-    chart: external-secrets
-    targetRevision: "2.7.0"
+  sources:
+    - repoURL: https://charts.external-secrets.io
+      chart: external-secrets
+      targetRevision: "2.7.0"
+      helm:
+        releaseName: external-secrets
+        valuesObject:
+          # Let the chart install and upgrade the ESO CRDs.
+          installCRDs: true
+          
+          replicaCount: 1
 
-    helm:
-      releaseName: external-secrets
-      valuesObject:
-        # Let the chart install and upgrade the ESO CRDs.
-        installCRDs: true
-        
-        replicaCount: 1
+          # Only Kubernetes Secrets, not ConfigMaps or arbitrary custom resources
+          genericTargets:
+            enabled: false
 
-        # Only Kubernetes Secrets, not ConfigMaps or arbitrary custom resources
-        genericTargets:
-          enabled: false
+          webhook:
+            create: true
 
-        webhook:
-          create: true
+          certController:
+            create: true
 
-        certController:
-          create: true
+          serviceAccount:
+            create: true
+            name: external-secrets
 
-        serviceAccount:
-          create: true
-          name: external-secrets
+    - repoURL: https://github.com/Quangsumi/k3s-homelab.git
+      targetRevision: main
+      path: infrastructure/eso
 
   destination:
     server: https://kubernetes.default.svc
@@ -50,25 +53,3 @@ spec:
       name: external-secrets-webhook
       jqPathExpressions:
         - '.webhooks[]?.clientConfig.caBundle'
-
----
-apiVersion: argoproj.io/v1alpha1
-kind: Application
-metadata:
-  name: external-secrets-config
-  namespace: argocd
-spec:
-  project: default
-
-  source:
-    repoURL: https://github.com/Quangsumi/k3s-homelab.git
-    targetRevision: main
-    path: infrastructure/eso
-
-  destination:
-    server: https://kubernetes.default.svc
-    namespace: external-secrets
-
-  syncPolicy:
-    syncOptions:
-      - CreateNamespace=true

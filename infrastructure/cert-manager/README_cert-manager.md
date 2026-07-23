@@ -48,3 +48,22 @@ openssl sha256
 /HOMELAB_ROOT_CA_CRT
 /HOMELAB_ROOT_CA_KEY
 ```
+
+### Better security
+```
+pathlen:0 Root private key -> offline storage only
+pathlen:1 Intermediate key -> Infisical -> ESO -> Kubernetes -> cert-manager
+
+Root CA
+├── Homelab Kubernetes Intermediate
+├── Home Wi-Fi Intermediate
+└── Development Intermediate
+
+- Each can have:
+A different expiration period.
+Separate access permissions.
+Separate audit history.
+Name constraints.
+Limited CA depth using pathlen:0.
+Independent rotation.
+```

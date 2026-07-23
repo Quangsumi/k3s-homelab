@@ -154,12 +154,14 @@ kind: Ingress
 metadata:
   name: normal-ass-note
   namespace: normal-ass-note
+  annotations:
+    cert-manager.io/cluster-issuer: homelab-ca
 spec:
   ingressClassName: traefik
   tls:
     - hosts:
         - note.lab
-      secretName: lab-wildcard-tls
+      secretName: note-lab-tls
   rules:
     - host: note.lab
       http:

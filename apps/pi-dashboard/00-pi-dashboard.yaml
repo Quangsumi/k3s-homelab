@@ -98,12 +98,14 @@ kind: Ingress
 metadata:
   name: pi-dashboard
   namespace: pi-dashboard
+  annotations:
+    cert-manager.io/cluster-issuer: homelab-ca
 spec:
   ingressClassName: traefik
   tls:
     - hosts:
         - pi-dashboard.lab
-      secretName: lab-wildcard-tls
+      secretName: pi-dashboard-lab-tls
   rules:
     - host: pi-dashboard.lab
       http:

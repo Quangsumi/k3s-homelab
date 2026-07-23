@@ -210,12 +210,14 @@ kind: Ingress
 metadata:
   name: litellm
   namespace: litellm
+  annotations:
+    cert-manager.io/cluster-issuer: homelab-ca
 spec:
   ingressClassName: traefik
   tls:
     - hosts:
         - litellm.lab
-      secretName: lab-wildcard-tls
+      secretName: litellm-lab-tls
   rules:
     - host: litellm.lab
       http:

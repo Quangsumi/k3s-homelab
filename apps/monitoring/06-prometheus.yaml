@@ -206,12 +206,14 @@ kind: Ingress
 metadata:
   name: prometheus
   namespace: monitoring
+  annotations:
+    cert-manager.io/cluster-issuer: homelab-ca
 spec:
   ingressClassName: traefik
   tls:
     - hosts:
         - prometheus.lab
-      secretName: lab-wildcard-tls
+      secretName: prometheus-lab-tls
   rules:
     - host: prometheus.lab
       http:

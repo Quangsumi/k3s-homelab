@@ -185,12 +185,14 @@ kind: Ingress
 metadata:
   name: grafana
   namespace: monitoring
+  annotations:
+    cert-manager.io/cluster-issuer: homelab-ca
 spec:
   ingressClassName: traefik
   tls:
     - hosts:
         - grafana.lab
-      secretName: lab-wildcard-tls
+      secretName: grafana-lab-tls
   rules:
     - host: grafana.lab
       http:

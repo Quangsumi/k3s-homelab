@@ -120,12 +120,14 @@ kind: Ingress
 metadata:
   name: pgadmin
   namespace: postgres
+  annotations:
+    cert-manager.io/cluster-issuer: homelab-ca
 spec:
   ingressClassName: traefik
   tls:
     - hosts:
         - pgadmin.lab
-      secretName: lab-wildcard-tls
+      secretName: pgadmin-lab-tls
   rules:
     - host: pgadmin.lab
       http:

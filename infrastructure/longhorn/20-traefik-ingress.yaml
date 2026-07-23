@@ -3,12 +3,14 @@ kind: Ingress
 metadata:
   name: longhorn
   namespace: longhorn-system
+  annotations:
+    cert-manager.io/cluster-issuer: homelab-ca
 spec:
   ingressClassName: traefik
   tls:
     - hosts:
         - longhorn.lab
-      secretName: lab-wildcard-tls
+      secretName: longhorn-lab-tls
   rules:
     - host: longhorn.lab
       http:

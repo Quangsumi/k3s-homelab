@@ -10,9 +10,7 @@ Connection 2: Disable traefik verification, configure Traefik to trust the Proxm
 ```
 
 ```
-A selectorless Service has no Pods for Kubernetes to discover.
-Therefore, you manually provide its real destination
-EndpointSlice: 192.168.63.10:8006
+A selectorless Service has no Pods for Kubernetes to discover. Therefore, you manually provide its real destination like EndpointSlice: 192.168.63.10:8006
 
 Traefik
    │
@@ -26,8 +24,7 @@ Application on Pi
 
 ### Endpoints object
 ```
-This API became inefficient for Services with many Pods because every endpoint was stored and updated in one large object. 
-The Endpoints API is deprecated in Kubernetes 1.33 and late
+This API became inefficient for Services with many Pods because every endpoint was stored and updated in one large object. The Endpoints API is deprecated in Kubernetes 1.33 and late
 
 apiVersion: v1
 kind: Endpoints
@@ -43,8 +40,7 @@ subsets:
 
 ### EndpointSlice objects
 ```
-EndpointSlice divides the backends into smaller groups
-It also records more information: IP address, Port, Ready or not ready, Serving or not serving, Terminating, Node and zone information, IPv4 or IPv6
+EndpointSlice divides the backends into smaller groups It also records more information: IP address, Port, Ready or not ready, Serving or not serving, Terminating, Node and zone information, IPv4 or IPv6
 
 Service: pi-dashboard
 

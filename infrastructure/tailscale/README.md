@@ -1,28 +1,7 @@
 ```
-kubectl create namespace tailscale
+kubectl apply -f 01-tailscale-auth.yaml
 ```
-
-`tailscale-auth.yaml`
-```
-apiVersion: v1
-kind: Secret
-metadata:
-  name: tailscale-auth
-  namespace: tailscale
-stringData:
-  TS_AUTHKEY: tskey-auth-xxx
-```
-
-```
-kubectl apply -f tailscale-auth.yaml
-```
-
-
-`OAuth credentials`
-```
-Client ID: xxx
-Client Secret: tskey-client-xxx
-```
+# OAuth credentials
 ```
 helm repo add tailscale https://pkgs.tailscale.com/helmcharts
 helm repo update
@@ -30,8 +9,8 @@ helm repo update
 helm upgrade --install tailscale-operator tailscale/tailscale-operator \
   --namespace=tailscale \
   --create-namespace \
-  --set-string oauth.clientId=your-client-id \
-  --set-string oauth.clientSecret=your-client-secret \
+  --set-string oauth.clientId=[your-client-id] \
+  --set-string oauth.clientSecret=[your-client-secret] \
   --wait
 ```
 # Usage
@@ -55,7 +34,16 @@ spec:
         - uptime-kuma
 ```
 
-# Config Traefik
+# Clients -> Tailscale as LB -> Traefik as ClusterIP
+#### 1/ HA ingress proxies. Run multiple proxy replicas with ProxyGroup.
+```
+k apply -f 05-traefik-ingress-proxies.yaml
+```
+#### 2/ Run Tailscale as LB & bind with ProxyGroup to run multiple replicas for HA
+```
+k apply -f 10-traefik-tailscale-service.yaml
+```
+#### 3/ Config Traefik as ClusterIP
 ```
 sudo nano /var/lib/rancher/k3s/server/manifests/traefik-config.yaml
 

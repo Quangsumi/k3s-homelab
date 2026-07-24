@@ -21,10 +21,7 @@ sudo chown $(id -u):$(id -g) ~/.kube/config
 chmod 600 ~/.kube/config
 export KUBECONFIG=~/.kube/config
 ```
-```
-kubectl -n argocd get pods
-kubectl -n argocd get ingress argocd-tailscale
-```
+
 
 - Make it permanent
 ```
@@ -42,9 +39,4 @@ sudo kubectl -n argocd patch configmap argocd-cmd-params-cm \
   --type merge \
   -p '{"data":{"server.insecure":"true"}}'
 sudo kubectl -n argocd rollout restart deploy argocd-server
-```
-
-```
-kubectl -n argocd get configmap argocd-cm -o jsonpath='{.data.timeout\.reconciliation}{"\n"}{.data.timeout\.reconciliation\.jitter}'
-kubectl -n argocd get configmap argocd-cm -o jsonpath='{.data.server\.insecure}'
 ```

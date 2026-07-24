@@ -1,5 +1,4 @@
 .evn
-.secrets
 
 **/.vscode/
-config
+**/.agents/

@@ -3,3 +3,4 @@ kind: Kustomization
 namespace: normal-ass-note
 resources:
   - deployment.yaml
+  - 10-network-policies.yaml

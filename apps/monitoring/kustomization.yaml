@@ -4,3 +4,4 @@ resources:
   - 00-namespace.yaml
   - 06-prometheus.yaml
   - 07-grafana.yaml
+  - 10-network-policies.yaml

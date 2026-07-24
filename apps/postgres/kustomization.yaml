@@ -5,3 +5,4 @@ resources:
   - 02-postgres.yaml
   #- 03-postgres-exporter.yaml
   - 04-pgadmin.yaml
+  - 10-network-policies.yaml

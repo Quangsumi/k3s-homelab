@@ -19,24 +19,49 @@ spec:
       labels:
         app: pi-dashboard
     spec:
-      tolerations:
-      - key: "role-purpose"
-        operator: "Equal"
-        value: "display"
-        effect: "NoSchedule"
+      automountServiceAccountToken: false # pod will not have access to the Kubernetes API
+
+      # 1 pod can have many containers, this security context applies to all containers
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 101
+        runAsGroup: 101
+        seccompProfile:
+          type: RuntimeDefault # restricts the pod to a default set of syscalls, preventing the use of potentially dangerous ones
+
       containers:
         - name: pi-dashboard
-          image: quangsumi/pi-dashboard:latest
+          image: quangsumi/pi-dashboard:4437bd7774805a4745901338318cbd903b15c988@sha256:bfc8ea656a77dda31cac32a46cbf9ba3953c3b3cfbdc5444ddbef3437dfc4623
           imagePullPolicy: Always
+          
           ports:
             - name: http
-              containerPort: 80
+              containerPort: 8080
+
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true # prevents the container from writing to the root filesystem, reducing the risk of tampering with system files
+            capabilities:
+              drop:
+                - ALL
+          
           resources:
             requests:
               cpu: 25m
               memory: 64Mi
             limits:
               memory: 128Mi
+
+          # readOnlyRootFilesystem: true -> everything in the container is read-only, 
+          # so we need to mount a tmp volume for the app nginx to write temp files to
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+
+      volumes:
+        - name: tmp
+          emptyDir:
+            sizeLimit: 16Mi
 
 ---
 apiVersion: v1

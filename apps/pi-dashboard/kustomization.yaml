@@ -3,3 +3,4 @@ kind: Kustomization
 resources:
   - 00-pi-dashboard.yaml
   - 10-network-policies.yaml
+  - argocd-app.yaml

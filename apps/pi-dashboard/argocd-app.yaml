@@ -16,5 +16,8 @@ spec:
     namespace: pi-dashboard
 
   syncPolicy:
+    automated:
+      prune: false
+      selfHeal: true
     syncOptions:
       - CreateNamespace=true

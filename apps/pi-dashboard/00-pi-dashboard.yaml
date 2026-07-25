@@ -2,6 +2,15 @@ apiVersion: v1
 kind: Namespace
 metadata:
   name: pi-dashboard
+  labels:
+    pod-security.kubernetes.io/enforce: restricted        # enforce the restricted policy for all pods in this namespace
+    pod-security.kubernetes.io/enforce-version: latest    # use the latest version of k8s PSA to enforce the restricted policy
+
+    pod-security.kubernetes.io/warn: restricted           # warn when a pod does not meet the restricted policy
+    pod-security.kubernetes.io/warn-version: latest
+
+    pod-security.kubernetes.io/audit: restricted          # record audit events when a pod does not meet the restricted policy
+    pod-security.kubernetes.io/audit-version: latest
 
 ---
 apiVersion: apps/v1
@@ -37,6 +46,15 @@ spec:
           ports:
             - name: http
               containerPort: 8080
+
+          # important when auto deploying new versions of the app, so that the pod is not killed before the new version is ready
+          readinessProbe:
+            httpGet:
+              path: /
+              port: http
+            periodSeconds: 5
+            timeoutSeconds: 2
+            failureThreshold: 6
 
           securityContext:
             allowPrivilegeEscalation: false

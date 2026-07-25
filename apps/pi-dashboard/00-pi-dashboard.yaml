@@ -31,7 +31,7 @@ spec:
 
       containers:
         - name: pi-dashboard
-          image: quangsumi/pi-dashboard:4437bd7774805a4745901338318cbd903b15c988@sha256:bfc8ea656a77dda31cac32a46cbf9ba3953c3b3cfbdc5444ddbef3437dfc4623
+          image: quangsumi/pi-dashboard:88e0a6c16b2c5b2e826fdac2fc611438ba57a2c6@sha256:fb502c689b2ea8324e76716f14f0314eb270a0152986a92f8ec5fb818b106109
           imagePullPolicy: Always
           
           ports:

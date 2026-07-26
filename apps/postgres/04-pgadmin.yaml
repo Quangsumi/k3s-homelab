@@ -20,20 +20,6 @@ spec:
         key: /postgres/PGADMIN_DEFAULT_PASSWORD
 
 ---
-apiVersion: v1
-kind: PersistentVolumeClaim
-metadata:
-  name: pgadmin-data
-  namespace: postgres
-spec:
-  accessModes:
-    - ReadWriteOnce
-  storageClassName: longhorn
-  resources:
-    requests:
-      storage: 1Gi
-
----
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -98,6 +84,20 @@ spec:
         - name: pgadmin-data
           persistentVolumeClaim:
             claimName: pgadmin-data
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: pgadmin-data
+  namespace: postgres
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: longhorn
+  resources:
+    requests:
+      storage: 1Gi
 
 ---
 apiVersion: v1

@@ -35,6 +35,13 @@ spec:
 ```
 
 # Clients -> Tailscale as LB -> Traefik as ClusterIP
+```
+Standalone:
+Client -> 1 Tailscale proxy pod -> Traefik Service -> Traefik pods
+
+ProxyGroup:
+Client -> Tailscale Service VIP (virtual IP) -> one of several proxy pods -> Traefik Service -> Traefik pods
+```
 #### 1/ HA ingress proxies. Run multiple proxy replicas with ProxyGroup.
 ```
 k apply -f 05-traefik-ingress-proxies.yaml

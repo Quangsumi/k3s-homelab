@@ -28,7 +28,9 @@ spec:
       labels:
         app: pi-dashboard
     spec:
-      automountServiceAccountToken: false # pod will not have access to the Kubernetes API
+      # by default, pods receive a service account token, which allows them to authenticate to the Kubernetes API.
+      # this will prevent the pod from having access to the Kubernetes API
+      automountServiceAccountToken: false 
 
       # 1 pod can have many containers, this security context applies to all containers
       securityContext:

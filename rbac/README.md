@@ -43,25 +43,6 @@ Using the built-in roles avoids maintaining lists of API groups and resources.
 The only custom Role is the deliberately restricted `kube-system` permission
 for the `traefik-tailscale-ha` Service.
 
-Application namespaces:
-
-- `litellm`
-- `monitoring`
-- `normal-ass-note`
-- `pi-dashboard`
-- `postgres`
-
-Infrastructure namespaces:
-
-- `argocd`
-- `cert-manager`
-- `external-secrets`
-- `longhorn-system`
-- `metallb-system`
-- `tailscale`
-- `kube-system`, limited to the `traefik-tailscale-ha` Service for
-  `infrastructure-admins`
-
 ## Important limitations
 
 The built-in `view` role is a safe baseline, not a promise that a user can read
@@ -105,15 +86,3 @@ Until namespace-label generation is introduced:
 
 Do not create a namespace wildcard Role. The built-in roles are the baseline;
 small exceptions should describe the actual missing permission.
-
-## Bootstrap
-
-The `argocd-app.yaml` file follows the repository's existing bootstrap pattern
-and is intentionally excluded from `kustomization.yaml`. Apply it once:
-
-```bash
-kubectl apply -f rbac/argocd-app.yaml
-```
-
-Then sync the `rbac` Application in Argo CD. Later changes under `rbac/` are
-managed by that Application.

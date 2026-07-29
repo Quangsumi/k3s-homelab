@@ -11,8 +11,8 @@ resources:
 configMapGenerator:
   - name: grafana-config
     files:
-      - ./grafana-config/grafana.ini
+      - grafana-config/grafana.ini
 
   - name: grafana-datasources
     files:
-      - prometheus.yaml=./grafana-config/prometheus-datasource.yaml
+      - prometheus.yaml=grafana-config/prometheus-datasource.yaml

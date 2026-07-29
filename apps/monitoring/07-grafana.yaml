@@ -23,23 +23,6 @@ spec:
         key: /grafana/GF_AUTH_GENERIC_OAUTH_CLIENT_SECRET
 
 ---
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: grafana-datasources
-  namespace: monitoring
-data:
-  prometheus.yaml: |
-    apiVersion: 1
-    datasources:
-      - name: Prometheus
-        type: prometheus
-        access: proxy
-        url: http://prometheus:9090
-        isDefault: true
-        editable: true
-
----
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -69,10 +52,7 @@ spec:
           ports:
             - name: http
               containerPort: 3000
-          envFrom:
-            - secretRef:
-                name: grafana-admin-secret-infisical
-
+          
           readinessProbe:
             tcpSocket:
               port: 3000
@@ -108,10 +88,19 @@ spec:
             - name: grafana-data
               mountPath: /var/lib/grafana
             - name: grafana-datasources
-              mountPath: /etc/grafana/provisioning/datasources/prometheus.yaml
-              subPath: prometheus.yaml
+              mountPath: /etc/grafana/provisioning/datasources
               readOnly: true
-
+            - name: grafana-secrets
+              mountPath: /etc/grafana/secrets
+              readOnly: true
+            - name: grafana-config
+              mountPath: /etc/grafana/grafana.ini
+              subPath: grafana.ini
+              readOnly: true
+            - name: caddy-trust
+              mountPath: /etc/homelab/trust
+              readOnly: true
+            
       volumes:
         - name: grafana-data
           persistentVolumeClaim:
@@ -119,6 +108,23 @@ spec:
         - name: grafana-datasources
           configMap:
             name: grafana-datasources
+        - name: grafana-secrets
+          secret:
+            secretName: grafana-admin-secret-infisical
+            items:
+              - key: GF_SECURITY_ADMIN_USER
+                path: admin-user                            # $__file{/etc/grafana/secrets/admin-user} in grafana.ini
+              - key: GF_SECURITY_ADMIN_PASSWORD
+                path: admin-password                        # $__file{/etc/grafana/secrets/admin-password} in grafana.ini
+              - key: GF_AUTH_GENERIC_OAUTH_CLIENT_SECRET
+                path: oidc-client-secret                    # $__file{/etc/grafana/secrets/oidc-client-secret} in grafana.ini
+        - name: grafana-config
+          configMap:
+            name: grafana-config
+        - name: caddy-trust
+          configMap:
+            name: caddy-trust-bundle
+        
 
 ---
 apiVersion: v1

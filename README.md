@@ -34,3 +34,42 @@ Grafana pod ◄────── ESO ◄────── Infisical
 *kube-system/traefik-tailscale-ha act as a LB in your tailnet, like metallb (but for LAN)
 
 ```
+
+```
+                Internet / LAN
+                       │
+                  HTTPS Request
+                       │
+                 Laptop / Phone
+                       │
+                       ▼
+                 Traefik Ingress
+             (presents leaf certificate)
+                       ▲
+                       │
+                 TLS Secret
+                       ▲
+                       │
+                 cert-manager
+```
+
+```
+Grafana
+     │
+ HTTPS
+     ▼
+Keycloak (behind Caddy)
+     ▲
+     │
+Leaf certificate signed by
+Caddy Root CA
+
+Grafana trusts
+Caddy Root CA
+     ▲
+     │
+ConfigMap
+     ▲
+     │
+trust-manager
+```

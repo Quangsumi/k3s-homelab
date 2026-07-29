@@ -18,6 +18,9 @@ spec:
     - secretKey: GF_SECURITY_ADMIN_PASSWORD
       remoteRef:
         key: /grafana/GF_SECURITY_ADMIN_PASSWORD
+    - secretKey: GF_AUTH_GENERIC_OAUTH_CLIENT_SECRET
+      remoteRef:
+        key: /grafana/GF_AUTH_GENERIC_OAUTH_CLIENT_SECRET
 
 ---
 apiVersion: v1

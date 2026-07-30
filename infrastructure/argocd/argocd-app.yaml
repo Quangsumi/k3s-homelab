@@ -13,12 +13,43 @@ spec:
       helm:
         releaseName: argocd
         valuesObject:
-          # Tailscale terminates TLS at the Ingress, so the Argo CD server
-          # serves plain HTTP inside the cluster.
+          server:
+            env:
+              - name: SSL_CERT_FILE
+                value: /etc/homelab/trust/ca-bundle.pem
+            volumes:
+              - name: homelab-trust
+                configMap:
+                  name: caddy-trust-bundle
+            volumeMounts:
+              - name: homelab-trust
+                mountPath: /etc/homelab/trust
+                readOnly: true
           configs:
             params:
-              server.insecure: 'true'
-
+              server.insecure: 'true'   # Traefik terminates TLS at the Ingress, so the Argo CD server serves plain HTTP inside the cluster.
+            cm:
+              admin.enabled: true
+              url: https://argocd.lab
+              oidc.config: |
+                name: Keycloak
+                issuer: https://auth.lab/realms/homelab
+                clientID: argocd-ui
+                cliClientID: argocd-cli
+                clientSecret: $argocd-oidc-secret:clientSecret
+                allowedAudiences: ["argocd-ui", "argocd-cli"]
+                requestedScopes: ["openid", "profile", "email"]
+                refreshTokenThreshold: 2m
+            rbac:
+              policy.default: ''
+              scopes: '[argocd_roles]'
+              policy.csv: |
+                p, role:deployer, applications, sync, default/*, allow
+                g, role:deployer, role:readonly
+                g, argocd-viewer, role:readonly
+                g, argocd-deployer, role:deployer
+                g, argocd-admin, role:admin
+          
     - repoURL: https://github.com/Quangsumi/k3s-homelab.git
       targetRevision: main
       path: infrastructure/argocd

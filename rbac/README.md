@@ -1,13 +1,8 @@
 # OIDC RBAC
 
-Argo CD manages the RBAC resources in this directory. K3s prefixes each
-Keycloak group claim with `oidc:`, so Keycloak group `apps-admins` reaches
-Kubernetes as `oidc:apps-admins`.
+K3s prefixes Keycloak group claim with `oidc:`, so Keycloak group `apps-admins` reaches Kubernetes as `oidc:apps-admins`.
 
 ## OIDC authentication flow
-
-Keycloak is reached through Caddy at `https://auth.lab`. OIDC authentication
-uses three separate trust operations:
 
 ```text
 1. Laptop OIDC plugin --HTTPS--> Caddy --HTTP(S)--> Keycloak
@@ -41,7 +36,7 @@ The complete request flow is:
 
 ### OIDC configuration on K3s servers
 
-Every node running `k3s server` and therefore `kube-apiserver` has:
+On every `server node` (`agent node` don't need this):
 
 ```yaml
 kube-apiserver-arg:
@@ -54,14 +49,11 @@ kube-apiserver-arg:
   - "oidc-ca-file=/etc/rancher/k3s/certs/rpivn-caddy.crt"
 ```
 
-K3s agent-only nodes do not run `kube-apiserver` and do not need these
-arguments.
-
-The laptop OIDC exec configuration must use the same issuer and client ID:
+The laptop OIDC plugin configuration must use the same issuer and client ID:
 
 ```text
 --oidc-issuer-url=https://auth.lab/realms/homelab
---oidc-client-id=kubernetes
+--oidc-client-id=k3s-client
 --certificate-authority=C:\Users\<user>\.kube\rpivn-caddy.crt
 ```
 
@@ -72,16 +64,6 @@ The laptop OIDC exec configuration must use the same issuer and client ID:
 | `rpivn-caddy.crt` | Laptop and every K3s server | Public CA certificate used to trust the TLS certificate Caddy presents for `auth.lab` |
 | Caddy `auth.lab` leaf certificate | Caddy only | Proves that the HTTPS endpoint is `auth.lab`; it is signed by the CA represented by `rpivn-caddy.crt` |
 | K3s API CA | Laptop kubeconfig as `certificate-authority-data` or `certificate-authority` | Allows `kubectl` to verify the K3s API server's TLS certificate |
-| Keycloak realm signing key | Private key in Keycloak; public key exposed through JWKS | Signs and verifies OIDC ID tokens; it is separate from the Caddy TLS certificate |
-
-The laptop and K3s server copies of `rpivn-caddy.crt` should normally be the
-same public CA certificate. They can be verified by comparing SHA-256
-fingerprints. Never distribute Caddy's CA private key, Caddy's leaf private key,
-or Keycloak's realm signing private key.
-
-The Caddy-to-Keycloak backend connection is a separate connection. If Caddy
-uses HTTPS to reach Keycloak, that backend TLS trust is configured in Caddy and
-does not use the laptop or K3s `rpivn-caddy.crt` references described above.
 
 ## Layout
 
@@ -94,10 +76,8 @@ rbac/
 |-- namespace/
 |   |-- apps/            # RoleBindings for application namespaces
 |   `-- infrastructure/  # RoleBindings for infrastructure namespaces
-|-- argocd-app.yaml
 `-- kustomization.yaml
 ```
-
 The `cluster/apps` and `cluster/infrastructure` directories are intentionally
 empty. Add resources there only when a group needs direct `kubectl` access to a
 specific cluster-scoped API. Normal infrastructure changes should follow this
@@ -147,11 +127,6 @@ If the per-namespace RoleBinding files become burdensome, introduce a policy
 controller such as Kyverno as a separate, reviewed change. It can generate the
 bindings from namespace labels, but it adds another cluster controller and is
 therefore not bundled into this RBAC refactor.
-
-References:
-
-- [Kubernetes default roles and role aggregation](https://kubernetes.io/docs/reference/access-authn-authz/rbac/#default-roles-and-role-bindings)
-- [Kubernetes RBAC good practices](https://kubernetes.io/docs/concepts/security/rbac-good-practices/)
 
 ## Adding a namespace
 

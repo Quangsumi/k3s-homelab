@@ -54,22 +54,20 @@ Grafana pod ◄────── ESO ◄────── Infisical
 ```
 
 ```
-Grafana
-     │
- HTTPS
-     ▼
-Keycloak (behind Caddy)
-     ▲
-     │
-Leaf certificate signed by
-Caddy Root CA
-
-Grafana trusts
-Caddy Root CA
-     ▲
-     │
-ConfigMap
-     ▲
-     │
-trust-manager
+   trust-manager
+        │
+     provide
+        ▼
+ConfigMap as Caddy Root CA
+        │
+        ▼
+     Grafana
+        │
+      https
+        ▼
+ Keycloak (behind Caddy)
+        ▲
+        │
+ Leaf certificate signed by
+    Caddy Root CA
 ```

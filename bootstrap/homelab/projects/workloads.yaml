@@ -1,0 +1,32 @@
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: homelab-workloads
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"      # Child Applications reference this project, so create it first.
+spec:
+  description: Namespace-scoped applications managed from the homelab repository
+
+  sourceRepos:
+    - https://github.com/Quangsumi/k3s-homelab.git
+
+  destinations:
+    - server: https://kubernetes.default.svc
+      namespace: external-services
+    - server: https://kubernetes.default.svc
+      namespace: litellm
+    - server: https://kubernetes.default.svc
+      namespace: monitoring
+    - server: https://kubernetes.default.svc
+      namespace: normal-ass-note
+    - server: https://kubernetes.default.svc
+      namespace: pi-dashboard
+    - server: https://kubernetes.default.svc
+      namespace: postgres
+
+  # Current application packages include their Namespace manifests. All other
+  # workload resources are namespace-scoped and allowed by default.
+  clusterResourceWhitelist:
+    - group: ""
+      kind: Namespace

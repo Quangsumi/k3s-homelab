@@ -1,0 +1,22 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: homelab-bootstrap
+  namespace: argocd
+spec:
+  project: default  # default AppProject, extremely permissive: any repository, any destination, and any resource type.
+
+  source:
+    repoURL: https://github.com/Quangsumi/k3s-homelab.git
+    targetRevision: main
+    path: bootstrap/homelab
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: argocd
+
+  # Intentionally manual for the first bootstrap. Syncing it creates or updates
+  # Argo CD control resources; it does not automatically sync child workloads.
+  syncPolicy:
+    syncOptions:
+      - CreateNamespace=false

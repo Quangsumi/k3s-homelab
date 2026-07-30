@@ -1,0 +1,42 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: tailscale
+  namespace: argocd
+  labels:
+    app.kubernetes.io/part-of: homelab-gitops
+    homelab.quangsumi.io/tier: platform
+spec:
+  project: homelab-platform
+
+  # Install the official operator and manage this repository's ProxyGroup and
+  # Traefik-facing LoadBalancer Service as one manually synchronized unit.
+  sources:
+    - repoURL: https://pkgs.tailscale.com/helmcharts
+      chart: tailscale-operator
+      targetRevision: 1.98.9
+      helm:
+        releaseName: tailscale-operator
+        valuesObject:
+          installCRDs: true
+          oauthSecretVolume:
+            secret:
+              secretName: operator-oauth
+          operatorConfig:
+            hostname: homelab-k8s-operator
+            defaultTags:
+              - tag:k8s-operator
+          proxyConfig:
+            defaultTags: tag:k8s
+
+    - repoURL: https://github.com/Quangsumi/k3s-homelab.git
+      targetRevision: main
+      path: infrastructure/tailscale
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: tailscale
+
+  syncPolicy:
+    syncOptions:
+      - CreateNamespace=true

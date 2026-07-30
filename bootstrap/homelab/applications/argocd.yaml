@@ -3,8 +3,11 @@ kind: Application
 metadata:
   name: argocd
   namespace: argocd
+  labels:
+    app.kubernetes.io/part-of: homelab-gitops
+    homelab.quangsumi.io/tier: platform
 spec:
-  project: default
+  project: homelab-platform
 
   sources:
     - repoURL: https://argoproj.github.io/argo-helm
@@ -44,7 +47,8 @@ spec:
               policy.default: ''
               scopes: '[argocd_roles]'
               policy.csv: |
-                p, role:deployer, applications, sync, default/*, allow
+                p, role:deployer, applications, sync, homelab-platform/*, allow
+                p, role:deployer, applications, sync, homelab-workloads/*, allow
                 g, role:deployer, role:readonly
                 g, argocd-viewer, role:readonly
                 g, argocd-deployer, role:deployer

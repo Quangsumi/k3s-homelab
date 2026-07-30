@@ -26,7 +26,17 @@ sudo du -h --max-depth=2 /var/lib | sort -h | tail -30
 ```
 sudo mkdir -p /etc/rancher/k3s/certs 
 sudo cp auth-lab-root-ca.crt /etc/rancher/k3s/certs/  
-sudo chmod 644 /etc/rancher/k3s/certs/auth-lab-root-ca.crt  
+sudo chmod 644 /etc/rancher/k3s/certs/auth-lab-root-ca.crt
+
+mkdir -p ~/.kube 
+sudo cp /etc/rancher/k3s/k3s.yaml ~/.kube/config
+sudo chown $(id -u):$(id -g) ~/.kube/config 
+chmod 600 ~/.kube/config
+
+nano ~/.bashrc
+alias k='kubectl'
+export KUBECONFIG=~/.kube/config       # Make it permanent
+source ~/.bashrc
 ```
 
 ## Permission

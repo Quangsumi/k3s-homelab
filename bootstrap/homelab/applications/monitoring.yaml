@@ -1,23 +1,23 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: pi-dashboard
+  name: monitoring
   namespace: argocd
+  labels:
+    app.kubernetes.io/part-of: homelab-gitops
+    homelab.quangsumi.io/tier: workload
 spec:
-  project: default
+  project: homelab-workloads
 
   source:
     repoURL: https://github.com/Quangsumi/k3s-homelab.git
     targetRevision: main
-    path: apps/pi-dashboard
+    path: apps/monitoring
 
   destination:
     server: https://kubernetes.default.svc
-    namespace: pi-dashboard
+    namespace: monitoring
 
   syncPolicy:
-    automated:
-      prune: false
-      selfHeal: true
     syncOptions:
       - CreateNamespace=true

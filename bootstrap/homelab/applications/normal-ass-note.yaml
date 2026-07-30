@@ -1,19 +1,22 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: litellm
+  name: normal-ass-note
   namespace: argocd
+  labels:
+    app.kubernetes.io/part-of: homelab-gitops
+    homelab.quangsumi.io/tier: workload
 spec:
-  project: default
+  project: homelab-workloads
 
   source:
     repoURL: https://github.com/Quangsumi/k3s-homelab.git
     targetRevision: main
-    path: apps/litellm
+    path: apps/normal-ass-note
 
   destination:
     server: https://kubernetes.default.svc
-    namespace: litellm
+    namespace: normal-ass-note
 
   syncPolicy:
     syncOptions:

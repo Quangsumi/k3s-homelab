@@ -27,6 +27,8 @@ metadata:
   namespace: postgres
 spec:
   replicas: 1
+  strategy:
+    type: Recreate # ensure only one pod is running at a time, important for stateful or deployment with persistent storage
   selector:
     matchLabels:
       app: pgadmin
@@ -35,9 +37,6 @@ spec:
       labels:
         app: pgadmin
     spec:
-      strategy:
-        type: Recreate # ensure only one pod is running at a time, important for stateful or deployment with persistent storage
-
       securityContext:
         fsGroup: 5050
         fsGroupChangePolicy: "OnRootMismatch"

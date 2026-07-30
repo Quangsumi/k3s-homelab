@@ -174,18 +174,19 @@ sync time; inspect the child Application diff before syncing it.
 Suggested initial order:
 
 1. `external-secrets`
-2. verify `ClusterSecretStore/infisical` is `Ready=True`
-3. `tailscale-credentials`
-4. verify `ExternalSecret/tailscale-operator-oauth` is Ready and
-   `Secret/operator-oauth` exists in namespace `tailscale`
-5. `cert-manager`
-6. `longhorn`
-7. `metallb` when LAN load balancing is part of the active design
-8. `tailscale`
-9. stateless workloads
-10. PVC-backed workloads
-11. `rbac` after all referenced namespaces exist
-12. `argocd` self-management last
+2. `cert-manager/trust-manager`
+3. verify caddy-trust-bunddle appears, only need `trust-manager` ready
+4. verify `ClusterSecretStore/infisical` is `Ready=True`
+5. `tailscale-credentials`
+6. verify `ExternalSecret/tailscale-operator-oauth` is Ready and
+   `Secret/operator-oauth` exists in namespace `tailscale` 
+7. `longhorn`
+8. `metallb` when LAN load balancing is part of the active design
+9. `tailscale`
+10. stateless workloads
+11. PVC-backed workloads
+12. `rbac` after all referenced namespaces exist
+13. `argocd` self-management last
 
 Useful Tailscale checks after the two child syncs are:
 

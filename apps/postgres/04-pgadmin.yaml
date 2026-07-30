@@ -1,25 +1,3 @@
-apiVersion: external-secrets.io/v1
-kind: ExternalSecret
-metadata:
-  name: pgadmin-credentials
-  namespace: postgres
-spec:
-  refreshInterval: 1h
-  secretStoreRef:
-    name: infisical
-    kind: ClusterSecretStore
-  target:
-    name: pgadmin-secret-infisical
-    creationPolicy: Owner
-  data:
-    - secretKey: PGADMIN_DEFAULT_EMAIL
-      remoteRef:
-        key: /postgres/PGADMIN_DEFAULT_EMAIL
-    - secretKey: PGADMIN_DEFAULT_PASSWORD
-      remoteRef:
-        key: /postgres/PGADMIN_DEFAULT_PASSWORD
-
----
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -27,6 +5,8 @@ metadata:
   namespace: postgres
 spec:
   replicas: 1
+  strategy:
+        type: Recreate # ensure only one pod is running at a time, important for stateful or deployment with persistent storage
   selector:
     matchLabels:
       app: pgadmin
@@ -54,7 +34,7 @@ spec:
 
       containers:
         - name: pgadmin
-          image: dpage/pgadmin4:latest
+          image: dpage/pgadmin4:9.16
           imagePullPolicy: IfNotPresent
 
           securityContext:
@@ -68,6 +48,11 @@ spec:
           envFrom:
             - secretRef:
                 name: pgadmin-secret-infisical
+          env:
+          - name: SSL_CERT_FILE
+            value: /etc/homelab/trust/ca-bundle.pem
+          - name: REQUESTS_CA_BUNDLE
+            value: /etc/homelab/trust/ca-bundle.pem
 
           resources:
             requests:
@@ -79,11 +64,36 @@ spec:
           volumeMounts:
             - name: pgadmin-data
               mountPath: /var/lib/pgadmin
+            - name: pgadmin-config
+              mountPath: /pgadmin4/config_local.py
+              subPath: config_local.py
+              readOnly: true
+            - name: pgadmin-oidc
+              mountPath: /etc/pgadmin/oidc
+              readOnly: true
+            - name: homelab-trust
+              mountPath: /etc/homelab/trust
+              readOnly: true
 
       volumes:
         - name: pgadmin-data
           persistentVolumeClaim:
             claimName: pgadmin-data
+        - name: pgadmin-config
+          configMap:
+            name: pgadmin-config
+        - name: pgadmin-oidc
+          secret:
+            secretName: pgadmin-oidc-secret
+            items:
+              - key: clientSecret
+                path: client-secret
+        - name: homelab-trust
+          configMap:
+            name: caddy-trust-bundle
+            items:
+              - key: ca-bundle.pem
+                path: ca-bundle.pem
 
 ---
 apiVersion: v1

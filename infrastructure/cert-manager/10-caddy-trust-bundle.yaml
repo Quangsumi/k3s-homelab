@@ -4,16 +4,18 @@ metadata:
   name: caddy-trust-bundle
 spec:
   sources:
+    - useDefaultCAs: true       # Public Internet CAs, Mozilla/public CA bundle from Let's Encrypt, Cloudflare, etc.
     - configMap:
         name: caddy-root-ca
         key: ca.crt
   target:
     configMap:
-      key: ca-bundle.pem
+      key: ca-bundle.pem        # include caddy-root-ca and default CAs in the ca-bundle.pem file
     namespaceSelector:
       matchExpressions:
         - key: kubernetes.io/metadata.name
           operator: In
           values:
+            - argocd
             - external-secrets
             - monitoring

@@ -20,3 +20,4 @@ spec:
             - external-secrets
             - postgres
             - monitoring
+            - longhorn-system

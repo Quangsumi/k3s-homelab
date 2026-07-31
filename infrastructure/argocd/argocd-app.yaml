@@ -40,6 +40,7 @@ spec:
                 allowedAudiences: ["argocd-ui", "argocd-cli"]
                 requestedScopes: ["openid", "profile", "email"]
                 refreshTokenThreshold: 2m
+                logoutURL: https://auth.lab/realms/homelab/protocol/openid-connect/logout?id_token_hint={{token}}&post_logout_redirect_uri={{logoutRedirectURL}}
             rbac:
               policy.default: ''
               scopes: '[argocd_roles]'

@@ -69,6 +69,14 @@ spec:
       replicas: 3  # HA with traefik-ingress-proxies
 
     ports:
+      web:
+        http:
+          redirections:     # redirect http to https
+            entryPoint:
+              to: websecure
+              scheme: https
+              permanent: true
+
       postgres:         # Open postgres port in Traefik. Save it. K3s will automatically reconcile the packaged Traefik chart.
         port: 5432
         expose:

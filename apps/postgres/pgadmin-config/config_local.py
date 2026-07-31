@@ -30,5 +30,10 @@ OAUTH2_CONFIG = [
         "OAUTH2_SSL_CERT_VERIFICATION": True,
         "OAUTH2_CHALLENGE_METHOD": "S256",
         "OAUTH2_RESPONSE_TYPE": "code",
+        "OAUTH2_LOGOUT_URL": (
+            "https://auth.lab/realms/homelab/protocol/openid-connect/logout"
+            "?post_logout_redirect_uri={redirect_uri}"
+            "&id_token_hint={id_token}"
+        ),
     }
 ]

@@ -21,3 +21,4 @@ spec:
             - postgres
             - monitoring
             - longhorn-system
+            - litellm

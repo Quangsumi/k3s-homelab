@@ -108,6 +108,11 @@ spec:
                 secretKeyRef:
                   name: litellm-secret-infisical
                   key: LITELLM_SALT_KEY
+            - name: GENERIC_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: litellm-secret-infisical
+                  key: GENERIC_CLIENT_SECRET
             - name: LITELLM_MODE
               value: "PRODUCTION"
             - name: USE_PRISMA_MIGRATE

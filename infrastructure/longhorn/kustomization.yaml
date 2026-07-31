@@ -1,6 +1,16 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
+
+namespace: longhorn-system    # Kustomize will own the namespace, individual manifests no need to specify it
+
 resources:
   # - 00-service-lb.yaml
   # - 10-tailscale-ingress.yaml
   - 20-traefik-ingress.yaml
+  - 30-oauth2-proxy.yaml
+  - 40-network-policies.yaml
+
+configMapGenerator:
+  - name: longhorn-oauth2-proxy-config
+    files:
+      - oauth2-proxy.cfg=oauth2-proxy/oauth2-proxy.cfg

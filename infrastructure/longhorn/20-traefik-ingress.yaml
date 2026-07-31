@@ -1,10 +1,45 @@
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: longhorn-forward-auth
+spec:
+  forwardAuth:
+    address: http://longhorn-oauth2-proxy.longhorn-system.svc.cluster.local:4180/
+
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: longhorn-oauth2
+  annotations:
+    traefik.ingress.kubernetes.io/router.priority: "100"
+spec:
+  ingressClassName: traefik
+  tls:
+    - hosts:
+        - longhorn.lab
+      secretName: longhorn-lab-tls
+  rules:
+    - host: longhorn.lab
+      http:
+        paths:
+          - path: /oauth2
+            pathType: Prefix
+            backend:
+              service:
+                name: longhorn-oauth2-proxy
+                port:
+                  number: 4180
+
+---
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: longhorn
-  namespace: longhorn-system
   annotations:
     cert-manager.io/cluster-issuer: homelab-ca
+    traefik.ingress.kubernetes.io/router.priority: "10"
+    traefik.ingress.kubernetes.io/router.middlewares: longhorn-system-longhorn-forward-auth@kubernetescrd
 spec:
   ingressClassName: traefik
   tls:

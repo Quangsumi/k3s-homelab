@@ -52,3 +52,29 @@ spec:
       ports:
         - protocol: TCP
           port: 9090
+
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-traefik-to-prometheus-oauth2-proxy
+  namespace: monitoring
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: oauth2-proxy
+      app.kubernetes.io/instance: prometheus
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/instance: traefik-kube-system
+              app.kubernetes.io/name: traefik
+      ports:
+        - protocol: TCP
+          port: 4180

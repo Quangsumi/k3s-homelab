@@ -6,7 +6,7 @@ namespace: postgres
 resources:
   - 00-namespace.yaml
   - 02-postgres.yaml
-  #- 03-postgres-exporter.yaml
+  - 03-postgres-exporter.yaml
   - 04-pgadmin.yaml
   - 05-pgadmin-external-secret.yaml
   - 10-network-policies.yaml

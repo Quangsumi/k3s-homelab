@@ -1,0 +1,215 @@
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: aspire-dashboard-credentials
+  namespace: monitoring
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    name: infisical
+    kind: ClusterSecretStore
+  target:
+    name: aspire-dashboard-secret-infisical
+    creationPolicy: Owner
+  data:
+    - secretKey: oidc-client-secret
+      remoteRef:
+        key: /aspire/OIDC_CLIENT_SECRET
+    - secretKey: otlp-api-key
+      remoteRef:
+        key: /aspire/OTLP_API_KEY
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: aspire-dashboard
+  namespace: monitoring
+  labels:
+    app.kubernetes.io/name: aspire-dashboard
+    app.kubernetes.io/part-of: observability
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: aspire-dashboard
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: aspire-dashboard
+        app.kubernetes.io/part-of: observability
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: dashboard
+          image: mcr.microsoft.com/dotnet/aspire-dashboard:13.5.2
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: ASPNETCORE_URLS
+              value: http://+:18888
+            - name: ASPIRE_DASHBOARD_OTLP_ENDPOINT_URL
+              value: http://+:18889
+            - name: ASPIRE_DASHBOARD_OTLP_HTTP_ENDPOINT_URL
+              value: http://+:18890
+            - name: ASPIRE_DASHBOARD_FORWARDEDHEADERS_ENABLED
+              value: "true"
+            - name: DASHBOARD__FRONTEND__PUBLICURL
+              value: https://aspire.lab
+            - name: DASHBOARD__FRONTEND__AUTHMODE
+              value: OpenIdConnect
+            - name: AUTHENTICATION__SCHEMES__OPENIDCONNECT__AUTHORITY
+              value: https://auth.lab/realms/homelab
+            - name: AUTHENTICATION__SCHEMES__OPENIDCONNECT__CLIENTID
+              value: aspire-dashboard
+            - name: AUTHENTICATION__SCHEMES__OPENIDCONNECT__CLIENTSECRET
+              valueFrom:
+                secretKeyRef:
+                  name: aspire-dashboard-secret-infisical
+                  key: oidc-client-secret
+            - name: AUTHENTICATION__SCHEMES__OPENIDCONNECT__SCOPE__0
+              value: openid
+            - name: AUTHENTICATION__SCHEMES__OPENIDCONNECT__SCOPE__1
+              value: profile
+            - name: AUTHENTICATION__SCHEMES__OPENIDCONNECT__SCOPE__2
+              value: email
+            - name: AUTHENTICATION__SCHEMES__OPENIDCONNECT__SCOPE__3
+              value: groups
+            - name: DASHBOARD__FRONTEND__OPENIDCONNECT__REQUIREDCLAIMTYPE
+              value: groups
+            - name: DASHBOARD__FRONTEND__OPENIDCONNECT__REQUIREDCLAIMVALUE
+              value: aspire-users
+            - name: DASHBOARD__OTLP__AUTHMODE
+              value: ApiKey
+            - name: DASHBOARD__OTLP__PRIMARYAPIKEY
+              valueFrom:
+                secretKeyRef:
+                  name: aspire-dashboard-secret-infisical
+                  key: otlp-api-key
+            - name: DASHBOARD__API__DISABLED
+              value: "true"
+            - name: SSL_CERT_FILE
+              value: /etc/homelab/trust/ca-bundle.pem
+          ports:
+            - name: http
+              containerPort: 18888
+            - name: otlp-grpc
+              containerPort: 18889
+            - name: otlp-http
+              containerPort: 18890
+          readinessProbe:
+            tcpSocket:
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            failureThreshold: 6
+          livenessProbe:
+            tcpSocket:
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 20
+            failureThreshold: 6
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              memory: 512Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+            - name: caddy-trust
+              mountPath: /etc/homelab/trust
+              readOnly: true
+      volumes:
+        - name: tmp
+          emptyDir:
+            sizeLimit: 128Mi
+        - name: caddy-trust
+          configMap:
+            name: caddy-trust-bundle
+            items:
+              - key: ca-bundle.pem
+                path: ca-bundle.pem
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: aspire-dashboard
+  namespace: monitoring
+  labels:
+    app.kubernetes.io/name: aspire-dashboard
+spec:
+  selector:
+    app.kubernetes.io/name: aspire-dashboard
+  ports:
+    - name: http
+      port: 18888
+      targetPort: http
+    - name: otlp-grpc
+      port: 4317
+      targetPort: otlp-grpc
+    - name: otlp-http
+      port: 4318
+      targetPort: otlp-http
+
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: aspire-dashboard
+  namespace: monitoring
+  annotations:
+    cert-manager.io/cluster-issuer: homelab-ca
+spec:
+  ingressClassName: traefik
+  tls:
+    - hosts:
+        - aspire.lab
+      secretName: aspire-lab-tls
+  rules:
+    - host: aspire.lab
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: aspire-dashboard
+                port:
+                  name: http
+
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: aspire-dashboard-otlp-http
+  namespace: monitoring
+  annotations:
+    cert-manager.io/cluster-issuer: homelab-ca
+spec:
+  ingressClassName: traefik
+  tls:
+    - hosts:
+        - aspire-otlp.lab
+      secretName: aspire-otlp-lab-tls
+  rules:
+    - host: aspire-otlp.lab
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: aspire-dashboard
+                port:
+                  name: otlp-http

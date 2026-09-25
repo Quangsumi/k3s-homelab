@@ -10,6 +10,16 @@ resources:
   - 08-prometheus-oauth2-proxy.yaml
   - 09-prometheus-auth-ingress.yaml
   - 10-network-policies.yaml
+  - observability/11-observability-storage.yaml
+  - observability/12-observability-rbac.yaml
+  - observability/13-kube-state-metrics.yaml
+  - observability/14-node-exporter.yaml
+  - observability/20-loki.yaml
+  - observability/30-jaeger.yaml
+  - observability/40-otel-gateway.yaml
+  - observability/50-otel-agent.yaml
+  - observability/60-aspire-dashboard.yaml
+  - observability/70-observability-network-policies.yaml
 
 configMapGenerator:
   - name: grafana-config

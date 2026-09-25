@@ -48,6 +48,93 @@ data:
           - targets:
               - postgres-exporter.postgres.svc.cluster.local:9187
 
+      - job_name: kube-state-metrics
+        static_configs:
+          - targets:
+              - kube-state-metrics.monitoring.svc.cluster.local:8080
+
+      - job_name: node-exporter
+        kubernetes_sd_configs:
+          - role: endpoints
+            namespaces:
+              names: [monitoring]
+        relabel_configs:
+          - source_labels: [__meta_kubernetes_service_name]
+            action: keep
+            regex: node-exporter
+          - source_labels: [__meta_kubernetes_endpoint_port_name]
+            action: keep
+            regex: metrics
+
+      - job_name: kubernetes-kubelet
+        scheme: https
+        authorization:
+          credentials_file: /var/run/secrets/kubernetes.io/serviceaccount/token
+        tls_config:
+          ca_file: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+        kubernetes_sd_configs:
+          - role: node
+        relabel_configs:
+          - target_label: __address__
+            replacement: kubernetes.default.svc.cluster.local:443
+          - source_labels: [__meta_kubernetes_node_name]
+            target_label: __metrics_path__
+            regex: (.+)
+            replacement: /api/v1/nodes/${1}/proxy/metrics
+          - source_labels: [__meta_kubernetes_node_name]
+            target_label: node
+
+      - job_name: kubernetes-cadvisor
+        scheme: https
+        authorization:
+          credentials_file: /var/run/secrets/kubernetes.io/serviceaccount/token
+        tls_config:
+          ca_file: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+        kubernetes_sd_configs:
+          - role: node
+        relabel_configs:
+          - target_label: __address__
+            replacement: kubernetes.default.svc.cluster.local:443
+          - source_labels: [__meta_kubernetes_node_name]
+            target_label: __metrics_path__
+            regex: (.+)
+            replacement: /api/v1/nodes/${1}/proxy/metrics/cadvisor
+          - source_labels: [__meta_kubernetes_node_name]
+            target_label: node
+
+      - job_name: otel-application-metrics
+        static_configs:
+          - targets:
+              - otel-gateway.monitoring.svc.cluster.local:9464
+
+      - job_name: otel-gateway
+        static_configs:
+          - targets:
+              - otel-gateway.monitoring.svc.cluster.local:8888
+
+      - job_name: otel-agent
+        kubernetes_sd_configs:
+          - role: endpoints
+            namespaces:
+              names: [monitoring]
+        relabel_configs:
+          - source_labels: [__meta_kubernetes_service_name]
+            action: keep
+            regex: otel-agent
+          - source_labels: [__meta_kubernetes_endpoint_port_name]
+            action: keep
+            regex: self-metrics
+
+      - job_name: loki
+        static_configs:
+          - targets:
+              - loki.monitoring.svc.cluster.local:3100
+
+      - job_name: jaeger
+        static_configs:
+          - targets:
+              - jaeger.monitoring.svc.cluster.local:8888
+
 ---
 apiVersion: apps/v1
 kind: StatefulSet
@@ -65,6 +152,7 @@ spec:
       labels:
         app: prometheus
     spec:
+      serviceAccountName: prometheus
       securityContext:
         fsGroup: 65534
       initContainers:
@@ -85,6 +173,7 @@ spec:
             - "--config.file=/etc/prometheus/prometheus.yml"
             - "--storage.tsdb.path=/prometheus"
             - "--storage.tsdb.retention.time=15d"
+            - "--storage.tsdb.retention.size=2500MB"
           ports:
             - name: http
               containerPort: 9090

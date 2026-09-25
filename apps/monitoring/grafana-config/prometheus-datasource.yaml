@@ -14,12 +14,12 @@ datasources:
     access: proxy
     url: http://loki:3100
     editable: true
-    jsonData:
-      derivedFields:
-        - name: TraceID
-          matcherRegex: '(?i)(?:trace[_-]?id|traceid)["=: ]+([0-9a-f]{32})'
-          datasourceUid: jaeger
-          url: '$${__value.raw}'
+    # jsonData:
+    #   derivedFields:
+    #     - name: TraceID
+    #       matcherRegex: '(?i)(?:trace[_-]?id|traceid)["=: ]+([0-9a-f]{32})'
+    #       datasourceUid: jaeger
+    #       url: '$${__value.raw}'
 
   - name: Jaeger
     uid: jaeger
@@ -30,14 +30,14 @@ datasources:
     jsonData:
       nodeGraph:
         enabled: true
-      tracesToLogsV2:
-        datasourceUid: loki
-        spanStartTimeShift: -5m
-        spanEndTimeShift: 5m
-        tags:
-          - key: service.name
-            value: service_name
-          - key: k8s.namespace.name
-            value: namespace
-        filterByTraceID: true
-        filterBySpanID: false
+      # tracesToLogsV2:
+      #   datasourceUid: loki
+      #   spanStartTimeShift: -5m
+      #   spanEndTimeShift: 5m
+      #   tags:
+      #     - key: service.name
+      #       value: service_name
+      #     - key: k8s.namespace.name
+      #       value: namespace
+      #   filterByTraceID: true
+      #   filterBySpanID: false

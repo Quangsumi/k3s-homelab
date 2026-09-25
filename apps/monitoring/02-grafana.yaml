@@ -47,7 +47,7 @@ spec:
 
       containers:
         - name: grafana
-          image: grafana/grafana-oss:13.0.2
+          image: grafana/grafana:13.2.2
           imagePullPolicy: IfNotPresent
           ports:
             - name: http

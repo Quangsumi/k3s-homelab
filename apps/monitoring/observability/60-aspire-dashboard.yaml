@@ -75,9 +75,7 @@ spec:
             - name: AUTHENTICATION__SCHEMES__OPENIDCONNECT__SCOPE__1
               value: profile
             - name: AUTHENTICATION__SCHEMES__OPENIDCONNECT__SCOPE__2
-              value: email
-            - name: AUTHENTICATION__SCHEMES__OPENIDCONNECT__SCOPE__3
-              value: groups
+              value: email            
             - name: DASHBOARD__FRONTEND__OPENIDCONNECT__REQUIREDCLAIMTYPE
               value: groups
             - name: DASHBOARD__FRONTEND__OPENIDCONNECT__REQUIREDCLAIMVALUE

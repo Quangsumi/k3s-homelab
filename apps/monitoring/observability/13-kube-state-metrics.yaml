@@ -38,18 +38,18 @@ spec:
               containerPort: 8080
             - name: telemetry
               containerPort: 8081
-          readinessProbe:
-            httpGet:
-              path: /readyz
-              port: telemetry
-            initialDelaySeconds: 5
-            periodSeconds: 10
           livenessProbe:
             httpGet:
-              path: /livez
-              port: telemetry
-            initialDelaySeconds: 10
-            periodSeconds: 20
+              path: /healthz
+              port: 8080
+            initialDelaySeconds: 5
+            timeoutSeconds: 5
+          readinessProbe:
+            httpGet:
+              path: / # Note: Often pointed to the root of the telemetry port
+              port: 8081
+            initialDelaySeconds: 5
+            timeoutSeconds: 5
           resources:
             requests:
               cpu: 25m

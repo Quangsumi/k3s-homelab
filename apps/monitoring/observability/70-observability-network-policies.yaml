@@ -22,8 +22,8 @@ spec:
             matchLabels:
               app: grafana
         - podSelector:
-          matchLabels:
-            app: prometheus
+            matchLabels:
+              app: prometheus
       ports:
         - protocol: TCP
           port: 3100

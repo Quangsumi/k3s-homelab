@@ -44,7 +44,16 @@ spec:
         fsGroup: 472
         runAsUser: 472
         runAsGroup: 472
-
+      affinity:
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              preference:
+                matchExpressions:
+                  - key: homelab.io/stability
+                    operator: In
+                    values:
+                      - stable
       containers:
         - name: grafana
           image: grafana/grafana:13.2.2

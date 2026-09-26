@@ -47,6 +47,16 @@ spec:
       terminationGracePeriodSeconds: 60
       securityContext:
         fsGroup: 999
+      affinity:
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              preference:
+                matchExpressions:
+                  - key: homelab.io/stability
+                    operator: In
+                    values:
+                      - stable
       containers:
         - name: postgres
           image: postgres:18-alpine

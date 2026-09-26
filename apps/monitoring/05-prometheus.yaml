@@ -48,12 +48,12 @@ data:
           - targets:
               - postgres-exporter.postgres.svc.cluster.local:9187
 
-      - job_name: kube-state-metrics
+      - job_name: kube-state-metrics      # k3s api server metrics
         static_configs:
           - targets:
               - kube-state-metrics.monitoring.svc.cluster.local:8080
 
-      - job_name: node-exporter
+      - job_name: node-exporter           # Linux node metrics
         kubernetes_sd_configs:
           - role: endpoints
             namespaces:
@@ -66,8 +66,8 @@ data:
             action: keep
             regex: metrics
 
-      - job_name: kubernetes-kubelet
-        scheme: https
+      - job_name: kubernetes-kubelet        # not deployed by you, it already exist as part of Kubernetes/K3s
+        scheme: https                       # for kubelet metrics on each node
         authorization:
           credentials_file: /var/run/secrets/kubernetes.io/serviceaccount/token
         tls_config:
@@ -84,8 +84,8 @@ data:
           - source_labels: [__meta_kubernetes_node_name]
             target_label: node
 
-      - job_name: kubernetes-cadvisor
-        scheme: https
+      - job_name: kubernetes-cadvisor         # not deployed by you, it already exist as part of Kubernetes/K3s
+        scheme: https                         # for container metrics
         authorization:
           credentials_file: /var/run/secrets/kubernetes.io/serviceaccount/token
         tls_config:

@@ -1,3 +1,25 @@
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: otel-gateway-external-auth
+  namespace: monitoring
+spec:
+  refreshInterval: 1h
+
+  secretStoreRef:
+    name: infisical
+    kind: ClusterSecretStore
+
+  target:
+    name: otel-gateway-external-auth
+    creationPolicy: Owner
+
+  data:
+    - secretKey: token
+      remoteRef:
+        key: /otel-gateway/EXTERNAL_BEARER_TOKEN
+
+---
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -9,13 +31,22 @@ data:
       health_check:
         endpoint: 0.0.0.0:13133
 
+      bearertokenauth/external:
+        filename: /etc/otel-auth/token
+
     receivers:
-      otlp:
+      otlp:                         # internal receiver for app in cluster
         protocols:
           grpc:
             endpoint: 0.0.0.0:4317
           http:
             endpoint: 0.0.0.0:4318
+      otlp/external:                # external receiver for apps outside cluster
+        protocols:
+          http:
+            endpoint: 0.0.0.0:14318
+            auth:
+              authenticator: bearertokenauth/external
 
     processors:
       memory_limiter:
@@ -85,18 +116,18 @@ data:
           enabled: true
 
     service:
-      extensions: [health_check]
+      extensions: [health_check, bearertokenauth/external]
       pipelines:
         traces:
-          receivers: [otlp]
+          receivers: [otlp, otlp/external]
           processors: [memory_limiter, k8s_attributes, resource/cluster, batch]
           exporters: [otlp_grpc/jaeger]
         metrics:
-          receivers: [otlp]
+          receivers: [otlp, otlp/external]
           processors: [memory_limiter, k8s_attributes, resource/cluster, batch]
           exporters: [prometheus/applications]
         logs:
-          receivers: [otlp]
+          receivers: [otlp, otlp/external]
           processors: [memory_limiter, k8s_attributes, resource/cluster, batch]
           exporters: [otlp_http/loki]
       telemetry:
@@ -150,6 +181,8 @@ spec:
               containerPort: 4317
             - name: otlp-http
               containerPort: 4318
+            - name: otlp-http-external
+              containerPort: 14318
             - name: app-metrics
               containerPort: 9464
             - name: self-metrics
@@ -186,6 +219,9 @@ spec:
               readOnly: true
             - name: tmp
               mountPath: /tmp
+            - name: external-auth
+              mountPath: /etc/otel-auth
+              readOnly: true
       volumes:
         - name: config
           configMap:
@@ -193,6 +229,13 @@ spec:
         - name: tmp
           emptyDir:
             sizeLimit: 64Mi
+        - name: external-auth
+          secret:
+            secretName: otel-gateway-external-auth
+            defaultMode: 0444
+            items:
+              - key: token
+                path: token
 
 ---
 apiVersion: v1
@@ -212,6 +255,10 @@ spec:
     - name: otlp-http
       port: 4318
       targetPort: otlp-http
+    - name: otlp-http-external
+      port: 14318
+      targetPort: otlp-http-external
+      protocol: TCP
     - name: app-metrics
       port: 9464
       targetPort: app-metrics
@@ -219,3 +266,30 @@ spec:
       port: 8888
       targetPort: self-metrics
 
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: otel-gateway-otlp-http
+  namespace: monitoring
+  annotations:
+    cert-manager.io/cluster-issuer: homelab-ca
+spec:
+  ingressClassName: traefik
+
+  tls:
+    - hosts:
+        - otel-otlp.lab
+      secretName: otel-otlp-lab-tls
+
+  rules:
+    - host: otel-otlp.lab
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: otel-gateway
+                port:
+                  name: otlp-http-external

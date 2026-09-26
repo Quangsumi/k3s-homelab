@@ -63,7 +63,7 @@ spec:
   storageClassName: longhorn-observability
   resources:
     requests:
-      storage: 3Gi
+      storage: 5Gi
 
 ---
 apiVersion: apps/v1

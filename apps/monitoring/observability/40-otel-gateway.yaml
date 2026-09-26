@@ -181,7 +181,7 @@ spec:
               containerPort: 4317
             - name: otlp-http
               containerPort: 4318
-            - name: otlp-http-external
+            - name: otlp-external
               containerPort: 14318
             - name: app-metrics
               containerPort: 9464
@@ -257,7 +257,7 @@ spec:
       targetPort: otlp-http
     - name: otlp-http-external
       port: 14318
-      targetPort: otlp-http-external
+      targetPort: otlp-external
       protocol: TCP
     - name: app-metrics
       port: 9464

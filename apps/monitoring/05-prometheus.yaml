@@ -49,11 +49,16 @@ data:
               - postgres-exporter.postgres.svc.cluster.local:9187
 
       - job_name: kube-state-metrics      # k3s api server metrics
+        scrape_interval: 30s
         static_configs:
           - targets:
               - kube-state-metrics.monitoring.svc.cluster.local:8080
+        metric_relabel_configs:
+          - target_label: cluster
+            replacement: k3s-homelab
 
       - job_name: node-exporter           # Linux node metrics
+        scrape_interval: 30s
         kubernetes_sd_configs:
           - role: endpoints
             namespaces:
@@ -65,9 +70,13 @@ data:
           - source_labels: [__meta_kubernetes_endpoint_port_name]
             action: keep
             regex: metrics
+        metric_relabel_configs:
+          - target_label: cluster
+            replacement: k3s-homelab
 
-      - job_name: kubernetes-kubelet        # not deployed by you, it already exist as part of Kubernetes/K3s
-        scheme: https                       # for kubelet metrics on each node
+      - job_name: kubernetes-kubelet        # not deployed by you, it already exist as part of Kubernetes/K3s, for kubelet metrics on each node
+        scrape_interval: 30s
+        scheme: https
         authorization:
           credentials_file: /var/run/secrets/kubernetes.io/serviceaccount/token
         tls_config:
@@ -83,9 +92,19 @@ data:
             replacement: /api/v1/nodes/${1}/proxy/metrics
           - source_labels: [__meta_kubernetes_node_name]
             target_label: node
+        metric_relabel_configs:
+          # K3s exposes metrics from several embedded control-plane components
+          # through this endpoint. Keep this job scoped to kubelet/node health;
+          # scrape control-plane components with dedicated jobs later.
+          - source_labels: [__name__]
+            action: keep
+            regex: kubelet_.*|volume_manager_.*|storage_operation_.*|process_.*|go_.*|rest_client_.*
+          - target_label: cluster
+            replacement: k3s-homelab
 
-      - job_name: kubernetes-cadvisor         # not deployed by you, it already exist as part of Kubernetes/K3s
-        scheme: https                         # for container metrics
+      - job_name: kubernetes-cadvisor   # not deployed by you, it already exist as part of Kubernetes/K3s, for container metrics
+        scrape_interval: 30s
+        scheme: https
         authorization:
           credentials_file: /var/run/secrets/kubernetes.io/serviceaccount/token
         tls_config:
@@ -101,6 +120,9 @@ data:
             replacement: /api/v1/nodes/${1}/proxy/metrics/cadvisor
           - source_labels: [__meta_kubernetes_node_name]
             target_label: node
+        metric_relabel_configs:
+          - target_label: cluster
+            replacement: k3s-homelab
 
       - job_name: otel-application-metrics
         static_configs:

@@ -55,9 +55,13 @@ metadata:
 rules:
   - apiGroups: [""]
     resources:
+      - namespaces
       - nodes
       - pods
       - services
+      - endpoints
+      - configmaps
+      - secrets
       - persistentvolumes
       - persistentvolumeclaims
     verbs: ["list", "watch"]
@@ -72,6 +76,10 @@ rules:
     resources:
       - jobs
       - cronjobs
+    verbs: ["list", "watch"]
+  - apiGroups: ["autoscaling"]
+    resources:
+      - horizontalpodautoscalers
     verbs: ["list", "watch"]
   - apiGroups: ["networking.k8s.io"]
     resources:
@@ -161,4 +169,3 @@ subjects:
   - kind: ServiceAccount
     name: otel-agent
     namespace: monitoring
-

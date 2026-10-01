@@ -54,6 +54,34 @@ data:
         limit_mib: 384
         spike_limit_mib: 96
 
+      transform/fluentbit_k8s:
+        error_mode: ignore
+        log_statements:
+          - set(
+              resource.attributes["k8s.pod.uid"],
+              log.attributes["kubernetes"]["pod_id"]
+            )
+
+          - set(
+              resource.attributes["k8s.pod.name"],
+              log.attributes["kubernetes"]["pod_name"]
+            )
+
+          - set(
+              resource.attributes["k8s.namespace.name"],
+              log.attributes["kubernetes"]["namespace_name"]
+            )
+
+          - set(
+              resource.attributes["k8s.node.name"],
+              log.attributes["kubernetes"]["host"]
+            )
+
+          - set(
+              resource.attributes["k8s.container.name"],
+              log.attributes["kubernetes"]["container_name"]
+            )
+
       k8s_attributes:
         auth_type: serviceAccount
         extract:
@@ -128,7 +156,7 @@ data:
           exporters: [prometheus/applications]
         logs:
           receivers: [otlp, otlp/external]
-          processors: [memory_limiter, k8s_attributes, resource/cluster, batch]
+          processors: [memory_limiter, transform/fluentbit_k8s, k8s_attributes, resource/cluster, batch]
           exporters: [otlp_http/loki]
       telemetry:
         resource:

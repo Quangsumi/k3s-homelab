@@ -78,25 +78,29 @@ data:
         Annotations         Off
 
 
-    # ------------------------------------------------------------
-    # OUTPUT
-    #
-    # Fluent Bit knows only about the OTel Gateway.
-    #
-    # It does NOT know about Loki.
-    # ------------------------------------------------------------
     [OUTPUT]
-        Name          opentelemetry
-        Match         kube.*
+    Name          opentelemetry
+    Match         kube.*
 
-        Host          otel-gateway.monitoring.svc.cluster.local
-        Port          4318
+    Host          otel-gateway.monitoring.svc.cluster.local
+    Port          4318
 
-        Logs_URI      /v1/logs
+    Logs_URI      /v1/logs
 
-        TLS           Off
+    # THIS is the important part.
+    #
+    # Use only the actual application log as the OTLP Body.
+    Logs_Body_Key             $log
 
-        Retry_Limit   no_limits
+    # Everything else in the Fluent Bit record becomes
+    # OTLP LogRecord attributes.
+    #
+    # That includes the "kubernetes" map added by
+    # the Kubernetes filter.
+    Logs_Body_Key_Attributes  On
+
+    TLS           Off
+    Retry_Limit   no_limits
 
 
   parsers.conf: |

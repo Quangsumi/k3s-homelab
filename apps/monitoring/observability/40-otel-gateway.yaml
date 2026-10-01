@@ -203,6 +203,26 @@ spec:
         app.kubernetes.io/name: otel-gateway
         app.kubernetes.io/part-of: observability
     spec:
+      tolerations:
+        - key: node-role.kubernetes.io/control-plane
+          operator: Exists
+          effect: NoSchedule
+
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: node-role.kubernetes.io/control-plane
+                    operator: Exists
+
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchLabels:
+                  app.kubernetes.io/name: otel-gateway
+              topologyKey: kubernetes.io/hostname
+
       serviceAccountName: otel-gateway
       automountServiceAccountToken: true
       securityContext:

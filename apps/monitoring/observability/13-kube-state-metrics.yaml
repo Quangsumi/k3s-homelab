@@ -17,6 +17,26 @@ spec:
         app.kubernetes.io/name: kube-state-metrics
         app.kubernetes.io/part-of: observability
     spec:
+      tolerations:
+        - key: node-role.kubernetes.io/control-plane
+          operator: Exists
+          effect: NoSchedule
+
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: node-role.kubernetes.io/control-plane
+                    operator: Exists
+
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchLabels:
+                  app.kubernetes.io/name: kube-state-metrics
+              topologyKey: kubernetes.io/hostname
+
       serviceAccountName: kube-state-metrics
       automountServiceAccountToken: true
       securityContext:

@@ -23,7 +23,7 @@ spec:
               tailscale.com/parent-resource: traefik-ingress-proxies
       
       tolerations:                                                # allow scheduling on control-plane nodes
-        - key: control-plane
+        - key: node-role.kubernetes.io/control-plane
           operator: Exists
           effect: NoSchedule
 

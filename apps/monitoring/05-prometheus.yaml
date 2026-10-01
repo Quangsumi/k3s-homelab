@@ -134,18 +134,35 @@ data:
           - targets:
               - otel-gateway.monitoring.svc.cluster.local:8888
 
-      - job_name: otel-agent
+      # - job_name: otel-agent
+      #   kubernetes_sd_configs:
+      #     - role: endpoints
+      #       namespaces:
+      #         names: [monitoring]
+      #   relabel_configs:
+      #     - source_labels: [__meta_kubernetes_service_name]
+      #       action: keep
+      #       regex: otel-agent
+      #     - source_labels: [__meta_kubernetes_endpoint_port_name]
+      #       action: keep
+      #       regex: self-metrics
+
+      - job_name: fluent-bit
+        metrics_path: /api/v1/metrics/prometheus
         kubernetes_sd_configs:
           - role: endpoints
             namespaces:
-              names: [monitoring]
+              names:
+                - monitoring
         relabel_configs:
-          - source_labels: [__meta_kubernetes_service_name]
+          - source_labels:
+              - __meta_kubernetes_service_name
             action: keep
-            regex: otel-agent
-          - source_labels: [__meta_kubernetes_endpoint_port_name]
+            regex: fluent-bit
+          - source_labels:
+              - __meta_kubernetes_endpoint_port_name
             action: keep
-            regex: self-metrics
+            regex: http-metrics
 
       - job_name: loki
         static_configs:

@@ -17,7 +17,8 @@ resources:
   - observability/20-loki.yaml
   - observability/30-jaeger.yaml
   - observability/40-otel-gateway.yaml
-  - observability/50-otel-agent.yaml
+  # - observability/50-otel-agent.yaml
+  - observability/50-fluent-bit.yaml
   - observability/60-aspire-dashboard.yaml
   - observability/70-observability-network-policies.yaml
 

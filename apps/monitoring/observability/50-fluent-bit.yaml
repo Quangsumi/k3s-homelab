@@ -1,0 +1,267 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: fluent-bit-config
+  namespace: monitoring
+
+data:
+  fluent-bit.conf: |
+    [SERVICE]
+        Flush                     2
+        Grace                     30
+        Log_Level                 info
+
+        Parsers_File              /fluent-bit/etc/parsers.conf
+
+        # Persistent disk buffering.
+        storage.path              /var/lib/fluent-bit/storage
+        storage.sync              normal
+        storage.checksum          off
+        storage.max_chunks_up     128
+        storage.backlog.mem_limit 5M
+
+        # Fluent Bit internal monitoring.
+        HTTP_Server               On
+        HTTP_Listen               0.0.0.0
+        HTTP_Port                 2020
+
+        Health_Check              On
+
+
+    # ------------------------------------------------------------
+    # INPUT
+    #
+    # Read container stdout/stderr logs from this Kubernetes node.
+    # ------------------------------------------------------------
+    [INPUT]
+        Name              tail
+        Tag               kube.*
+
+        Path              /var/log/containers/*.log
+
+        # Don't recursively ingest Fluent Bit's own logs.
+        Exclude_Path      /var/log/containers/fluent-bit-*_monitoring_*.log
+
+        Parser            cri
+
+        # Remember the offset of every file.
+        DB                /var/lib/fluent-bit/flb_kube.db
+        DB.Sync           Normal
+
+        Refresh_Interval  10
+        Rotate_Wait       30
+        Skip_Long_Lines   On
+
+        Mem_Buf_Limit     10M
+
+        # Spill buffered chunks to disk when necessary.
+        storage.type      filesystem
+
+
+    # ------------------------------------------------------------
+    # KUBERNETES METADATA
+    # ------------------------------------------------------------
+    [FILTER]
+        Name                kubernetes
+        Match               kube.*
+
+        Kube_URL            https://kubernetes.default.svc:443
+        Kube_CA_File        /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+        Kube_Token_File     /var/run/secrets/kubernetes.io/serviceaccount/token
+
+        Kube_Tag_Prefix     kube.var.log.containers.
+
+        Merge_Log           On
+        Keep_Log            On
+
+        Labels              On
+        Annotations         Off
+
+
+    # ------------------------------------------------------------
+    # OUTPUT
+    #
+    # Fluent Bit knows only about the OTel Gateway.
+    #
+    # It does NOT know about Loki.
+    # ------------------------------------------------------------
+    [OUTPUT]
+        Name          opentelemetry
+        Match         kube.*
+
+        Host          otel-gateway.monitoring.svc.cluster.local
+        Port          4318
+
+        Logs_URI      /v1/logs
+
+        TLS           Off
+
+        Retry_Limit   no_limits
+
+
+  parsers.conf: |
+    [PARSER]
+        Name        cri
+        Format      regex
+
+        Regex       ^(?<time>[^ ]+) (?<stream>stdout|stderr) (?<logtag>[FP]) (?<log>.*)$
+
+        Time_Key    time
+        Time_Format %Y-%m-%dT%H:%M:%S.%L%z
+        Time_Keep   On
+
+
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: fluent-bit
+  namespace: monitoring
+
+  labels:
+    app.kubernetes.io/name: fluent-bit
+    app.kubernetes.io/part-of: observability
+
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: fluent-bit
+
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: fluent-bit
+        app.kubernetes.io/part-of: observability
+
+    spec:
+      serviceAccountName: fluent-bit
+      automountServiceAccountToken: true
+
+      # Same idea as your current otel-agent:
+      # run on every node, including tainted control-plane nodes.
+      tolerations:
+        - operator: Exists
+
+      securityContext:
+        runAsUser: 0
+        runAsGroup: 0
+
+        seccompProfile:
+          type: RuntimeDefault
+
+      containers:
+        - name: fluent-bit
+
+          image: fluent/fluent-bit:5.1.2
+          imagePullPolicy: IfNotPresent
+
+          args:
+            - --config=/fluent-bit/etc/fluent-bit.conf
+
+          ports:
+            - name: http-metrics
+              containerPort: 2020
+              protocol: TCP
+
+          readinessProbe:
+            httpGet:
+              path: /api/v1/health
+              port: http-metrics
+
+            initialDelaySeconds: 5
+            periodSeconds: 10
+
+          livenessProbe:
+            httpGet:
+              path: /api/v1/health
+              port: http-metrics
+
+            initialDelaySeconds: 15
+            periodSeconds: 20
+
+          resources:
+            requests:
+              cpu: 10m
+              memory: 16Mi
+
+            limits:
+              memory: 96Mi
+
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+
+            capabilities:
+              drop:
+                - ALL
+
+          volumeMounts:
+            - name: config
+              mountPath: /fluent-bit/etc/fluent-bit.conf
+              subPath: fluent-bit.conf
+              readOnly: true
+
+            - name: config
+              mountPath: /fluent-bit/etc/parsers.conf
+              subPath: parsers.conf
+              readOnly: true
+
+            - name: container-logs
+              mountPath: /var/log/containers
+              readOnly: true
+
+            - name: pod-logs
+              mountPath: /var/log/pods
+              readOnly: true
+
+            - name: state
+              mountPath: /var/lib/fluent-bit
+
+            - name: tmp
+              mountPath: /tmp
+
+      volumes:
+        - name: config
+          configMap:
+            name: fluent-bit-config
+
+        - name: container-logs
+          hostPath:
+            path: /var/log/containers
+            type: Directory
+
+        - name: pod-logs
+          hostPath:
+            path: /var/log/pods
+            type: Directory
+
+        - name: state
+          hostPath:
+            path: /var/lib/fluent-bit
+            type: DirectoryOrCreate
+
+        - name: tmp
+          emptyDir:
+            sizeLimit: 32Mi
+
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: fluent-bit
+  namespace: monitoring
+
+  labels:
+    app.kubernetes.io/name: fluent-bit
+
+spec:
+  clusterIP: None
+
+  selector:
+    app.kubernetes.io/name: fluent-bit
+
+  ports:
+    - name: http-metrics
+      port: 2020
+      targetPort: http-metrics

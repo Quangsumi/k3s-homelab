@@ -16,11 +16,12 @@ spec:
               - key: app.kubernetes.io/name
                 operator: In
                 values:
-                  - otel-agent
+                  # - otel-agent # used fluent-bit instead
                   - otel-gateway
         - podSelector:
             matchLabels:
               app: grafana
+
         - podSelector:
             matchLabels:
               app: prometheus
@@ -93,26 +94,51 @@ spec:
         - protocol: TCP
           port: 9464
 
+# ---
+# apiVersion: networking.k8s.io/v1
+# kind: NetworkPolicy
+# metadata:
+#   name: allow-prometheus-to-otel-agent
+#   namespace: monitoring
+# spec:
+#   podSelector:
+#     matchLabels:
+#       app.kubernetes.io/name: otel-agent
+#   policyTypes:
+#     - Ingress
+#   ingress:
+#     - from:
+#         - podSelector:
+#             matchLabels:
+#               app: prometheus
+#       ports:
+#         - protocol: TCP
+#           port: 8888
+
 ---
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: allow-prometheus-to-otel-agent
+  name: allow-prometheus-to-fluent-bit
   namespace: monitoring
+
 spec:
   podSelector:
     matchLabels:
-      app.kubernetes.io/name: otel-agent
+      app.kubernetes.io/name: fluent-bit
+
   policyTypes:
     - Ingress
+
   ingress:
     - from:
         - podSelector:
             matchLabels:
               app: prometheus
+
       ports:
         - protocol: TCP
-          port: 8888
+          port: 2020
 
 ---
 apiVersion: networking.k8s.io/v1

@@ -21,6 +21,8 @@ spec:
           defaultSettings:
             storageOverProvisioningPercentage: 100
             defaultDataPath: /var/lib/longhorn
+            nodeDownPodDeletionPolicy: delete-both-statefulset-and-deployment-pod     # Pod Deletion Policy When Node is Down
+            autoDeletePodWhenVolumeDetachedUnexpectedly: true                         # Automatically Delete Workload Pod when Volume Is Detached Unexpectedly
 
           preUpgradeChecker:
             jobEnabled: false

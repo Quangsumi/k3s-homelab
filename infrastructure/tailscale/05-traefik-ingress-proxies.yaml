@@ -5,7 +5,7 @@ metadata:
 spec:
   statefulSet:
     pod:
-      affinity:                                                   # prefer to schedule on control-plane nodes
+      affinity:                                                   # require scheduling on control-plane nodes
         nodeAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
             nodeSelectorTerms:
@@ -23,7 +23,7 @@ spec:
               tailscale.com/parent-resource: traefik-ingress-proxies
       
       tolerations:                                                # allow scheduling on control-plane nodes
-        - key: node-role.kubernetes.io/control-plane
+        - key: control-plane
           operator: Exists
           effect: NoSchedule
 

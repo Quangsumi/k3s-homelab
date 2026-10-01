@@ -3,11 +3,11 @@ kind: Namespace
 metadata:
   name: tailscale
 
----
-apiVersion: v1
-kind: Secret
-metadata:
-  name: tailscale-auth
-  namespace: tailscale
-stringData:
-  TS_AUTHKEY: tskey-auth-xxx
+# ---
+# apiVersion: v1
+# kind: Secret
+# metadata:
+#   name: tailscale-auth
+#   namespace: tailscale
+# stringData:
+#   TS_AUTHKEY: tskey-auth-xxx      # no need this anymore, install through heml + oauth

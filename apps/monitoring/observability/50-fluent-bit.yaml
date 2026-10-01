@@ -79,28 +79,28 @@ data:
 
 
     [OUTPUT]
-      Name          opentelemetry
-      Match         kube.*
+        Name          opentelemetry
+        Match         kube.*
 
-      Host          otel-gateway.monitoring.svc.cluster.local
-      Port          4318
+        Host          otel-gateway.monitoring.svc.cluster.local
+        Port          4318
 
-      Logs_URI      /v1/logs
+        Logs_URI      /v1/logs
 
-      # THIS is the important part.
-      #
-      # Use only the actual application log as the OTLP Body.
-      Logs_Body_Key             $log
+        # THIS is the important part.
+        #
+        # Use only the actual application log as the OTLP Body.
+        Logs_Body_Key             $log
 
-      # Everything else in the Fluent Bit record becomes
-      # OTLP LogRecord attributes.
-      #
-      # That includes the "kubernetes" map added by
-      # the Kubernetes filter.
-      Logs_Body_Key_Attributes  On
+        # Everything else in the Fluent Bit record becomes
+        # OTLP LogRecord attributes.
+        #
+        # That includes the "kubernetes" map added by
+        # the Kubernetes filter.
+        Logs_Body_Key_Attributes  On
 
-      TLS           Off
-      Retry_Limit   no_limits
+        TLS           Off
+        Retry_Limit   no_limits
 
 
   parsers.conf: |

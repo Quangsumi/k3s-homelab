@@ -83,6 +83,18 @@ data:
               log.attributes["kubernetes"]["container_name"]
             ) where log.attributes["kubernetes"]["container_name"] != nil
 
+          - set(
+              resource.attributes["k8s.pod.ip"],
+              log.attributes["kubernetes"]["pod_ip"]
+            ) where log.attributes["kubernetes"]["pod_ip"] != nil
+
+          # # After promoting the fields we need, drop the large raw Kubernetes map.
+          # - delete_key(log.attributes, "kubernetes")
+
+          # # These are redundant once the body/timestamp are already correct.
+          # - delete_key(log.attributes, "time")
+          # - delete_key(log.attributes, "logtag")
+
       k8s_attributes:
         auth_type: serviceAccount
         extract:

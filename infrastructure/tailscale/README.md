@@ -66,7 +66,27 @@ spec:
         type: ClusterIP  # override default (LB), LB is now using Tailscale. TailScale LB -> Traefik -> app pods
 
     deployment:
-      replicas: 3  # HA with traefik-ingress-proxies
+      replicas: 2  # HA with traefik-ingress-proxies
+
+    tolerations:
+      - key: node-role.kubernetes.io/control-plane
+        operator: Exists
+        effect: NoSchedule
+
+    affinity:
+      nodeAffinity:
+        requiredDuringSchedulingIgnoredDuringExecution:
+          nodeSelectorTerms:
+            - matchExpressions:
+                - key: node-role.kubernetes.io/control-plane
+                  operator: Exists
+
+      podAntiAffinity:
+        requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchLabels:
+                app.kubernetes.io/name: traefik
+            topologyKey: kubernetes.io/hostname
 
     ports:
       web:

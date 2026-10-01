@@ -1,7 +1,38 @@
 apiVersion: tailscale.com/v1alpha1
+kind: ProxyClass
+metadata:
+  name: control-plane-proxies
+spec:
+  statefulSet:
+    pod:
+      affinity:                                                   # prefer to schedule on control-plane nodes
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: node-role.kubernetes.io/control-plane
+                    operator: Exists
+
+      topologySpreadConstraints:                                  # spread pods across control-plane nodes
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: DoNotSchedule
+          labelSelector:
+            matchLabels:
+              tailscale.com/parent-resource-type: proxygroup
+              tailscale.com/parent-resource: traefik-ingress-proxies
+      
+      tolerations:                                                # allow scheduling on control-plane nodes
+        - key: node-role.kubernetes.io/control-plane
+          operator: Exists
+          effect: NoSchedule
+
+---
+apiVersion: tailscale.com/v1alpha1
 kind: ProxyGroup
 metadata:
   name: traefik-ingress-proxies
 spec:
   type: ingress
   replicas: 3
+  proxyClass: control-plane-proxies

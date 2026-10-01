@@ -12,6 +12,14 @@ helm upgrade --install tailscale-operator tailscale/tailscale-operator \
   --set-string oauth.clientId=[your-client-id] \
   --set-string oauth.clientSecret=[your-client-secret] \
   --wait
+
+helm repo update
+
+helm upgrade tailscale-operator \
+  tailscale/tailscale-operator \
+  --kubeconfig /etc/rancher/k3s/k3s.yaml \
+  -n tailscale \
+  -f tailscale-values.yaml
 ```
 # Usage
 ```

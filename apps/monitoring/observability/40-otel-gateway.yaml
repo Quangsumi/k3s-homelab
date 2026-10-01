@@ -119,6 +119,9 @@ data:
         send_batch_max_size: 1024
 
     exporters:
+      debug/fluentbit:
+        verbosity: detailed
+
       otlp_grpc/jaeger:
         endpoint: jaeger.monitoring.svc.cluster.local:4317
         tls:
@@ -156,8 +159,8 @@ data:
           exporters: [prometheus/applications]
         logs:
           receivers: [otlp, otlp/external]
-          processors: [memory_limiter, transform/fluentbit_k8s, k8s_attributes, resource/cluster, batch]
-          exporters: [otlp_http/loki]
+          processors: [memory_limiter, k8s_attributes, resource/cluster, batch]
+          exporters: [debug/fluentbit, otlp_http/loki]
       telemetry:
         resource:
           service.name: otel-gateway

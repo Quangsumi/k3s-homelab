@@ -34,5 +34,5 @@ metadata:
   name: traefik-ingress-proxies
 spec:
   type: ingress
-  replicas: 2
+  replicas: 3
   proxyClass: control-plane-proxies

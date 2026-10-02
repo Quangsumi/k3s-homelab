@@ -25,8 +25,8 @@ spec:
             nodeDownPodDeletionPolicy: delete-both-statefulset-and-deployment-pod     # Pod Deletion Policy When Node is Down
             autoDeletePodWhenVolumeDetachedUnexpectedly: true                         # Automatically Delete Workload Pod when Volume Is Detached Unexpectedly
             
-            orphanAutoDeletion: replica-data            # automatically remove orphaned replica data after its configured grace period.
-            orphanResourceAutoDeletionGracePeriod: 600
+            orphanResourceAutoDeletion: "replica-data;instance"            # automatically clean orphaned engine/replica runtime instances
+            orphanResourceAutoDeletionGracePeriod: 600                     # after this configured grace period.
 
           preUpgradeChecker:
             jobEnabled: false

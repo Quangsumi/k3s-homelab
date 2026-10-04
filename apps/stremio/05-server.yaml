@@ -44,8 +44,6 @@ spec:
           env:
             - name: APP_PATH
               value: /root/.stremio-server
-            - name: CASTING_DISABLED
-              value: "1"
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:
@@ -108,6 +106,7 @@ metadata:
   namespace: stremio
   annotations:
     cert-manager.io/cluster-issuer: homelab-ca
+    traefik.ingress.kubernetes.io/router.middlewares: stremio-stremio-web-redirect@kubernetescrd
 spec:
   ingressClassName: traefik
   tls:
@@ -125,3 +124,18 @@ spec:
                 name: stremio
                 port:
                   number: 11470
+
+---
+# Stremio 4.22.0's root redirect uses the backend socket's HTTP scheme,
+# ignoring X-Forwarded-Proto. Intercept only / at the TLS-terminating ingress.
+# API, torrent video and heartbeat paths continue to the server unchanged.
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: stremio-web-redirect
+  namespace: stremio
+spec:
+  redirectRegex:
+    regex: '^https?://stremio\.lab(:[0-9]+)?/([?].*)?$'
+    replacement: 'https://web.stremio.com/?streamingServerUrl=https%3A%2F%2Fstremio.lab'
+    permanent: false

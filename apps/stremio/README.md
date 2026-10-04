@@ -138,3 +138,74 @@ Source inspected: https://dl.strem.io/server/v4.22.0/desktop/server.js
 Bundle SHA256: `81ea888b9508dbb8ec6598f788ae4b834fdfdf1657e4c889d84543126e0da173`.
 The bundle declares package version `4.22.0`.
 The official 4.22.0 bundle was executed locally with Node.js: GET /heartbeat returned HTTP 200 and {"success":true}; /settings reported serverVersion 4.22.0. The temporary process was stopped after testing. This verifies the HTTP handler, not the Linux container or Kubernetes rollout. Docker was unavailable; local transcoding checks also failed because FFmpeg was absent.
+### HTTPS redirect behind Traefik (2026-10-04)
+
+Live checks found `/heartbeat` and `/settings` returning HTTP 200 with allowed
+Stremio browser origins. However, visiting `/` returned a redirect to
+`app.strem.io` with `streamingServer=http://stremio.lab`. The 4.22.0 root handler
+checks its backend socket type rather than X-Forwarded-Proto, so it advertises
+HTTP behind Traefik's HTTPS termination. This can cause mixed-content errors.
+
+The `stremio-web-redirect` Middleware intercepts only the root URL and supplies
+an HTTPS backend URL to the current official Web UI at web.stremio.com.
+API/video/probe paths pass through.
+The ingress references this namespaced middleware. It requires the existing
+Traefik CRD provider. This change has been rendered locally, not applied.
+
+Immediate workaround: in the screen with "Override the streaming server URL",
+enable that switch and enter `https://stremio.lab/`, then reload. Alternatively
+open https://web.stremio.com/ and add/select `https://stremio.lab/` in Streaming.
+If still Offline, verify `/heartbeat` on the viewing device, DNS and CA trust.
+Online plus playback failure requires a separate codec/peer/FFmpeg diagnosis.
+### Casting warning versus playback errors (2026-10-04)
+
+Leave `CASTING_DISABLED` unset. In server 4.22.0, setting it to any nonempty
+value removes the `/casting` API entirely. The legacy Web UI requests that
+API and labels its 404 response as "streaming server might be offline",
+even when `/settings` and `/heartbeat` are online. Casting here means sending
+video to Chromecast/DLNA or an external player; it is separate from ordinary
+browser playback. Keeping the API enabled does not make LAN device discovery
+work across Kubernetes or Tailscale: discovery still depends on the network.
+No host networking, multicast ingress, or additional exposed port is configured.
+
+Live checks found `/casting` returning 404 with the original deployment flag.
+The official 4.22.0 bundle was tested locally with that flag omitted and returned
+HTTP 200 JSON with `Access-Control-Allow-Origin: *` for `https://app.strem.io`.
+The manifest correction has not been applied; Linux container behavior and
+end-to-end video playback are not proven by that local endpoint test.
+
+An actual player error needs its exact message and a failed network request.
+The observed engine settings permit one HLS conversion at a time. Live logs
+showed two different videos replacing each other's converters. Close other
+playback tabs/devices for a single-stream test before diagnosing codec, peer,
+or resource failures. Increasing concurrency also increases CPU and memory
+demand; it is not changed by this manifest fix.
+
+The user subsequently confirmed the browser stream continued playing despite
+the casting notifications. For that session, the notifications were a false
+offline indication; this does not verify playback on other devices.
+
+### Version-independent Web entry point (2026-10-04)
+
+The root redirect now uses:
+`https://web.stremio.com/?streamingServerUrl=https%3A%2F%2Fstremio.lab`
+
+This uses the official Web app root rather than the older `/shell-v4.4/` path.
+The current Web UI accepts `streamingServerUrl`, not the older `streamingServer`
+parameter. A server URL that has not already been saved/selected can trigger an
+in-app confirmation dialog; accept it to use this backend. The source handler
+and the live Web app JavaScript were inspected to verify the parameter. A URL
+parse check also confirmed that it decodes to `https://stremio.lab`.
+This reduces dependence on a versioned path but still depends on the hosted UI
+and its parameter contract. Fully controlling UI upgrades would require hosting
+a separately pinned Web UI, which is outside this redirect change.
+
+The Web site's JavaScript runs on the user's phone/laptop. API and video
+requests go directly from that device to stremio.lab using the device's DNS,
+network routes and Tailscale access. Stremio's public Web hosting server does
+not need to join the tailnet or reach the Kubernetes service. Client CA trust,
+allowed CORS responses and browser local-network permission (where required)
+still apply. This change is prepared for review, not deployed or committed.
+
+Source: https://github.com/Stremio/stremio-web/blob/development/src/App/SearchParamsHandler.js
+Live Web build inspected: `bd312845f820a41f8b3ed876d9d80d9904e007fa`.

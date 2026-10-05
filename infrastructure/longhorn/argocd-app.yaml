@@ -26,6 +26,16 @@ spec:
             resizerReplicaCount: 2
             snapshotterReplicaCount: 2
 
+          longhornUI:
+            replicas: 2
+            affinity:
+              podAntiAffinity:
+                requiredDuringSchedulingIgnoredDuringExecution:
+                  - labelSelector:
+                      matchLabels:
+                        app: longhorn-ui
+                    topologyKey: kubernetes.io/hostname
+
           persistence:
             defaultClass: true            # local-path is default, mark this will make longhorn default StorageClass
             defaultClassReplicaCount: 2

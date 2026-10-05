@@ -35,19 +35,10 @@ spec:
         app.kubernetes.io/name: oauth2-proxy
         app.kubernetes.io/instance: longhorn
     spec:
-      tolerations:
-        - key: node-role.kubernetes.io/control-plane
-          operator: Exists
-          effect: NoSchedule
+      nodeSelector:
+        longhorn-enabled: "true"
 
       affinity:
-        nodeAffinity:
-          requiredDuringSchedulingIgnoredDuringExecution:
-            nodeSelectorTerms:
-              - matchExpressions:
-                  - key: node-role.kubernetes.io/control-plane
-                    operator: Exists
-
         podAntiAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
             - labelSelector:

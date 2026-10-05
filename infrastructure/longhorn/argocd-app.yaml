@@ -13,12 +13,27 @@ spec:
       helm:
         releaseName: longhorn
         values: |
+          # Label only worker nodes longhorn-enabled=true before syncing.
+          global:
+            nodeSelector:
+              longhorn-enabled: "true"
+
+          # Two eligible workers are required for both CSI replicas to run.
+          csi:
+            podAntiAffinityPreset: hard
+            attacherReplicaCount: 2
+            provisionerReplicaCount: 2
+            resizerReplicaCount: 2
+            snapshotterReplicaCount: 2
+
           persistence:
             defaultClass: true            # local-path is default, mark this will make longhorn default StorageClass
             defaultClassReplicaCount: 2
             reclaimPolicy: Retain         # Delete PVC ->  PV remains Released -> data still exists -> manually recover or delete later
 
           defaultSettings:
+            # Covers instance managers, CSI components, and engine images.
+            systemManagedComponentsNodeSelector: "longhorn-enabled:true"
             storageOverProvisioningPercentage: 100
             defaultDataPath: /var/lib/longhorn
             

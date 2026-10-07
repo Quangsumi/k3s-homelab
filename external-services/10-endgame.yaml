@@ -8,6 +8,32 @@ spec:
   insecureSkipVerify: true          # disable tls verification from traefik to pi apps/proxmox nodes
 
 ---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: endgame
+  namespace: external-services
+  annotations:
+    cert-manager.io/cluster-issuer: homelab-ca
+spec:
+  ingressClassName: traefik
+  tls:
+    - hosts:
+        - endgame.lab
+      secretName: endgame-lab-tls
+  rules:
+    - host: endgame.lab
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: endgame
+                port:
+                  name: https
+
+---
 apiVersion: v1
 kind: Service
 metadata:
@@ -40,29 +66,3 @@ endpoints:
       - 192.168.63.10
     conditions:
       ready: true
-
----
-apiVersion: networking.k8s.io/v1
-kind: Ingress
-metadata:
-  name: endgame
-  namespace: external-services
-  annotations:
-    cert-manager.io/cluster-issuer: homelab-ca
-spec:
-  ingressClassName: traefik
-  tls:
-    - hosts:
-        - endgame.lab
-      secretName: endgame-lab-tls
-  rules:
-    - host: endgame.lab
-      http:
-        paths:
-          - path: /
-            pathType: Prefix
-            backend:
-              service:
-                name: endgame
-                port:
-                  name: https

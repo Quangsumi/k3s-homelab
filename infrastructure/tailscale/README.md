@@ -1,4 +1,8 @@
 ```
+*note: this is installing through Helm, can move this to ArgoCD manage
+```
+
+```
 kubectl apply -f 01-tailscale-auth.yaml
 ```
 # OAuth credentials
@@ -23,6 +27,10 @@ helm upgrade tailscale-operator \
 ```
 # Usage
 ```
+apply this ingress, tailscale will give this service a tailscale domain
+funnel: "false" (default): access through the tailscle-only domain given by tailscale
+funnel true: access through the public domain also given by tailscale
+
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
@@ -74,7 +82,13 @@ spec:
         type: ClusterIP  # override default (LB), LB is now using Tailscale. TailScale LB -> Traefik -> app pods
 
     deployment:
-      replicas: 2  # HA with traefik-ingress-proxies
+      replicas: 3 # HA with traefik-ingress-proxies
+    
+    updateStrategy:
+      type: RollingUpdate
+      rollingUpdate:
+        maxSurge: 0
+        maxUnavailable: 1  
 
     tolerations:
       - key: node-role.kubernetes.io/control-plane
@@ -94,6 +108,7 @@ spec:
           - labelSelector:
               matchLabels:
                 app.kubernetes.io/name: traefik
+                app.kubernetes.io/instance: traefik-kube-system
             topologyKey: kubernetes.io/hostname
 
     ports:
@@ -111,6 +126,12 @@ spec:
           default: true
         exposedPort: 5432
         protocol: TCP
+
+    metrics:
+      prometheus:
+        addEntryPointsLabels: true
+        addRoutersLabels: true
+        addServicesLabels: true
 
     providers:
       kubernetesIngress:

@@ -38,7 +38,8 @@ whyachi
 1/ k3s control plane add tls-san for 192.168.63.69
 ```
 cat /etc/rancher/k3s/config.yaml
-write-kubeconfig-mode: "0644"
+write-kubeconfig-mode: "0644"   # non-root users can use kubeconfig without sudo
+cluster-init: true              # init cluster multi nodes + etcd (default is sqlite)
 kube-apiserver-arg:
   - "oidc-issuer-url=https://auth.lab/realms/homelab"
   - "oidc-client-id=k3s-client"
@@ -51,7 +52,7 @@ tls-san:
   - "192.168.63.69"
   - "kube-vip.lab"
 ```
-"When generating the Kubernetes API server certificate, also include 192.168.63.69 as a valid identity."
+tls-san tells k3s: "When generating the Kubernetes API server certificate, also include 192.168.63.69 as a valid identity."
 Then the certificate contains:
 ```
 Subject Alternative Names:

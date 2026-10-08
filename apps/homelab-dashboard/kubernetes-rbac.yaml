@@ -1,0 +1,35 @@
+# Apply manually using README.md. This file is outside Argo CD/kustomization.
+# Uses the existing kube-system namespace; no dashboard workload in K3s.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: homelab-dashboard
+  namespace: kube-system
+automountServiceAccountToken: false
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: homelab-dashboard-read
+rules:
+  - apiGroups: [""]
+    resources: ["nodes"]
+    verbs: ["get", "list"]
+  - apiGroups: ["metrics.k8s.io"]
+    resources: ["nodes"]
+    verbs: ["get", "list"]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: homelab-dashboard-read
+subjects:
+  - kind: ServiceAccount
+    name: homelab-dashboard
+    namespace: kube-system
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: homelab-dashboard-read

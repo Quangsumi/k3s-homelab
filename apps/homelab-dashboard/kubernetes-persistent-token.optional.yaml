@@ -1,0 +1,12 @@
+# Optional persistent credential. See the token lifecycle choices in README.md.
+# A non-expiring appliance token; use only if periodic short-lived token
+# replacement is unsuitable. Delete this Secret to revoke the token.
+# It inherits only the narrow node/node-metrics permissions in kubernetes-rbac.yaml.
+apiVersion: v1
+kind: Secret
+metadata:
+  name: homelab-dashboard-token
+  namespace: kube-system
+  annotations:
+    kubernetes.io/service-account.name: homelab-dashboard
+type: kubernetes.io/service-account-token

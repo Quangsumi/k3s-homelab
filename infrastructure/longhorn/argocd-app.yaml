@@ -9,7 +9,7 @@ spec:
   sources:
     - repoURL: https://charts.longhorn.io
       chart: longhorn
-      targetRevision: 1.11.2
+      targetRevision: 1.13.0
       helm:
         releaseName: longhorn
         values: |
@@ -54,7 +54,8 @@ spec:
             orphanResourceAutoDeletionGracePeriod: 600                     # after this configured grace period.
 
           preUpgradeChecker:
-            jobEnabled: false
+            jobEnabled: false          # recommended when use with ArgoCD, otherwise ArgoCD will fail to sync if the pre-upgrade checker job fails.
+            upgradeVersionCheck: true  # check if the upgrade version is compatible with the current version, if not, the pre-upgrade checker job will fail and ArgoCD will fail to sync.
 
     - repoURL: https://github.com/Quangsumi/k3s-homelab.git
       targetRevision: main

@@ -262,7 +262,6 @@ spec:
             - "--storage.tsdb.path=/prometheus"
             - "--storage.tsdb.retention.time=5d"
             - "--storage.tsdb.retention.size=4000MB"
-            - "--storage.tsdb.wal-compression-enabled=true"
           ports:
             - name: http
               containerPort: 9090

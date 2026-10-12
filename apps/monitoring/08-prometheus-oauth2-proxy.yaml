@@ -35,13 +35,14 @@ spec:
         app.kubernetes.io/name: oauth2-proxy
         app.kubernetes.io/instance: prometheus
     spec:
+      priorityClassName: homelab-diagnostics
       affinity:
         podAntiAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
             - labelSelector:
                 matchLabels:
                   app.kubernetes.io/name: oauth2-proxy
-                  app.kubernetes.io/instance: longhorn
+                  app.kubernetes.io/instance: prometheus
               topologyKey: kubernetes.io/hostname
               
       automountServiceAccountToken: false

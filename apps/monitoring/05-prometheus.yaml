@@ -230,6 +230,7 @@ spec:
       labels:
         app: prometheus
     spec:
+      priorityClassName: homelab-diagnostics
       serviceAccountName: prometheus
       securityContext:
         fsGroup: 65534
@@ -290,11 +291,11 @@ spec:
             timeoutSeconds: 30
             failureThreshold: 30
           resources:
-            requests:
-              cpu: 100m
-              memory: 256Mi
             limits:
               memory: 1Gi
+            requests:
+              cpu: 100m
+              memory: 576Mi
           volumeMounts:
             - name: prometheus-config
               mountPath: /etc/prometheus/prometheus.yml

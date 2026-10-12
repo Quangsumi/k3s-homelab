@@ -29,6 +29,7 @@ spec:
       labels:
         app: kanboard
     spec:
+      priorityClassName: homelab-dev
       automountServiceAccountToken: false
       containers:
         - name: kanboard

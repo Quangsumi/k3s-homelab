@@ -223,7 +223,7 @@ spec:
       #             app.kubernetes.io/name: otel-gateway
       #         topologyKey: kubernetes.io/hostname
 
-      priorityClassName: homelab-optional
+      priorityClassName: homelab-diagnostics
       serviceAccountName: otel-gateway
       automountServiceAccountToken: true
       securityContext:

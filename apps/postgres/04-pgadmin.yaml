@@ -15,7 +15,7 @@ spec:
       labels:
         app: pgadmin
     spec:
-      priorityClassName: homelab-optional
+      priorityClassName: homelab-dev
       securityContext:
         fsGroup: 5050
         fsGroupChangePolicy: "OnRootMismatch"

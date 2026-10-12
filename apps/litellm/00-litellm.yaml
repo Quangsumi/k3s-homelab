@@ -86,6 +86,7 @@ spec:
       #               operator: In
       #               values:
       #                 - stable
+      priorityClassName: homelab-dev
       containers:
         - name: litellm
           image: ghcr.io/berriai/litellm-database:1.86.0
@@ -190,12 +191,11 @@ spec:
             failureThreshold: 120
           
           resources:
-            requests:
-              cpu: 250m
-              memory: 512Mi
             limits:
               memory: 2Gi
-
+            requests:
+              cpu: 250m
+              memory: 1536Mi
           volumeMounts:
             - name: litellm-config
               mountPath: /app/config.yaml

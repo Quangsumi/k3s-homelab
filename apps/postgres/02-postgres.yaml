@@ -44,6 +44,7 @@ spec:
       labels:
         app: postgres
     spec:
+      priorityClassName: homelab-dev
       terminationGracePeriodSeconds: 60
       securityContext:
         fsGroup: 999

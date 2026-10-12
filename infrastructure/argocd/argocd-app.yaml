@@ -13,7 +13,57 @@ spec:
       helm:
         releaseName: argocd
         valuesObject:
+          global:
+            priorityClassName: homelab-optional
+          controller:
+            resources:
+              requests:
+                cpu: 100m
+                memory: 448Mi
+              limits:
+                memory: 1Gi
+          dex:
+            resources:
+              requests:
+                cpu: 5m
+                memory: 80Mi
+              limits:
+                memory: 192Mi
+          redis:
+            resources:
+              requests:
+                cpu: 10m
+                memory: 16Mi
+              limits:
+                memory: 64Mi
+          repoServer:
+            resources:
+              requests:
+                cpu: 25m
+                memory: 96Mi
+              limits:
+                memory: 512Mi
+          applicationSet:
+            resources:
+              requests:
+                cpu: 5m
+                memory: 48Mi
+              limits:
+                memory: 128Mi
+          notifications:
+            resources:
+              requests:
+                cpu: 5m
+                memory: 48Mi
+              limits:
+                memory: 128Mi
           server:
+            resources:
+              requests:
+                cpu: 10m
+                memory: 80Mi
+              limits:
+                memory: 192Mi
             env:
               - name: SSL_CERT_FILE
                 value: /etc/homelab/trust/ca-bundle.pem

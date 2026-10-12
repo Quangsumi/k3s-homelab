@@ -3,6 +3,13 @@ oauth:
   clientSecret: xxx
 
 operatorConfig:
+  priorityClassName: homelab-foundation
+  resources:
+    requests:
+      cpu: 10m
+      memory: 96Mi
+    limits:
+      memory: 256Mi
   tolerations:
     - key: node-role.kubernetes.io/control-plane
       operator: Exists

@@ -5,6 +5,14 @@ metadata:
 spec:
   statefulSet:
     pod:
+      priorityClassName: homelab-foundation
+      tailscaleContainer:
+        resources:
+          requests:
+            cpu: 10m
+            memory: 64Mi
+          limits:
+            memory: 192Mi
       affinity:                                                   # require scheduling on control-plane nodes
         nodeAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:

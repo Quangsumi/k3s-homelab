@@ -13,6 +13,28 @@ spec:
       helm:
         releaseName: cert-manager
         valuesObject:
+          global:
+            priorityClassName: homelab-optional
+          resources:
+            requests:
+              cpu: 10m
+              memory: 80Mi
+            limits:
+              memory: 192Mi
+          webhook:
+            resources:
+              requests:
+                cpu: 5m
+                memory: 48Mi
+              limits:
+                memory: 128Mi
+          cainjector:
+            resources:
+              requests:
+                cpu: 10m
+                memory: 64Mi
+              limits:
+                memory: 192Mi
           crds:
             enabled: true
 
@@ -22,6 +44,13 @@ spec:
       helm:
         releaseName: trust-manager
         valuesObject:
+          priorityClassName: homelab-optional
+          resources:
+            requests:
+              cpu: 5m
+              memory: 32Mi
+            limits:
+              memory: 96Mi
           app:
             trust:
               namespace: cert-manager

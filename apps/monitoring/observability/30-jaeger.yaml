@@ -101,6 +101,7 @@ spec:
         app.kubernetes.io/name: jaeger
         app.kubernetes.io/part-of: observability
     spec:
+      priorityClassName: homelab-optional
       automountServiceAccountToken: false
       securityContext:
         runAsNonRoot: true

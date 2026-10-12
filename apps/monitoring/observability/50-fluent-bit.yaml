@@ -138,6 +138,7 @@ spec:
         app.kubernetes.io/part-of: observability
 
     spec:
+      priorityClassName: homelab-diagnostics
       serviceAccountName: fluent-bit
       automountServiceAccountToken: true
 
@@ -186,7 +187,7 @@ spec:
           resources:
             requests:
               cpu: 10m
-              memory: 16Mi
+              memory: 48Mi
 
             limits:
               memory: 96Mi

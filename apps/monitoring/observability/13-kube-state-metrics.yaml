@@ -17,6 +17,7 @@ spec:
         app.kubernetes.io/name: kube-state-metrics
         app.kubernetes.io/part-of: observability
     spec:
+      priorityClassName: homelab-diagnostics
       tolerations:
         - key: node-role.kubernetes.io/control-plane
           operator: Exists

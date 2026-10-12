@@ -39,6 +39,7 @@ spec:
         app.kubernetes.io/name: aspire-dashboard
         app.kubernetes.io/part-of: observability
     spec:
+      priorityClassName: homelab-optional
       automountServiceAccountToken: false
       securityContext:
         runAsNonRoot: true

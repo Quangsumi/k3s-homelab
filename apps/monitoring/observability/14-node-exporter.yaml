@@ -16,6 +16,7 @@ spec:
         app.kubernetes.io/name: node-exporter
         app.kubernetes.io/part-of: observability
     spec:
+      priorityClassName: homelab-diagnostics
       automountServiceAccountToken: false
       hostNetwork: true
       hostPID: true

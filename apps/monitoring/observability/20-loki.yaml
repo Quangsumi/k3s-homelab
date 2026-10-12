@@ -87,6 +87,7 @@ spec:
         app.kubernetes.io/name: loki
         app.kubernetes.io/part-of: observability
     spec:
+      priorityClassName: homelab-diagnostics
       automountServiceAccountToken: false
       securityContext:
         runAsNonRoot: true
@@ -125,11 +126,11 @@ spec:
             timeoutSeconds: 3
             failureThreshold: 6
           resources:
-            requests:
-              cpu: 100m
-              memory: 256Mi
             limits:
               memory: 1Gi
+            requests:
+              cpu: 100m
+              memory: 320Mi
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true

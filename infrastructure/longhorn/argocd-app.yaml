@@ -58,10 +58,12 @@ spec:
 
           defaultSettings:
             # Queue rebuilds to reduce contention with etcd on the shared host SSDs.
-            concurrentReplicaRebuildPerNodeLimit: 1
+            concurrentReplicaRebuildPerNodeLimit: 2
             rebuildConcurrentSyncLimit: '{"v1":"1"}'
+            
             # Per-component resources; storage CPU remains uncapped. CSI pods restart on rollout.
             systemManagedCSIComponentsResourceLimits: '{"csi-attacher":{"requests":{"cpu":"5m","memory":"48Mi"},"limits":{"memory":"128Mi"}},"csi-provisioner":{"requests":{"cpu":"5m","memory":"48Mi"},"limits":{"memory":"128Mi"}},"csi-resizer":{"requests":{"cpu":"5m","memory":"64Mi"},"limits":{"memory":"128Mi"}},"csi-snapshotter":{"requests":{"cpu":"5m","memory":"48Mi"},"limits":{"memory":"128Mi"}},"node-driver-registrar":{"requests":{"cpu":"5m","memory":"24Mi"},"limits":{"memory":"64Mi"}},"longhorn-liveness-probe":{"requests":{"cpu":"5m","memory":"32Mi"},"limits":{"memory":"96Mi"}},"longhorn-csi-plugin":{"requests":{"cpu":"5m","memory":"32Mi"},"limits":{"memory":"96Mi"}}}'
+            
             # Covers instance managers, CSI components, and engine images.
             systemManagedComponentsNodeSelector: "longhorn-enabled:true"
             storageOverProvisioningPercentage: 100

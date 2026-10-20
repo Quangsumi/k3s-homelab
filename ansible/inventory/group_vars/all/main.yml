@@ -1,0 +1,23 @@
+# Supply a saved SSH password during initial setup. Host settings can override it.
+bootstrap_password_auth: false
+ansible_password: "{{ vault_hosts[inventory_hostname].ssh_password if bootstrap_password_auth | bool else none }}"
+
+# Point at an existing private key with --private-key; never copy it into this repo.
+ssh_public_keys:
+  - filename: laptop.pub
+    state: present
+
+baseline_packages:
+  - ca-certificates
+guest_agent_manage: true
+
+# Ubuntu network job: change DNS while preserving the existing Netplan settings.
+# Interface and gateway below match the discovery output you supplied on October 20.
+network_manage: true
+network_interface: ens18
+network_gateway: 192.168.63.1
+network_dns:
+  - 192.168.63.102
+network_dns_test_name: tombstone.lab  # Must exist on the selected DNS server.
+network_rollback_seconds: 180
+# Each guest's network_address is recorded separately in inventory/hosts.yml.

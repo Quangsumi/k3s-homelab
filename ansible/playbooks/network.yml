@@ -1,0 +1,259 @@
+# Change DNS on Ubuntu Netplan guests. Keep their existing addressing and other settings.
+- name: Update guest DNS with automatic rollback
+  hosts: linux_vms:!nas_appliances
+  become: "{{ ansible_user != 'root' }}"  # Use sudo if not already root. The inventory user is expected to have passwordless sudo.
+  gather_facts: true
+  serial: 1
+  any_errors_fatal: true
+
+  tasks:
+    - name: Check this is a supported VM and its expected IP has not changed
+      ansible.builtin.assert:
+        that:
+          - network_manage | bool
+          - ansible_distribution == 'Ubuntu'
+          - ansible_service_mgr == 'systemd'
+          - network_address is defined
+          - network_address is string
+          - ansible_default_ipv4.address == network_address
+          - ansible_default_ipv4.interface == network_interface
+          - ansible_default_ipv4.gateway == network_gateway
+          - network_dns | length > 0
+          - network_rollback_seconds | int >= 120
+
+    - name: Read the complete current Netplan configuration
+      ansible.builtin.command: netplan get
+      register: current_netplan
+      changed_when: false
+      check_mode: false
+
+    - name: Find the Ethernet definition for this interface, including MAC-based names
+      ansible.builtin.set_fact:
+        network_ids: []
+        network_current: '{{ current_netplan.stdout | from_yaml }}'
+
+    - name: Match the interface name or MAC address
+      ansible.builtin.set_fact:
+        network_ids: '{{ network_ids + [item.key] }}'
+      loop: '{{ network_current.network.ethernets | dict2items }}'
+      loop_control:
+        label: '{{ item.key }}'
+      when: >-
+        item.key == network_interface or
+        item.value.get('set-name', '') == network_interface or
+        item.value.get('match', {}).get('macaddress', '') | lower == ansible_default_ipv4.macaddress | lower
+
+    - name: Require exactly one matching interface
+      ansible.builtin.assert:
+        that:
+          - network_ids | length == 1
+          - network_current.network.get('renderer', 'networkd') == 'networkd'
+        fail_msg: Interface matching is ambiguous or this guest does not use networkd. Nothing changed.
+
+    - name: Change only its configured DNS server list
+      ansible.builtin.set_fact:
+        network_desired: >-
+          {{ network_current | combine({'network': {'ethernets': {
+             network_ids[0]: {'nameservers': {'addresses': network_dns}}
+             }}}, recursive=true) }}
+
+    - name: Read cloud-init's recorded network-generation setting, if available
+      ansible.builtin.command: cloud-init query merged_cfg.network.config
+      register: cloud_network
+      changed_when: false
+      failed_when: false
+      check_mode: false
+
+    - name: Check whether cloud-init has a configuration directory
+      ansible.builtin.stat:
+        path: /etc/cloud/cloud.cfg.d
+      register: cloud_config_directory
+
+    - name: Check the resolver and current control-plane API before making changes
+      ansible.builtin.command: '{{ item }}'
+      loop: >-
+        {{ ['resolvectl dns ' ~ network_interface] +
+           (['/usr/local/bin/k3s kubectl --server=https://' ~ network_address ~
+             ':6443 --request-timeout=10s get --raw=/readyz']
+             if 'control_planes' in group_names else []) }}
+      changed_when: false
+      check_mode: false
+
+    - name: Show the proposed change
+      ansible.builtin.debug:
+        msg:
+          interface: '{{ network_interface }}'
+          current_dns: '{{ network_current.network.ethernets[network_ids[0]].get("nameservers", {}).get("addresses", []) }}'
+          desired_dns: '{{ network_dns }}'
+          addressing: Existing IP, gateway, IPv6 and interface rules are preserved.
+          cloud_init: '{{ cloud_network.stdout | default("unknown") | trim }}'
+      changed_when: network_desired != network_current
+
+    # --check ends here. A real run skips the transaction too if DNS already matches.
+    - name: Back up, apply and verify one VM
+      when: not ansible_check_mode and network_desired != network_current
+      block:
+        - name: Create a unique backup directory
+          ansible.builtin.file:
+            path: /root/backups/network
+            state: directory
+            mode: '0700'
+
+        - name: Allocate this change's directory
+          ansible.builtin.tempfile:
+            state: directory
+            path: /root/backups/network
+            prefix: '{{ ansible_date_time.iso8601_basic_short }}-'
+          register: network_backup
+
+        - name: Save existing network files and any previous Ansible cloud-init setting
+          ansible.builtin.shell: |
+            set -eu
+            cp -a /etc/netplan "$BACKUP/netplan"
+            if [ -e /etc/cloud/cloud.cfg.d/99-ansible-network.cfg ]; then
+              cp -a /etc/cloud/cloud.cfg.d/99-ansible-network.cfg "$BACKUP/cloud-init.original"
+            fi
+            mkdir -p "$BACKUP/candidate/etc/netplan"
+          environment:
+            BACKUP: '{{ network_backup.path }}'
+          changed_when: true
+
+        - name: Write the candidate configuration outside the live directory
+          ansible.builtin.copy:
+            content: '{{ network_desired | to_nice_yaml }}'
+            dest: '{{ network_backup.path }}/candidate/etc/netplan/90-ansible.yaml'
+            mode: '0600'
+
+        - name: Validate the candidate before touching active configuration
+          ansible.builtin.command: netplan generate --root-dir={{ network_backup.path }}/candidate
+          changed_when: false
+
+        - name: Install the independent rollback script
+          ansible.builtin.copy:
+            src: ../files/network-rollback.sh
+            dest: '{{ network_backup.path }}/rollback.sh'
+            mode: '0700'
+
+        - name: Choose unique service names
+          ansible.builtin.set_fact:
+            network_unit: 'ansible-network-{{ network_backup.path | basename }}'
+
+        - name: Arm a local rollback timer before changing live files
+          ansible.builtin.command: >-
+            systemd-run --unit={{ network_unit }}-rollback
+            --on-active={{ network_rollback_seconds }}s --timer-property=AccuracySec=1s
+            /bin/sh {{ network_backup.path }}/rollback.sh {{ network_backup.path }}
+          register: rollback_timer
+          changed_when: true
+
+        - name: Confirm the timer is running
+          ansible.builtin.command: systemctl is-active {{ network_unit }}-rollback.timer
+          changed_when: false
+
+        - name: Replace overlapping Netplan files with the validated merged configuration
+          ansible.builtin.shell: |
+            set -eu
+            find /etc/netplan -maxdepth 1 \( -type f -o -type l \) \( -name '*.yaml' -o -name '*.yml' \) -delete
+            install -m 600 "$BACKUP/candidate/etc/netplan/90-ansible.yaml" /etc/netplan/90-ansible.yaml
+          environment:
+            BACKUP: '{{ network_backup.path }}'
+          changed_when: true
+
+        - name: Stop cloud-init regenerating networking when Ansible takes ownership
+          ansible.builtin.copy:
+            content: "network: {config: disabled}\n"
+            dest: /etc/cloud/cloud.cfg.d/99-ansible-network.cfg
+            mode: '0600'
+          when: cloud_config_directory.stat.exists and cloud_network.stdout | default('') | trim != 'disabled'
+
+        - name: Apply independently of this SSH session
+          ansible.builtin.command: >-
+            systemd-run --no-block --unit={{ network_unit }}-apply
+            --property=RemainAfterExit=yes /usr/sbin/netplan apply
+          changed_when: true
+
+        - name: Close the old SSH connection
+          ansible.builtin.meta: reset_connection
+
+        - name: Wait for a new SSH connection
+          ansible.builtin.wait_for_connection:
+            delay: 5
+            timeout: 60
+
+        - name: Wait for Netplan to finish applying
+          ansible.builtin.command: systemctl show {{ network_unit }}-apply.service -p SubState -p ExecMainStatus
+          register: apply_status
+          changed_when: false
+          until: "'SubState=exited' in apply_status.stdout or 'SubState=failed' in apply_status.stdout"
+          retries: 20
+          delay: 2
+          failed_when: "'SubState=failed' in apply_status.stdout or 'ExecMainStatus=0' not in apply_status.stdout"
+
+        - name: Refresh interface facts
+          ansible.builtin.setup:
+            gather_subset: [network]
+
+        - name: Verify IP, interface and gateway stayed the same
+          ansible.builtin.assert:
+            that:
+              - ansible_default_ipv4.address == network_address
+              - ansible_default_ipv4.interface == network_interface
+              - ansible_default_ipv4.gateway == network_gateway
+
+        - name: Read the effective link DNS servers
+          ansible.builtin.command: resolvectl dns {{ network_interface }}
+          register: effective_dns
+          changed_when: false
+
+        - name: Verify the configured DNS list is the one in use
+          ansible.builtin.assert:
+            that:
+              - effective_dns.stdout.split(':', 1)[1].split() | sort == network_dns | sort
+
+        - name: Resolve an internal name through DNS, without cached or hosts-file answers
+          ansible.builtin.command: >-
+            resolvectl query --cache=no --synthesize=no --protocol=dns
+            --interface={{ network_interface }} {{ network_dns_test_name }}
+          changed_when: false
+          timeout: 20
+
+        - name: Recheck local Kubernetes readiness on control planes
+          ansible.builtin.command: >-
+            /usr/local/bin/k3s kubectl --server=https://{{ network_address }}:6443
+            --request-timeout=10s get --raw=/readyz
+          changed_when: false
+          when: "'control_planes' in group_names"
+
+        - name: Commit only if rollback has not already happened
+          ansible.builtin.command:
+            argv:
+              - flock
+              - '{{ network_backup.path }}/transaction.lock'
+              - /bin/sh
+              - -c
+              - 'test ! -e "$1/rollback-started" && touch "$1/committed"'
+              - commit
+              - '{{ network_backup.path }}'
+          changed_when: true
+
+        - name: Cancel the rollback timer
+          ansible.builtin.command: systemctl stop {{ network_unit }}-rollback.timer
+          changed_when: true
+
+        - name: Release the finished apply service
+          ansible.builtin.command: systemctl stop {{ network_unit }}-apply.service
+          changed_when: false
+
+        - name: Report the retained recovery backup
+          ansible.builtin.debug:
+            msg: 'Verified and committed. Backup: {{ network_backup.path }}'
+
+      rescue:
+        - name: Start local rollback immediately if we are still connected
+          ansible.builtin.command: systemctl start {{ network_unit }}-rollback.service
+          when: rollback_timer is defined and not (rollback_timer.failed | default(false))
+          changed_when: true
+
+        - name: Stop this rollout
+          ansible.builtin.fail:
+            msg: Network verification failed. If SSH was lost, the VM's armed timer restores the old files automatically. Do not continue to another VM until recovery is verified.

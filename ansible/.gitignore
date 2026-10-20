@@ -1,0 +1,9 @@
+.venv/
+.validation/
+inventory/group_vars/all/vault.yml
+inventory/group_vars/all/vault.yaml
+secrets/*.yml
+secrets/*.yaml
+keys/*.pub
+*.retry
+artifacts/

@@ -1,0 +1,24 @@
+- name: Inspect guest operating systems and networking without changing them
+  hosts: linux_vms
+  gather_facts: true
+  tasks:
+    - name: Inspect configuration files
+      ansible.builtin.find:
+        paths: /etc/netplan
+        patterns: ['*.yaml', '*.yml']
+      register: netplan_files
+
+    - name: Inspect network manager services
+      ansible.builtin.service_facts:
+
+    - name: Print facts needed before enabling management
+      ansible.builtin.debug:
+        msg:
+          host: "{{ inventory_hostname }}"
+          os: "{{ ansible_distribution }} {{ ansible_distribution_version }}"
+          default_ipv4: "{{ ansible_default_ipv4 | default({}) }}"
+          interfaces: "{{ ansible_interfaces }}"
+          netplan_files: "{{ netplan_files.files | map(attribute='path') | list }}"
+          networkd: "{{ ansible_facts.services.get('systemd-networkd.service', {}) }}"
+          networkmanager: "{{ ansible_facts.services.get('NetworkManager.service', {}) }}"
+          note: Inspect file contents and cloud-init ownership before filling network variables.

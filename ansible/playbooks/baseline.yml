@@ -1,0 +1,47 @@
+- name: Maintain common guest packages and QEMU guest agent
+  hosts: linux_vms:!nas_appliances
+  become: "{{ ansible_user != 'root' }}"  # Use sudo if the login account is not root.
+  gather_facts: true      # Gather facts to determine OS family and package manager.
+  serial: 1               # Run the entire play on one VM before starting the next VM.
+  any_errors_fatal: true  # Stop the play if any host fails; don't continue to the next host.
+  tasks:
+    - name: Require a supported general purpose Linux guest
+      ansible.builtin.assert:
+        that:
+          - ansible_os_family in ['Debian', 'RedHat']
+        fail_msg: Appliance or unsupported OS; do not force package management onto it.
+
+    - name: Refresh Debian package metadata
+      ansible.builtin.apt:
+        update_cache: true
+        cache_valid_time: 3600
+      when: ansible_os_family == 'Debian'
+
+    - name: Install baseline packages without upgrading the whole OS
+      ansible.builtin.package:
+        name: "{{ baseline_packages }}"
+        state: present
+
+    # Only install the agent if the guest_agent_manage is true. 
+    # guest_agent_manage: a switch, can override if specific guests don't need installation.
+
+    - name: Install guest agent
+      ansible.builtin.package:
+        name: qemu-guest-agent
+        state: present
+      when: guest_agent_manage | bool
+
+    # Some distributions ship a static, device-activated unit with no enable action.
+    - name: Read guest-agent unit activation type
+      ansible.builtin.command: systemctl show qemu-guest-agent.service -p UnitFileState --value
+      register: agent_unit
+      changed_when: false
+      check_mode: false
+      when: guest_agent_manage | bool and not ansible_check_mode
+
+    - name: Start guest agent and enable it where the unit supports enabling
+      ansible.builtin.systemd_service:
+        name: qemu-guest-agent
+        state: started
+        enabled: "{{ omit if agent_unit.stdout == 'static' else true }}"
+      when: guest_agent_manage | bool and not ansible_check_mode

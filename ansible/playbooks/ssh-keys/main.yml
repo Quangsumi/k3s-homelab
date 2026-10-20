@@ -8,7 +8,7 @@
     - name: Add or revoke the specified key for the login account
       ansible.posix.authorized_key:
         user: "{{ ansible_user }}"
-        key: "{{ lookup('ansible.builtin.file', playbook_dir ~ '/../keys/' ~ item.filename) }}"
+        key: "{{ lookup('ansible.builtin.file', playbook_dir ~ '/../../keys/' ~ item.filename) }}"
         state: "{{ item.state }}"
         exclusive: false
         manage_dir: true

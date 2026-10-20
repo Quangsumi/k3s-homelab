@@ -24,7 +24,7 @@ def combine(original, update, recursive=False):
 
 
 ENV.filters['combine'] = combine
-PLAY = yaml.safe_load((ROOT / 'playbooks/network.yml').read_text(encoding='utf-8-sig'))[0]
+PLAY = yaml.safe_load((ROOT / 'playbooks/network/main.yml').read_text(encoding='utf-8-sig'))[0]
 TASKS = PLAY['tasks']
 CONDITIONS = TASKS[0]['ansible.builtin.assert']['that']
 MERGE = next(t['ansible.builtin.set_fact']['network_desired'] for t in TASKS

@@ -6,6 +6,6 @@
     - name: Allow my laptop to log in as Valkyrie's user
       ansible.posix.authorized_key:
         user: "{{ ansible_user }}"
-        key: "{{ lookup('ansible.builtin.file', playbook_dir ~ '/../keys/laptop.pub') }}"
+        key: "{{ lookup('ansible.builtin.file', playbook_dir ~ '/../../../keys/laptop.pub') }}"
         state: present
         exclusive: false

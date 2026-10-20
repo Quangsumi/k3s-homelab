@@ -8,7 +8,7 @@ from jinja2 import Environment, StrictUndefined, UndefinedError
 ROOT = Path(__file__).resolve().parents[1]
 ENV = Environment(undefined=StrictUndefined)
 ENV.filters['from_json'] = json.loads
-PLAY = yaml.safe_load((ROOT / 'playbooks/proxmox-agent.yml').read_text(encoding='utf-8-sig'))[0]
+PLAY = yaml.safe_load((ROOT / 'playbooks/proxmox-agent/main.yml').read_text(encoding='utf-8-sig'))[0]
 
 
 def evaluate(expression, **values):

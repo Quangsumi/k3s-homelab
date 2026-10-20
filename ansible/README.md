@@ -1,48 +1,48 @@
-# Learn Ansible with your VMs
+# Homelab Ansible
 
-Start with one job: **add your laptop's SSH public key to Valkyrie**.
-After that works, move to the other VMs and other settings.
-Use your existing VM account (for example `valkyrie`), with sudo for administrator
-tasks. Root can remain locked.
-If you want to prepare direct root access afterward, follow [ROOT-ACCESS.md](ROOT-ACCESS.md).
+Run commands in **WSL Ubuntu**, from this `ansible` folder.
+Ansible connects over SSH and applies the instructions in a playbook.
 
-## Read in this order
+1. Read [Setup and reference](GUIDE.md) for installation, SSH keys, passwords and inventory.
+2. Choose a job below. Each folder contains `main.yml` and its guide.
+3. After the jobs work, read [Roles, handlers and dynamic inventory](ADVANCED.md) for the next concepts, with examples from this lab.
 
-1. [First exercise](LESSONS.md): understand the job, read two small files, preview it, run it and check the result.
-2. [Laptop setup](SETUP.md): install Ansible in Ubuntu on Windows. The exercise tells you when to open this page.
-3. [Next steps](NEXT-STEPS.md): use keys from Ubuntu, manage different VM passwords, install software, and understand networking.
-4. [Network changes](NETWORKING.md): the automated DNS job: preserve current networking, back up, apply, verify or roll back.
+| Job | What it does |
+|---|---|
+| [SSH keys](playbooks/ssh-keys/README.md) | Add or remove public keys for existing login accounts |
+| [Root access](playbooks/root-access/README.md) | Enable root keys, set its password and configure root SSH |
+| [Baseline](playbooks/baseline/README.md) | Install common packages and the QEMU guest agent inside VMs |
+| [Proxmox agent option](playbooks/proxmox-agent/README.md) | Enable the agent option in Proxmox VM settings |
+| [Network](playbooks/network/README.md) | Change Ubuntu DNS with backup, verification and rollback |
+| [Discover](playbooks/discover/README.md) | Read OS, interface and networking information |
+| [Verify](playbooks/verify/README.md) | Report addresses, routes, resolver and guest-agent status |
 
-Each command in the first exercise says **where to run it**, what it does, and
-what result to expect. Example output is labeled as an example.
+## Common command pattern
 
-## Which files should I open first?
-
-```text
-beginner/hosts.yml      The machine list: Valkyrie only.
-beginner/add-key.yml    The job: add your laptop's public key.
-keys/laptop.pub         Your public key; you supply this file.
+```bash
+ansible-playbook playbooks/JOB/main.yml --check
+ansible-playbook playbooks/JOB/main.yml
 ```
 
-The first exercise asks for one VM password. You do not need the encrypted password
-file or the full lab settings to complete it.
+Replace `JOB` with a folder name above. `--check` previews supported changes;
+it does not prove that the eventual change will work.
 
-## What is the rest of the project for?
+| Add this | To do this |
+|---|---|
+| `--limit valkyrie` | Select one VM |
+| `--limit valkyrie,huge` | Select several VMs |
+| `--limit workers` | Select an inventory group |
+| No `--limit` | Select every host allowed by that playbook |
+| `-e @secrets/vault.yml --ask-vault-pass` | Load saved credentials |
+| `--ask-become-pass` | Type one shared sudo password instead |
+| `-e ansible_user=root` | Use root for this run, after root access is ready |
+| `--syntax-check` | Check Ansible syntax without running tasks |
 
-For key-only runs, no Vault prompt is needed. Encrypted credentials now live in
-`secrets/vault.yml`; [VAULT.md](VAULT.md) explains when to load them.
+SSH keys, root, baseline and network jobs process one host at a time automatically
+and stop on failure. One command can cover the whole group.
+Hydra/OMV is excluded from root, baseline and network jobs.
 
-The `inventory/` and `playbooks/` folders contain the full lab version.
-[NEXT-STEPS.md](NEXT-STEPS.md) introduces those files after the first exercise.
-[REFERENCE.md](REFERENCE.md) holds the technical details and source links.
-[NAMING.md](NAMING.md) explains stable VM names and moving from the earlier numbered names.
-[HOST-EXCEPTIONS.md](HOST-EXCEPTIONS.md) explains Hydra's root account and Biteforce's key-only login, with retry commands.
-
-The machine addresses came from the triage skill's October 13, 2026 notes. Confirm
-them before use. Creating and rewriting these files has not contacted or changed VMs.
-
-The network playbook now applies DNS changes automatically, with a local rollback
-timer. Use --check first. It preserves current IP/IPv6/interface rules and excludes
-Hydra. No network changes have been applied during preparation.
-
-See [VALIDATION.md](VALIDATION.md) for checks performed and checks still needed.
+Files were prepared locally; this cleanup applied nothing to the lab.
+Offline checks previously passed: 18 regression tests and public YAML/path checks.
+Live SSH, sudo, Netplan and rollback integration still require verification.
+Optional regression checks live in `tests/`; they are not needed to run playbooks.

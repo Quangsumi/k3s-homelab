@@ -33,7 +33,7 @@ class UserLoginTests(unittest.TestCase):
         self.assertEqual(load('inventory/group_vars/proxmox_hosts.yml')['ansible_user'], 'root')
 
     def test_key_jobs_edit_only_the_login_users_keys_without_sudo(self):
-        for path in ['beginner/add-key.yml', 'playbooks/ssh-keys.yml']:
+        for path in ['playbooks/ssh-keys/beginner/main.yml', 'playbooks/ssh-keys/main.yml']:
             play = load(path)[0]
             self.assertFalse(play['become'])
             module = play['tasks'][0]['ansible.posix.authorized_key']
@@ -48,7 +48,7 @@ class UserLoginTests(unittest.TestCase):
         self.assertIsNone(evaluate(expression, inventory_hostname='valkyrie'))
 
     def test_baseline_and_network_use_sudo_only_for_nonroot(self):
-        for path in ['playbooks/baseline.yml', 'playbooks/network.yml']:
+        for path in ['playbooks/baseline/main.yml', 'playbooks/network/main.yml']:
             expression = load(path)[0]['become']
             self.assertTrue(evaluate(expression, ansible_user='valkyrie'))
             self.assertFalse(evaluate(expression, ansible_user='root'))
@@ -76,12 +76,12 @@ class UserLoginTests(unittest.TestCase):
         self.assertFalse(settings['network_manage'])
         children = load('inventory/hosts.yml')['all']['children']['linux_vms']['children']
         self.assertEqual(set(children['nas_appliances']['hosts']), {'hydra'})
-        for path in ['playbooks/baseline.yml', 'playbooks/root-access.yml', 'playbooks/network.yml']:
+        for path in ['playbooks/baseline/main.yml', 'playbooks/root-access/main.yml', 'playbooks/network/main.yml']:
             self.assertEqual(load(path)[0]['hosts'], 'linux_vms:!nas_appliances')
-        self.assertIn('linux_vms', load('playbooks/ssh-keys.yml')[0]['hosts'].split(':'))
+        self.assertIn('linux_vms', load('playbooks/ssh-keys/main.yml')[0]['hosts'].split(':'))
 
     def test_root_password_requires_a_real_hash_and_suppresses_logging(self):
-        play = load('playbooks/root-access.yml')[0]
+        play = load('playbooks/root-access/main.yml')[0]
         task = next(t for t in play['tasks'] if t['name'].startswith('Require a real root password'))
         self.assertTrue(task['no_log'])
         expression = task['ansible.builtin.assert']['that'][0]
@@ -94,7 +94,7 @@ class UserLoginTests(unittest.TestCase):
         self.assertFalse(password_task['ansible.builtin.user']['password_lock'])
 
     def test_root_policy_is_scoped_to_root_and_can_disable_password_ssh(self):
-        play = load('playbooks/root-access.yml')[0]
+        play = load('playbooks/root-access/main.yml')[0]
         block = next(t['block'] for t in play['tasks'] if 'block' in t)
         policy = block[0]['ansible.builtin.blockinfile']
         self.assertIn('sshd -t', policy['validate'])

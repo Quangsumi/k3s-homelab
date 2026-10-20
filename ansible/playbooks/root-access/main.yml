@@ -1,5 +1,5 @@
-# Run AFTER ssh-keys.yml, connecting as the existing VM user with sudo.
-# This is separate from baseline.yml; it is never imported automatically.
+# Run AFTER ../ssh-keys/main.yml, connecting as the existing VM user with sudo.
+# This is separate from ../baseline/main.yml; it is never imported automatically.
 - name: Prepare root access through the existing VM account
   hosts: linux_vms:!nas_appliances
   gather_facts: true
@@ -86,7 +86,7 @@
     - name: Authorize the selected public keys for root
       ansible.posix.authorized_key:
         user: root
-        key: "{{ lookup('ansible.builtin.file', playbook_dir ~ '/../keys/' ~ item.filename) }}"
+        key: "{{ lookup('ansible.builtin.file', playbook_dir ~ '/../../keys/' ~ item.filename) }}"
         state: present
         exclusive: false
         manage_dir: true

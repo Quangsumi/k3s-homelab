@@ -47,6 +47,8 @@ spec:
               to: websecure
               scheme: https
               permanent: true
+              # ACME solver routers use priority 10000; normal HTTP still redirects.
+              priority: 1000
       postgres:
         port: 5432
         expose:

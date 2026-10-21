@@ -1,0 +1,20 @@
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: infisical-acme-canary
+  namespace: cert-manager
+spec:
+  secretName: infisical-acme-canary-tls
+  issuerRef:
+    name: infisical-acme
+    kind: ClusterIssuer
+    group: cert-manager.io
+  dnsNames:
+    - pki-canary.lab
+  privateKey:
+    algorithm: RSA
+    size: 2048
+    rotationPolicy: Always
+  usages:
+    - digital signature
+    - server auth

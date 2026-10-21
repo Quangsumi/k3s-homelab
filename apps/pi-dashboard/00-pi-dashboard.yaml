@@ -145,7 +145,8 @@ metadata:
   name: pi-dashboard
   namespace: pi-dashboard
   annotations:
-    cert-manager.io/cluster-issuer: homelab-ca
+    # cert-manager.io/cluster-issuer: homelab-ca
+    cert-manager.io/cluster-issuer: infisical-acme
 spec:
   ingressClassName: traefik
   tls:

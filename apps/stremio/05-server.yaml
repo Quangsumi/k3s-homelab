@@ -104,7 +104,8 @@ metadata:
   name: stremio
   namespace: stremio
   annotations:
-    cert-manager.io/cluster-issuer: homelab-ca
+    # cert-manager.io/cluster-issuer: homelab-ca
+    cert-manager.io/cluster-issuer: infisical-acme
     traefik.ingress.kubernetes.io/router.middlewares: stremio-stremio-web-redirect@kubernetescrd
 spec:
   ingressClassName: traefik

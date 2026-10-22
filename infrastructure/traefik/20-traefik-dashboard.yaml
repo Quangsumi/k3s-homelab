@@ -1,4 +1,4 @@
-# normal Ingress works with cert-manager.io/cluster-issuer: homelab-ca
+# normal Ingress works with cert-manager.io/cluster-issuer: infisical-acme
 # cert-manager's ingress-shim watches standard Kubernetes Ingress resources. 
 # It does not automatically do the same thing for Traefik's IngressRoute CRD.
 apiVersion: cert-manager.io/v1
@@ -10,8 +10,13 @@ spec:
   secretName: traefik-lab-tls
 
   issuerRef:
-    name: homelab-ca
+    name: infisical-acme
     kind: ClusterIssuer
+
+  privateKey:
+    algorithm: RSA
+    size: 2048
+    rotationPolicy: Always
 
   dnsNames:
     - traefik.lab

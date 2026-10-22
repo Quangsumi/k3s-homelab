@@ -37,7 +37,10 @@ kind: Ingress
 metadata:
   name: longhorn
   annotations:
-    cert-manager.io/cluster-issuer: homelab-ca
+    cert-manager.io/cluster-issuer: infisical-acme
+    cert-manager.io/private-key-algorithm: RSA
+    cert-manager.io/private-key-size: "2048"
+    cert-manager.io/private-key-rotation-policy: Always
     traefik.ingress.kubernetes.io/router.priority: "10"
     traefik.ingress.kubernetes.io/router.middlewares: longhorn-system-longhorn-forward-auth@kubernetescrd
 spec:

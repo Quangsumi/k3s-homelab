@@ -73,7 +73,11 @@ metadata:
   name: prometheus
   namespace: monitoring
   annotations:
-    cert-manager.io/cluster-issuer: homelab-ca
+    # cert-manager.io/cluster-issuer: homelab-ca
+    cert-manager.io/cluster-issuer: infisical-acme
+    cert-manager.io/private-key-algorithm: RSA
+    cert-manager.io/private-key-size: "2048"
+    cert-manager.io/private-key-rotation-policy: Always # Rotate the private key on every certificate renewal
     traefik.ingress.kubernetes.io/router.priority: "10"
     traefik.ingress.kubernetes.io/router.middlewares: monitoring-prometheus-forward-auth@kubernetescrd
 spec:

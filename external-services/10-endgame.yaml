@@ -84,7 +84,7 @@ ports:
     port: 8006
   - name: ssh
     port: 22
-    targetPort: 22
+    protocol: TCP
 endpoints:
   - addresses:
       - 192.168.63.10

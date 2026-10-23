@@ -37,6 +37,21 @@ spec:
                   name: https
                   
 ---
+apiVersion: traefik.io/v1alpha1
+kind: IngressRouteTCP
+metadata:
+  name: deepsix-ssh
+  namespace: external-services
+spec:
+  entryPoints:
+    - ssh-deepsix
+  routes:
+    - match: HostSNI(`*`)
+      services:
+        - name: deepsix
+          port: 22
+
+---
 apiVersion: v1
 kind: Service
 metadata:
@@ -50,6 +65,9 @@ spec:
     - name: https
       port: 8006
       targetPort: 8006
+    - name: ssh
+      port: 22
+      targetPort: 22
 
 ---
 apiVersion: discovery.k8s.io/v1
@@ -64,6 +82,9 @@ ports:
   - name: https
     protocol: TCP
     port: 8006
+  - name: ssh
+    port: 22
+    targetPort: 22
 endpoints:
   - addresses:
       - 192.168.63.11

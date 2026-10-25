@@ -15,6 +15,7 @@ Ansible connects over SSH and applies the instructions in a playbook.
 | [Proxmox agent option](playbooks/proxmox-agent/README.md) | Enable the agent option in Proxmox VM settings |
 | [Network](playbooks/network/README.md) | Change Ubuntu DNS with backup, verification and rollback |
 | [Discover](playbooks/discover/README.md) | Read OS, interface and networking information |
+| [Certificates](playbooks/certificates/README.md) | Copy public trust files to one Pi/control-plane host |
 | [Verify](playbooks/verify/README.md) | Report addresses, routes, resolver and guest-agent status |
 
 ## Common command pattern
@@ -42,7 +43,4 @@ SSH keys, root, baseline and network jobs process one host at a time automatical
 and stop on failure. One command can cover the whole group.
 Hydra/OMV is excluded from root, baseline and network jobs.
 
-Files were prepared locally; this cleanup applied nothing to the lab.
-Offline checks previously passed: 18 regression tests and public YAML/path checks.
-Live SSH, sudo, Netplan and rollback integration still require verification.
-Optional regression checks live in `tests/`; they are not needed to run playbooks.
+Certificates requires `--limit` matching exactly one host. See its job guide for preview and copy commands.

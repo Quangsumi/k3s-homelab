@@ -1,0 +1,2 @@
+public/*.crt text eol=lf
+bundles/*.pem text eol=lf

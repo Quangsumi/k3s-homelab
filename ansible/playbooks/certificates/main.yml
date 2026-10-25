@@ -1,0 +1,43 @@
+# From ansible/: ansible-playbook playbooks/certificates/main.yml --limit rpivn --check --diff
+# Copy public trust files only. No issuance, Kubernetes changes or service restarts.
+- name: Copy public CA bundles to one selected host
+  hosts: pki_consumers
+  gather_facts: false
+  vars:
+    pki_dir: "{{ playbook_dir }}/../../../pki"
+
+  tasks:
+    - name: Require one explicitly selected host
+      ansible.builtin.assert:
+        that:
+          - ansible_limit | default('') | length > 0
+          - ansible_play_hosts_all | length == 1
+        fail_msg: Use --limit rpivn, tombstone, whyachi or biteforce, one at a time.
+
+    # The Pi user owns this existing directory; keep the filenames consumers use.
+    - name: Copy the Pi public trust files
+      ansible.builtin.copy:
+        src: "{{ pki_dir }}/{{ item.src }}"
+        dest: "/home/pi/Desktop/rpivn-app/ca/{{ item.dest }}"
+        owner: pi
+        group: pi
+        mode: '0644'
+        backup: true
+      loop:
+        - { src: public/caddy-root.crt, dest: rpivn-caddy.crt }
+        - { src: bundles/application-trust.pem, dest: homelab-root-ca.pem }
+        - { src: public/k3s-server-ca.crt, dest: k3s-ca.pem }
+        - { src: bundles/proxmox-api-trust.pem, dest: proxmox-trust.pem }
+      when: inventory_hostname == 'rpivn'
+
+    # Only OIDC trust is copied. K3s internal CA files are not managed here.
+    - name: Copy Caddy trust for control-plane OIDC
+      become: "{{ ansible_user != 'root' }}"
+      ansible.builtin.copy:
+        src: "{{ pki_dir }}/public/caddy-root.crt"
+        dest: /etc/rancher/k3s/certs/rpivn-caddy.crt
+        owner: root
+        group: root
+        mode: '0644'
+        backup: true
+      when: inventory_hostname in groups['control_planes']

@@ -18,4 +18,7 @@ spec:
           values:
             - argocd
             - external-secrets
+            - postgres
             - monitoring
+            - longhorn-system
+            - litellm

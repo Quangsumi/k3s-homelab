@@ -1,0 +1,3 @@
+# Proxmox hosts are separate from guest VMs; preserve the existing host login setting.
+# Override per host if you use a different host account.
+ansible_user: root

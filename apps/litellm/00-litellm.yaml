@@ -33,6 +33,9 @@ spec:
     - secretKey: UI_PASSWORD
       remoteRef:
         key: /litellm/UI_PASSWORD
+    - secretKey: GENERIC_CLIENT_SECRET
+      remoteRef:
+        key: /litellm/GENERIC_CLIENT_SECRET
 
 ---
 apiVersion: v1
@@ -46,6 +49,7 @@ data:
       database_connection_pool_limit: 5
       proxy_batch_write_at: 60
       allow_requests_on_db_unavailable: false
+      ui_access_mode: "admin_only"
 
     litellm_settings:
       callbacks: ["prometheus"]
@@ -72,6 +76,17 @@ spec:
       labels:
         app: litellm
     spec:
+      # affinity:
+      #   nodeAffinity:
+      #     preferredDuringSchedulingIgnoredDuringExecution:
+      #       - weight: 100
+      #         preference:
+      #           matchExpressions:
+      #             - key: homelab.io/stability
+      #               operator: In
+      #               values:
+      #                 - stable
+      priorityClassName: homelab-dev
       containers:
         - name: litellm
           image: ghcr.io/berriai/litellm-database:1.86.0
@@ -104,6 +119,11 @@ spec:
                 secretKeyRef:
                   name: litellm-secret-infisical
                   key: LITELLM_SALT_KEY
+            - name: GENERIC_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: litellm-secret-infisical
+                  key: GENERIC_CLIENT_SECRET
             - name: LITELLM_MODE
               value: "PRODUCTION"
             - name: USE_PRISMA_MIGRATE
@@ -112,7 +132,39 @@ spec:
               value: "INFO"
             - name: STORE_MODEL_IN_DB
               value: "True"
-          
+            - name: GENERIC_CLIENT_ID
+              value: "litellm"
+            - name: GENERIC_AUTHORIZATION_ENDPOINT
+              value: "https://auth.lab/realms/homelab/protocol/openid-connect/auth"
+            - name: GENERIC_TOKEN_ENDPOINT
+              value: "https://auth.lab/realms/homelab/protocol/openid-connect/token"
+            - name: GENERIC_USERINFO_ENDPOINT
+              value: "https://auth.lab/realms/homelab/protocol/openid-connect/userinfo"
+            - name: GENERIC_SCOPE
+              value: "openid profile email"
+            - name: GENERIC_CLIENT_USE_PKCE
+              value: "true"
+            - name: GENERIC_USER_ID_ATTRIBUTE
+              value: "sub"
+            - name: GENERIC_USER_EMAIL_ATTRIBUTE
+              value: "email"
+            - name: GENERIC_USER_DISPLAY_NAME_ATTRIBUTE
+              value: "name"
+            - name: GENERIC_USER_FIRST_NAME_ATTRIBUTE
+              value: "given_name"
+            - name: GENERIC_USER_LAST_NAME_ATTRIBUTE
+              value: "family_name"
+            - name: GENERIC_USER_ROLE_ATTRIBUTE
+              value: "resource_access.litellm.roles"
+            - name: PROXY_BASE_URL
+              value: "https://litellm.lab"
+            - name: SSL_CERT_FILE
+              value: "/etc/homelab/trust/ca-bundle.pem"
+            - name: REQUESTS_CA_BUNDLE
+              value: "/etc/homelab/trust/ca-bundle.pem"
+            - name: PROXY_LOGOUT_URL
+              value: https://auth.lab/realms/homelab/protocol/openid-connect/logout?client_id=litellm&post_logout_redirect_uri=https%3A%2F%2Flitellm.lab%2Fui
+
           readinessProbe:
             httpGet:
               path: /health/readiness
@@ -139,20 +191,29 @@ spec:
             failureThreshold: 120
           
           resources:
-            requests:
-              cpu: 250m
-              memory: 512Mi
             limits:
               memory: 2Gi
+            requests:
+              cpu: 250m
+              memory: 1536Mi
           volumeMounts:
             - name: litellm-config
               mountPath: /app/config.yaml
               subPath: config.yaml
               readOnly: true
+            - name: trust
+              mountPath: /etc/homelab/trust
+              readOnly: true
       volumes:
         - name: litellm-config
           configMap:
             name: litellm-config
+        - name: trust
+          configMap:
+            name: caddy-trust-bundle
+            items:
+              - key: ca-bundle.pem
+                path: ca-bundle.pem
 ---
 apiVersion: v1
 kind: Service
@@ -211,7 +272,11 @@ metadata:
   name: litellm
   namespace: litellm
   annotations:
-    cert-manager.io/cluster-issuer: homelab-ca
+    #cert-manager.io/cluster-issuer: homelab-ca
+    cert-manager.io/cluster-issuer: infisical-acme
+    cert-manager.io/private-key-algorithm: RSA
+    cert-manager.io/private-key-size: "2048"
+    cert-manager.io/private-key-rotation-policy: Always  # Rotate the private key on every certificate renewal
 spec:
   ingressClassName: traefik
   tls:

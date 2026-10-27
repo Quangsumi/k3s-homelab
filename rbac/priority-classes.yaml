@@ -1,0 +1,46 @@
+apiVersion: scheduling.k8s.io/v1
+kind: PriorityClass
+metadata:
+  name: homelab-foundation
+  annotations:
+    argocd.argoproj.io/sync-wave: '-20'
+value: 100000
+globalDefault: false
+preemptionPolicy: PreemptLowerPriority
+description: Cluster access and foundation services; preserve existing higher system/Longhorn classes.
+
+---
+apiVersion: scheduling.k8s.io/v1
+kind: PriorityClass
+metadata:
+  name: homelab-dev
+  annotations:
+    argocd.argoproj.io/sync-wave: '-20'
+value: 50000
+globalDefault: false
+preemptionPolicy: PreemptLowerPriority
+description: Development applications may preempt lower-priority optional workloads.
+
+---
+apiVersion: scheduling.k8s.io/v1
+kind: PriorityClass
+metadata:
+  name: homelab-diagnostics
+  annotations:
+    argocd.argoproj.io/sync-wave: '-20'
+value: 20000
+globalDefault: false
+preemptionPolicy: PreemptLowerPriority
+description: Basic metrics and logging; may yield to development applications.
+
+---
+apiVersion: scheduling.k8s.io/v1
+kind: PriorityClass
+metadata:
+  name: homelab-optional
+  annotations:
+    argocd.argoproj.io/sync-wave: '-20'
+value: 1000
+globalDefault: false
+preemptionPolicy: PreemptLowerPriority
+description: Can yield capacity to foundation, development and diagnostics.

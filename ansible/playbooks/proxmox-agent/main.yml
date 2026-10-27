@@ -1,0 +1,48 @@
+# Select guest VMs with --limit. All commands run on the chosen Proxmox host.
+- name: Enable the QEMU guest-agent option
+  hosts: linux_vms
+  gather_facts: false
+  become: false
+  any_errors_fatal: true
+  vars:
+    proxmox_host: endgame  # SSH entry point; VMs may be on either cluster node.
+    # Use the entry host's password if password bootstrap was requested.
+    ansible_password: "{{ hostvars[proxmox_host].ansible_password | default(none) }}"
+    vm: "{{ cluster_vms.stdout | from_json | selectattr('type', 'equalto', 'qemu') | selectattr('vmid', 'equalto', hostvars[inventory_hostname].vmid) | first }}"
+
+  tasks:
+    - name: Find where the VMs currently live
+      ansible.builtin.command: pvesh get /cluster/resources --type vm --output-format json
+      delegate_to: '{{ proxmox_host }}'
+      run_once: true
+      register: cluster_vms
+      changed_when: false
+      check_mode: false
+
+    - name: Read this VM's current settings
+      ansible.builtin.command: pvesh get /nodes/{{ vm.node }}/qemu/{{ vm.vmid }}/config --output-format json
+      delegate_to: '{{ proxmox_host }}'
+      register: vm_settings
+      changed_when: false
+      check_mode: false
+
+    - name: Check the ID belongs to the expected VM and preserve custom agent options
+      ansible.builtin.assert:
+        that:
+          - config.name | default('') == proxmox_name
+          - config.template | default(0) | int == 0
+          - config.lock | default('') | length == 0
+          - config.agent | default('0') | string in ['0', '1', 'enabled=0', 'enabled=1']
+        fail_msg: Check this VM's ID/name, locks and any custom guest-agent options before retrying.
+      vars:
+        config: '{{ vm_settings.stdout | from_json }}'
+
+    - name: Enable the option if it is not already enabled
+      ansible.builtin.command: >-
+        pvesh set /nodes/{{ vm.node }}/qemu/{{ vm.vmid }}/config
+        --agent enabled=1 --digest {{ config.digest }}
+      delegate_to: '{{ proxmox_host }}'
+      vars:
+        config: '{{ vm_settings.stdout | from_json }}'
+      when: config.agent | default('0') | string not in ['1', 'enabled=1']
+      changed_when: true

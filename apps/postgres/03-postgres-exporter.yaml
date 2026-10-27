@@ -38,6 +38,7 @@ spec:
       labels:
         app: postgres-exporter
     spec:
+      priorityClassName: homelab-diagnostics
       containers:
         - name: postgres-exporter
           image: quay.io/prometheuscommunity/postgres-exporter:v0.19.1

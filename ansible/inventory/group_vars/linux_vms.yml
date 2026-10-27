@@ -1,0 +1,14 @@
+# VM login accounts follow the stable lowercase inventory names.
+# Example: valkyrie logs in as valkyrie. Override ansible_user in host_vars if different.
+ansible_user: "{{ inventory_hostname }}"
+
+# sudo runs administrative tasks as root without enabling root SSH/password login.
+ansible_become_method: sudo
+ansible_become_user: root
+# sudo may still need a password AFTER SSH switches to keys.
+# Load saved sudo passwords with -e @secrets/vault.yml, or use --ask-become-pass.
+ansible_become_password: "{{ (vault_hosts | default({})).get(inventory_hostname, {}).get('sudo_password', none) }}"
+
+# there could be 2 sudo programs (sudo-rs, /usr/bin/sudo.ws)
+# this tell Ansible to use the one it handles correctly during become
+ansible_sudo_exe: /usr/bin/sudo.ws

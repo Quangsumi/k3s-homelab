@@ -1,0 +1,29 @@
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: infisical-acme
+spec:
+  acme:
+    # Copy the exact directory URL and KID from the profile in your installed UI.
+    server: https://infisical.lab/api/v1/cert-manager/acme/applications/a6724537-4927-49fb-92a3-4eb2303b472e/profiles/49be757f-3612-4117-8a95-9a8aaa6e2c70/directory
+    email: djquangsumi@gmail.com
+    # Trust for Infisical's HTTPS endpoint, NOT the CA issuing website certs.
+    # Encoded from pki/public/caddy-root.crt. Update if Caddy's root rotates.
+    caBundle: LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tDQpNSUlCb3pDQ0FVbWdBd0lCQWdJUU5HNVQzYjJJOE4xeGd6eFNwVlBkUERBS0JnZ3Foa2pPUFFRREFqQXdNUzR3DQpMQVlEVlFRREV5VkRZV1JrZVNCTWIyTmhiQ0JCZFhSb2IzSnBkSGtnTFNBeU1ESTJJRVZEUXlCU2IyOTBNQjRYDQpEVEkyTURjeU9EQTRNVEF3TUZvWERUTTJNRFl3TlRBNE1UQXdNRm93TURFdU1Dd0dBMVVFQXhNbFEyRmtaSGtnDQpURzlqWVd3Z1FYVjBhRzl5YVhSNUlDMGdNakF5TmlCRlEwTWdVbTl2ZERCWk1CTUdCeXFHU000OUFnRUdDQ3FHDQpTTTQ5QXdFSEEwSUFCQkFNcWtTS3FTYVZlbDJ6WWdqdzJmT0x3eW0wWGU2L1U2RDhoSVhsRDc2bEwydy9uK3pPDQpvTTM5dm9oc0NiYkNpR2FsdndlVWh0QzhYZ1o3QzJON043R2pSVEJETUE0R0ExVWREd0VCL3dRRUF3SUJCakFTDQpCZ05WSFJNQkFmOEVDREFHQVFIL0FnRUJNQjBHQTFVZERnUVdCQlJQRjdaLzBjM3R5THZ2amp1NXhYbFVwckF2DQpvREFLQmdncWhrak9QUVFEQWdOSUFEQkZBaUJFY2xSWUJ3ZU1ZRTZmMXhvbzkxKzczWk9tM3ZxT1J4UkwxK0JoDQo3Mkhqa0FJaEFOTmdQNWVaOFBmeEk1RlhsSnZCeWxPQkFWci9mbHc3QzBMVzBGQmwyUy9qDQotLS0tLUVORCBDRVJUSUZJQ0FURS0tLS0t
+    externalAccountBinding:
+      keyID: 0c9d5ca9-11f3-4207-9960-15aeffb580a6
+      keySecretRef:
+        name: infisical-acme-eab
+        key: hmacKey
+    # ACME account authentication key, NOT a CA key or website key.
+    privateKeySecretRef:
+      name: infisical-acme-account
+    solvers:
+      - http01:
+          ingress:
+            ingressClassName: traefik
+            ingressTemplate:
+              metadata:
+                annotations:
+                  traefik.ingress.kubernetes.io/router.entrypoints: web
+                  traefik.ingress.kubernetes.io/router.priority: "10000"

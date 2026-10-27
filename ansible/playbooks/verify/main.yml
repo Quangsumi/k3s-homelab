@@ -1,0 +1,31 @@
+- name: Inspect effective configuration independently after changes
+  hosts: linux_vms
+  gather_facts: true
+  tasks:
+    - name: Inspect service state
+      ansible.builtin.service_facts:
+
+    - name: Read effective addresses
+      ansible.builtin.command: ip -brief address
+      changed_when: false
+      register: effective_addresses
+
+    - name: Read effective routes
+      ansible.builtin.command: ip route
+      changed_when: false
+      register: effective_routes
+
+    - name: Read resolver configuration
+      ansible.builtin.slurp:
+        src: /etc/resolv.conf
+      register: resolver
+
+    - name: Report observed state without claiming full network verification
+      ansible.builtin.debug:
+        msg:
+          ssh: This play connected successfully; disable password fallback when testing keys.
+          agent: "{{ ansible_facts.services.get('qemu-guest-agent.service', {}) }}"
+          addresses: "{{ effective_addresses.stdout_lines }}"
+          routes: "{{ effective_routes.stdout_lines }}"
+          resolv_conf: "{{ resolver.content | b64decode }}"
+          note: A local resolver stub may appear here; inspect resolvectl status and test a known internal DNS name separately.

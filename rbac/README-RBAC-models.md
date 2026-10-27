@@ -26,11 +26,40 @@ spec:
       serviceAccountName: prometheus # Token mounting remains enabled
 
 Then create:
-ServiceAccount prometheus
-        +
-Role: get/list/watch pods and services
-        +
-RoleBinding: give that Role to prometheus
+---
+# 1. The identity the pod runs as
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: prometheus
+  namespace: monitoring
+
+---
+# 2. The permissions: list/get/watch pods & services in this namespace
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: prometheus-scrape
+  namespace: monitoring
+rules:
+  - apiGroups: [""]
+    resources: ["pods", "services"]
+    verbs: ["get", "list", "watch"]
+
+---
+# 3. Bind the Role to the ServiceAccount
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: prometheus-scrape-binding
+  namespace: monitoring
+subjects:
+  - kind: ServiceAccount
+    name: prometheus
+    namespace: monitoring
+roleRef:
+  kind: Role
+  name: prometheus-scrape
 ```
 
 # kubectl LEVEL

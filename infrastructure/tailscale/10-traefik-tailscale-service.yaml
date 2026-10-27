@@ -26,3 +26,11 @@ spec:
       port: 5432
       targetPort: postgres
       protocol: TCP
+    - name: ssh-deepsix
+      port: 22
+      targetPort: ssh-deepsix
+      protocol: TCP
+    - name: ssh-endgame
+      port: 2222
+      targetPort: ssh-endgame
+      protocol: TCP

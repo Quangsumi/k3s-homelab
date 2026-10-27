@@ -1,0 +1,8 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: kube-system    # Kustomize will own the namespace, individual manifests no need to specify it
+
+resources:
+  - 00-kube-vip-rbac.yaml
+  - 10-kube-vip-daemonset.yaml

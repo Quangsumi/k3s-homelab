@@ -16,6 +16,28 @@ spec:
       helm:
         releaseName: cert-manager
         valuesObject:
+          global:
+            priorityClassName: homelab-optional
+          resources:
+            requests:
+              cpu: 10m
+              memory: 80Mi
+            limits:
+              memory: 192Mi
+          webhook:
+            resources:
+              requests:
+                cpu: 5m
+                memory: 48Mi
+              limits:
+                memory: 128Mi
+          cainjector:
+            resources:
+              requests:
+                cpu: 10m
+                memory: 64Mi
+              limits:
+                memory: 192Mi
           crds:
             enabled: true
 
@@ -25,6 +47,13 @@ spec:
       helm:
         releaseName: trust-manager
         valuesObject:
+          priorityClassName: homelab-optional
+          resources:
+            requests:
+              cpu: 5m
+              memory: 32Mi
+            limits:
+              memory: 96Mi
           app:
             trust:
               namespace: cert-manager
@@ -37,6 +66,16 @@ spec:
     server: https://kubernetes.default.svc
     namespace: cert-manager
 
+  # Kubernetes adds this no-conversion default to the chart's CRD.
+  # A real webhook conversion change will still be reported as drift.
+  ignoreDifferences:
+    - group: apiextensions.k8s.io
+      kind: CustomResourceDefinition
+      name: bundles.trust.cert-manager.io
+      jqPathExpressions:
+        - '.spec.conversion | select(.strategy == "None")'
+
   syncPolicy:
     syncOptions:
       - CreateNamespace=true
+      - ServerSideApply=true

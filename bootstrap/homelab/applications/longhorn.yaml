@@ -12,21 +12,75 @@ spec:
   sources:
     - repoURL: https://charts.longhorn.io
       chart: longhorn
-      targetRevision: 1.11.2
+      targetRevision: 1.13.0
       helm:
         releaseName: longhorn
         values: |
+          longhornManager:
+            resources:
+              requests:
+                cpu: 150m
+                memory: 192Mi
+              limits:
+                memory: 512Mi
+          longhornGlobalManager:
+            resources:
+              requests:
+                cpu: 10m
+                memory: 64Mi
+              limits:
+                memory: 192Mi
+          # Label only worker nodes longhorn-enabled=true before syncing.
+          global:
+            nodeSelector:
+              longhorn-enabled: "true"
+
+          # Two eligible workers are required for both CSI replicas to run.
+          csi:
+            podAntiAffinityPreset: hard
+            attacherReplicaCount: 2
+            provisionerReplicaCount: 2
+            resizerReplicaCount: 2
+            snapshotterReplicaCount: 2
+
+          longhornUI:
+            priorityClass: homelab-optional
+            replicas: 2
+            affinity:
+              podAntiAffinity:
+                requiredDuringSchedulingIgnoredDuringExecution:
+                  - labelSelector:
+                      matchLabels:
+                        app: longhorn-ui
+                    topologyKey: kubernetes.io/hostname
+
           persistence:
             defaultClass: true            # local-path is default, mark this will make longhorn default StorageClass
-            defaultClassReplicaCount: 3
+            defaultClassReplicaCount: 2
             reclaimPolicy: Retain         # Delete PVC ->  PV remains Released -> data still exists -> manually recover or delete later
 
           defaultSettings:
+            # Queue rebuilds to reduce contention with etcd on the shared host SSDs.
+            concurrentReplicaRebuildPerNodeLimit: 2
+            rebuildConcurrentSyncLimit: '{"v1":"1"}'
+            
+            # Per-component resources; storage CPU remains uncapped. CSI pods restart on rollout.
+            systemManagedCSIComponentsResourceLimits: '{"csi-attacher":{"requests":{"cpu":"5m","memory":"48Mi"},"limits":{"memory":"128Mi"}},"csi-provisioner":{"requests":{"cpu":"5m","memory":"48Mi"},"limits":{"memory":"128Mi"}},"csi-resizer":{"requests":{"cpu":"5m","memory":"64Mi"},"limits":{"memory":"128Mi"}},"csi-snapshotter":{"requests":{"cpu":"5m","memory":"48Mi"},"limits":{"memory":"128Mi"}},"node-driver-registrar":{"requests":{"cpu":"5m","memory":"24Mi"},"limits":{"memory":"64Mi"}},"longhorn-liveness-probe":{"requests":{"cpu":"5m","memory":"32Mi"},"limits":{"memory":"96Mi"}},"longhorn-csi-plugin":{"requests":{"cpu":"5m","memory":"32Mi"},"limits":{"memory":"96Mi"}}}'
+            
+            # Covers instance managers, CSI components, and engine images.
+            systemManagedComponentsNodeSelector: "longhorn-enabled:true"
             storageOverProvisioningPercentage: 100
             defaultDataPath: /var/lib/longhorn
+            
+            nodeDownPodDeletionPolicy: delete-both-statefulset-and-deployment-pod     # Pod Deletion Policy When Node is Down
+            autoDeletePodWhenVolumeDetachedUnexpectedly: true                         # Automatically Delete Workload Pod when Volume Is Detached Unexpectedly
+            
+            orphanResourceAutoDeletion: "replica-data;instance"            # automatically clean orphaned engine/replica runtime instances
+            orphanResourceAutoDeletionGracePeriod: 600                     # after this configured grace period.
 
           preUpgradeChecker:
-            jobEnabled: false
+            jobEnabled: false          # recommended when use with ArgoCD, otherwise ArgoCD will fail to sync if the pre-upgrade checker job fails.
+            upgradeVersionCheck: true  # check if the upgrade version is compatible with the current version, if not, the pre-upgrade checker job will fail and ArgoCD will fail to sync.
 
     - repoURL: https://github.com/Quangsumi/k3s-homelab.git
       targetRevision: main

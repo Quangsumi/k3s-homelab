@@ -1,0 +1,17 @@
+- name: Maintain authorized public keys without deleting unrelated keys
+  hosts: linux_vms:proxmox_hosts  # run on both groups
+  gather_facts: false
+  become: false           # Do not escalate privileges; keys are for the login account, not root.
+  serial: 1               # Run the entire play on one VM before starting the next VM.
+  any_errors_fatal: true  # Stop the play if any host fails; don't continue to the next host.
+  tasks:
+    - name: Add or revoke the specified key for the login account
+      ansible.posix.authorized_key:
+        user: "{{ ansible_user }}"
+        key: "{{ lookup('ansible.builtin.file', playbook_dir ~ '/../../keys/' ~ item.filename) }}"
+        state: "{{ item.state }}"
+        exclusive: false
+        manage_dir: true
+      loop: "{{ ssh_public_keys }}"
+      loop_control:
+        label: "{{ item.filename }}: {{ item.state }}"

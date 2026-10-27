@@ -39,3 +39,6 @@ spec:
     requests:
       storage: 200Mi
 ```
+
+# Deploy Longhorn only on workers
+See [WORKER-ROLLOUT.md](WORKER-ROLLOUT.md)

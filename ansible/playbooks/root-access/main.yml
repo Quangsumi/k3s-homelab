@@ -1,0 +1,206 @@
+# Run AFTER ../ssh-keys/main.yml, connecting as the existing VM user with sudo.
+# This is separate from ../baseline/main.yml; it is never imported automatically.
+- name: Prepare root access through the existing VM account
+  hosts: linux_vms:!nas_appliances
+  gather_facts: true
+  become: true # Use the existing VM account with sudo to prepare root access.
+  serial: 1
+  any_errors_fatal: true
+  vars:
+    # This dedicated playbook enables root password SSH as requested.
+    # Set false to allow root SSH keys while still setting a root password.
+    root_ssh_password_login: true
+  tasks:
+    - name: Require a supported guest and an existing non-root login
+      ansible.builtin.assert:
+        that:
+          - ansible_os_family in ['Debian', 'RedHat']
+          - ansible_service_mgr == 'systemd'
+          - ansible_user != 'root'
+          - root_ssh_private_key_file is defined
+        fail_msg: Connect as your VM user with sudo and supply root_ssh_private_key_file for the new root connection test.
+
+    - name: Check the controller key file before changing the VM
+      ansible.builtin.stat:
+        path: "{{ root_ssh_private_key_file }}"
+      delegate_to: localhost
+      become: false
+      register: root_test_key_file
+
+    - name: Require the controller key file to exist
+      ansible.builtin.assert:
+        that:
+          - root_test_key_file.stat.exists
+          - root_test_key_file.stat.isreg | default(false)
+        fail_msg: Set root_ssh_private_key_file to the actual private-key path in Ubuntu, outside this repository.
+
+    - name: Require a real root password hash from Vault
+      ansible.builtin.assert:
+        that:
+          - >-
+            (vault_hosts | default({})).get(inventory_hostname, {}).get('root_password_hash', '')
+            is match('^\$6\$(rounds=[0-9]+\$)?[./A-Za-z0-9]{1,16}\$[./A-Za-z0-9]{86}$')
+        fail_msg: Generate a SHA-512 password hash with openssl passwd -6 and store it as this VM's root_password_hash in Vault.
+      no_log: true
+
+    - name: Require at least one public key to authorize for root
+      ansible.builtin.assert:
+        that:
+          - ssh_public_keys | selectattr('state', 'equalto', 'present') | list | length > 0
+
+    - name: Inspect root's existing login shell
+      ansible.builtin.command: getent passwd root
+      register: root_account
+      changed_when: false
+      check_mode: false
+
+    - name: Stop if root has a non-login shell
+      ansible.builtin.assert:
+        that:
+          - root_account.stdout is not search('/(nologin|false)$')
+        fail_msg: Root has a non-login shell; review that account policy before enabling SSH.
+
+    - name: Read the incoming SSH connection as the existing user
+      ansible.builtin.command: printenv SSH_CONNECTION
+      become: false
+      register: incoming_ssh
+      changed_when: false
+      check_mode: false
+
+    - name: Identify the SSH client address for the configuration check
+      ansible.builtin.set_fact:
+        root_ssh_client_address: "{{ incoming_ssh.stdout.split()[0] }}"
+
+    - name: Identify the SSH service
+      ansible.builtin.service_facts:
+
+    - name: Choose the existing SSH service
+      ansible.builtin.set_fact:
+        root_ssh_service: "{{ 'ssh' if 'ssh.service' in ansible_facts.services else 'sshd' }}"
+
+    - name: Save the original SSH configuration for recovery
+      ansible.builtin.slurp:
+        src: /etc/ssh/sshd_config
+      register: original_sshd_config
+
+    - name: Authorize the selected public keys for root
+      ansible.posix.authorized_key:
+        user: root
+        key: "{{ lookup('ansible.builtin.file', playbook_dir ~ '/../../keys/' ~ item.filename) }}"
+        state: present
+        exclusive: false
+        manage_dir: true
+      loop: "{{ ssh_public_keys | selectattr('state', 'equalto', 'present') | list }}"
+      loop_control:
+        label: "{{ item.filename }}"
+
+    - name: Set root's password and unlock its password entry
+      ansible.builtin.user:
+        name: root
+        password: "{{ vault_hosts[inventory_hostname].root_password_hash }}"
+        password_lock: false
+      no_log: true
+
+    - name: Configure and test root SSH while keeping the existing user connection
+      block:
+        - name: Add a root-only SSH login policy
+          ansible.builtin.blockinfile:
+            path: /etc/ssh/sshd_config
+            marker: '# {mark} ANSIBLE HOMELAB ROOT ACCESS'
+            insertafter: EOF
+            backup: true
+            validate: /usr/sbin/sshd -t -f %s
+            block: |
+              Match User root
+                  PermitRootLogin {{ 'yes' if root_ssh_password_login | bool else 'prohibit-password' }}
+                  PubkeyAuthentication yes
+                  PasswordAuthentication {{ 'yes' if root_ssh_password_login | bool else 'no' }}
+                  AuthenticationMethods any
+              Match all
+          register: root_ssh_policy
+
+        - name: Read effective root SSH settings for this client
+          ansible.builtin.command:
+            argv:
+              - /usr/sbin/sshd
+              - -T
+              - -C
+              - "user=root,host={{ root_ssh_client_address }},addr={{ root_ssh_client_address }}"
+          register: effective_root_ssh
+          changed_when: false
+          when: not ansible_check_mode
+
+        - name: Stop if another rule overrides the requested policy
+          ansible.builtin.assert:
+            that:
+              - "'pubkeyauthentication yes' in effective_root_ssh.stdout_lines"
+              - "'authenticationmethods any' in effective_root_ssh.stdout_lines"
+              - >-
+                ('permitrootlogin yes' in effective_root_ssh.stdout_lines)
+                if root_ssh_password_login | bool else
+                ('permitrootlogin without-password' in effective_root_ssh.stdout_lines or
+                 'permitrootlogin prohibit-password' in effective_root_ssh.stdout_lines)
+              - >-
+                ('passwordauthentication yes' if root_ssh_password_login | bool else
+                 'passwordauthentication no') in effective_root_ssh.stdout_lines
+            fail_msg: Existing SSH Match rules override the requested root policy; restore and review them before retrying.
+          when: not ansible_check_mode
+
+        - name: Reload SSH after a validated configuration change
+          ansible.builtin.service:
+            name: "{{ root_ssh_service }}"
+            state: reloaded
+          when: root_ssh_policy.changed and not ansible_check_mode
+
+        - name: Open a fresh key-only root connection from the controller
+          ansible.builtin.command:
+            argv:
+              - ssh
+              - -o
+              - BatchMode=yes
+              - -o
+              - IdentitiesOnly=yes
+              - -o
+              - StrictHostKeyChecking=yes
+              - -o
+              - ControlMaster=no
+              - -o
+              - ControlPath=none
+              - -o
+              - PasswordAuthentication=no
+              - -o
+              - KbdInteractiveAuthentication=no
+              - -o
+              - ConnectTimeout=10
+              - -p
+              - "{{ hostvars[inventory_hostname].ansible_port | default(22) | string }}"
+              - -i
+              - "{{ root_ssh_private_key_file }}"
+              - "root@{{ hostvars[inventory_hostname].ansible_host }}"
+              - id
+              - -u
+          delegate_to: localhost
+          become: false
+          register: fresh_root_login
+          changed_when: false
+          failed_when: fresh_root_login.rc != 0 or fresh_root_login.stdout | trim != '0'
+          when: not ansible_check_mode
+
+      rescue:
+        - name: Restore the original SSH configuration
+          ansible.builtin.copy:
+            content: "{{ original_sshd_config.content | b64decode }}"
+            dest: /etc/ssh/sshd_config
+            owner: root
+            group: root
+            mode: '0600'
+            validate: /usr/sbin/sshd -t -f %s
+
+        - name: Reload the restored SSH configuration
+          ansible.builtin.service:
+            name: "{{ root_ssh_service }}"
+            state: reloaded
+
+        - name: Stop after restoring SSH settings
+          ansible.builtin.fail:
+            msg: Root SSH validation failed and the original SSH configuration was restored. The root password and public keys remain set; the original user account remains available. Review the failed task before retrying.

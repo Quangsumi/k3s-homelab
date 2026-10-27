@@ -1,0 +1,11 @@
+- name: Add my laptop key to Valkyrie
+  hosts: valkyrie
+  gather_facts: false
+  become: false
+  tasks:
+    - name: Allow my laptop to log in as Valkyrie's user
+      ansible.posix.authorized_key:
+        user: "{{ ansible_user }}"
+        key: "{{ lookup('ansible.builtin.file', playbook_dir ~ '/../../../keys/laptop.pub') }}"
+        state: present
+        exclusive: false

@@ -8,47 +8,16 @@ spec:
   insecureSkipVerify: true          # disable tls verification from traefik to pi apps/proxmox nodes
 
 ---
-apiVersion: v1
-kind: Service
-metadata:
-  name: endgame
-  namespace: external-services
-  annotations:
-    traefik.ingress.kubernetes.io/service.serversscheme: https
-    traefik.ingress.kubernetes.io/service.serverstransport: external-services-endgame@kubernetescrd
-spec:
-  ports:
-    - name: https
-      port: 8006
-      targetPort: 8006
-
----
-apiVersion: discovery.k8s.io/v1
-kind: EndpointSlice
-metadata:
-  name: endgame
-  namespace: external-services
-  labels:
-    kubernetes.io/service-name: endgame
-addressType: IPv4
-ports:
-  - name: https
-    protocol: TCP
-    port: 8006
-endpoints:
-  - addresses:
-      - 192.168.63.10
-    conditions:
-      ready: true
-
----
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: endgame
   namespace: external-services
   annotations:
-    cert-manager.io/cluster-issuer: homelab-ca
+    cert-manager.io/cluster-issuer: infisical-acme
+    cert-manager.io/private-key-algorithm: RSA
+    cert-manager.io/private-key-size: "2048"
+    cert-manager.io/private-key-rotation-policy: Always
 spec:
   ingressClassName: traefik
   tls:
@@ -66,3 +35,58 @@ spec:
                 name: endgame
                 port:
                   name: https
+
+---
+apiVersion: traefik.io/v1alpha1
+kind: IngressRouteTCP
+metadata:
+  name: endgame-ssh
+  namespace: external-services
+spec:
+  entryPoints:
+    - ssh-endgame
+  routes:
+    - match: HostSNI(`*`)
+      services:
+        - name: endgame
+          port: 22
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: endgame
+  namespace: external-services
+  annotations:
+    traefik.ingress.kubernetes.io/service.serversscheme: https
+    traefik.ingress.kubernetes.io/service.serverstransport: external-services-endgame@kubernetescrd
+spec:
+  ports:
+    - name: https
+      port: 8006
+      targetPort: 8006
+    - name: ssh
+      port: 22
+      targetPort: 22
+
+---
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
+metadata:
+  name: endgame
+  namespace: external-services
+  labels:
+    kubernetes.io/service-name: endgame
+addressType: IPv4
+ports:
+  - name: https
+    protocol: TCP
+    port: 8006
+  - name: ssh
+    port: 22
+    protocol: TCP
+endpoints:
+  - addresses:
+      - 192.168.63.10
+    conditions:
+      ready: true

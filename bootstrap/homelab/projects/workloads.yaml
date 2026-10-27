@@ -17,13 +17,15 @@ spec:
     - server: https://kubernetes.default.svc
       namespace: litellm
     - server: https://kubernetes.default.svc
-      namespace: monitoring
-    - server: https://kubernetes.default.svc
       namespace: normal-ass-note
     - server: https://kubernetes.default.svc
       namespace: pi-dashboard
     - server: https://kubernetes.default.svc
       namespace: postgres
+    - server: https://kubernetes.default.svc
+      namespace: kanboard
+    - server: https://kubernetes.default.svc
+      namespace: stremio
 
   # Current application packages include their Namespace manifests. All other
   # workload resources are namespace-scoped and allowed by default.

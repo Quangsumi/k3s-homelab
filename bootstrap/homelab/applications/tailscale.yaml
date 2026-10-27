@@ -17,6 +17,8 @@ spec:
       targetRevision: 1.98.9
       helm:
         releaseName: tailscale-operator
+        valueFiles:
+          - $values/infrastructure/tailscale/tailscale-values.yaml
         valuesObject:
           installCRDs: true
           oauthSecretVolume:
@@ -31,6 +33,7 @@ spec:
 
     - repoURL: https://github.com/Quangsumi/k3s-homelab.git
       targetRevision: main
+      ref: values
       path: infrastructure/tailscale
 
   destination:
@@ -40,3 +43,4 @@ spec:
   syncPolicy:
     syncOptions:
       - CreateNamespace=true
+      - ServerSideApply=true

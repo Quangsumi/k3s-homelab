@@ -1,6 +1,12 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
+  - priority-classes.yaml
+  - kube-vip.yaml
+  - traefik.yaml
+  - infisical-acme.yaml
+  - kanboard.yaml
+  - stremio.yaml
   - argocd.yaml
   - cert-manager.yaml
   - external-secrets.yaml

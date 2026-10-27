@@ -2,6 +2,8 @@ apiVersion: tailscale.com/v1alpha1
 kind: ProxyClass
 metadata:
   name: control-plane-proxies
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
 spec:
   statefulSet:
     pod:

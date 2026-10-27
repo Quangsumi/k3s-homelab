@@ -7,7 +7,7 @@ metadata:
     app.kubernetes.io/part-of: homelab-gitops
     homelab.quangsumi.io/tier: workload
 spec:
-  project: homelab-workloads
+  project: homelab-observability
 
   source:
     repoURL: https://github.com/Quangsumi/k3s-homelab.git

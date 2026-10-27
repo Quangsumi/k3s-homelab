@@ -1,17 +1,23 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: kanboard
+  name: kube-vip
   namespace: argocd
+  labels:
+    app.kubernetes.io/part-of: homelab-gitops
+    homelab.quangsumi.io/tier: platform
 spec:
-  project: default
+  project: homelab-platform
+
   source:
     repoURL: https://github.com/Quangsumi/k3s-homelab.git
     targetRevision: main
-    path: apps/kanboard
+    path: infrastructure/kube-vip
+
   destination:
     server: https://kubernetes.default.svc
-    namespace: kanboard
+    namespace: kube-system
+
   syncPolicy:
     syncOptions:
       - CreateNamespace=true

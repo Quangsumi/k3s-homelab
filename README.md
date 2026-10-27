@@ -109,3 +109,9 @@ function Get-HomelabLogoutUrl($app) {
 Get-HomelabLogoutUrl "prometheus"
 Get-HomelabLogoutUrl "longhorn"
 ```
+
+## GitOps bootstrap
+
+See [bootstrap ownership, recovery and migration](bootstrap/README.md) for the
+central Argo CD inventory and dependency order. Run
+`python3 scripts/validate-gitops.py --helm` before changing the inventory.

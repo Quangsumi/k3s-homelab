@@ -1,61 +1,80 @@
-```
-*note: this is installing through Helm, can move this to ArgoCD manage
-```
+# Tailscale Kubernetes operator
 
-```
-kubectl apply -f 01-tailscale-auth.yaml
-```
-# OAuth credentials
-```
-helm repo add tailscale https://pkgs.tailscale.com/helmcharts
-helm repo update
+Two Argo CD Applications own the Tailscale setup:
 
-helm upgrade --install tailscale-operator tailscale/tailscale-operator \
-  --namespace=tailscale \
-  --create-namespace \
-  --set-string oauth.clientId=[your-client-id] \
-  --set-string oauth.clientSecret=[your-client-secret] \
-  --wait
+- `tailscale-credentials`: an ExternalSecret reads
+  `/tailscale/OAUTH_CLIENT_ID` and `/tailscale/OAUTH_CLIENT_SECRET` from Infisical
+  and produces `tailscale/Secret/operator-oauth`, with `client_id` and
+  `client_secret` keys.
+- `tailscale`: renders the pinned official operator chart and this directory's
+  routing package, including `ProxyClass/control-plane-proxies`, the three
+  ingress proxies, and `kube-system/Service/traefik-tailscale-ha`.
 
-helm repo update
+The Helm source loads `tailscale-values.yaml` through Argo CD's `$values`
+reference. It preserves main's resource budgets, priority class, control-plane
+placement and tolerations. OAuth values are supplied only through the
+ESO-managed Secret, not through Helm values or parameters.
 
-helm upgrade tailscale-operator \
-  tailscale/tailscale-operator \
-  --kubeconfig /etc/rancher/k3s/k3s.yaml \
-  -n tailscale \
-  -f tailscale-values.yaml
-```
-# Usage
-```
-apply this ingress, tailscale will give this service a tailscale domain
-funnel: "false" (default): access through the tailscle-only domain given by tailscale
-funnel true: access through the public domain also given by tailscale
+## Prerequisites and order
 
-apiVersion: networking.k8s.io/v1
-kind: Ingress
-metadata:
-  name: ingress-kuma
-  namespace: uptime-kuma
-  annotations:
-    tailscale.com/funnel: "true" # public to internet
-spec:
-  ingressClassName: tailscale
-  defaultBackend:
-    service:
-      name: uptime-kuma
-      port:
-        number: 80
-  tls:
-    - hosts:
-        - uptime-kuma
+1. Restore Infisical secret-zero, sync the PriorityClasses and ESO/trust
+   dependencies, then verify `ClusterSecretStore/infisical` is Ready.
+2. Create or recover a dedicated Tailscale OAuth client. Define
+   `tag:k8s-operator` and `tag:k8s`; allow the operator tag to own the proxy tag:
+
+   ```json
+   {
+     "tagOwners": {
+       "tag:k8s-operator": [],
+       "tag:k8s": ["tag:k8s-operator"]
+     }
+   }
+   ```
+
+   Give the client `tag:k8s-operator` and Read/Write access for General >
+   Services, Devices > Core and Keys > Auth Keys. Store its credentials at the
+   Infisical paths above, in the store's `dev` environment.
+3. Sync `tailscale-credentials` and wait for its ExternalSecret readiness.
+4. Inspect the `tailscale` diff and sync only after the OAuth Secret exists.
+   Routing custom resources use wave `1`, after the chart's operator/CRDs.
+
+```powershell
+kubectl get clustersecretstore infisical
+kubectl -n tailscale get externalsecret tailscale-operator-oauth
+kubectl -n tailscale get secret operator-oauth
+kubectl -n tailscale get pods
+kubectl get proxyclass control-plane-proxies
+kubectl get proxygroup traefik-ingress-proxies
+kubectl -n kube-system get service traefik-tailscale-ha
 ```
 
-The `operator-oauth` Secret must exist before syncing `Application/tailscale`.
-The chart mounts it through `oauthSecretVolume`; the secret values are not
-passed through Argo CD Helm parameters.
+Do not print or decode the OAuth Secret during routine checks. The retained
+`01-tailscale-auth.yaml` is main's namespace-only manual recovery helper; it is
+not included in the routing Kustomization. Argo CD creates the namespace through
+`CreateNamespace=true`.
 
-## Tailnet prerequisites
+## Existing installations
 
-or refere to ../traefik/10-resource-config.yaml
+Before adoption, compare the installed release name, version, operator identity,
+non-secret values and resource ownership with the Application. Preserve existing
+credentials and tailnet registrations. Once Argo CD adopts the installation,
+stop managing those same resources with manual Helm upgrades. See the complete
+[migration procedure](../../bootstrap/README.md#adopting-an-existing-cluster).
 
+## Traffic and Traefik ownership
+
+```text
+Tailnet client -> Tailscale Service VIP -> a control-plane proxy replica
+  -> traefik-tailscale-ha -> Traefik pods -> workload Service
 ```
+
+Argo CD's `traefik` Application manages
+[`HelmChartConfig/traefik`](../traefik/10-resource-config.yaml), including the
+ClusterIP Service, control-plane placement, HTTP/HTTPS/Postgres/SSH entrypoints,
+metrics and publishedService override. K3s continues managing the packaged
+Traefik chart. Remove duplicate management by a server-side
+`manifests/traefik-config.yaml` through the documented host workflow before
+adopting this Application; otherwise two reconcilers can overwrite its values.
+
+Tailscale ingress remains private unless a separately reviewed Ingress enables
+`tailscale.com/funnel: "true"`. MetalLB is a separate LAN entry path.

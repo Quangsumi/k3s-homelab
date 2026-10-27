@@ -98,7 +98,9 @@ spec:
               policy.default: ''
               scopes: '[argocd_roles]'
               policy.csv: |
+                p, role:deployer, applications, sync, default/*, allow
                 p, role:deployer, applications, sync, homelab-platform/*, allow
+                p, role:deployer, applications, sync, homelab-observability/*, allow
                 p, role:deployer, applications, sync, homelab-workloads/*, allow
                 g, role:deployer, role:readonly
                 g, argocd-viewer, role:readonly

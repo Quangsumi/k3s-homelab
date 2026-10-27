@@ -4,7 +4,7 @@ metadata:
   name: homelab-bootstrap
   namespace: argocd
 spec:
-  project: default  # default AppProject, extremely permissive: any repository, any destination, and any resource type.
+  project: homelab-bootstrap
 
   source:
     repoURL: https://github.com/Quangsumi/k3s-homelab.git

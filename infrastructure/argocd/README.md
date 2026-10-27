@@ -1,7 +1,9 @@
 ## Fresh cluster
 
 Argo CD cannot install itself into an empty cluster. Bootstrap it once with the
-official Helm chart, then apply the repository root Application. Sync `homelab-bootstrap` to create the child Applications; sync the `argocd` child last so Argo CD takes over its own lifecycle:
+official Helm chart, then seed the root inventory. Follow the
+[bootstrap order](../../bootstrap/README.md) and adopt Argo CD self-management
+last, after trust, secrets and PriorityClasses are ready:
 
 ```sh
 helm repo add argo https://argoproj.github.io/argo-helm
@@ -11,7 +13,27 @@ helm upgrade --install argocd argo/argo-cd \
   --create-namespace \
   --version 10.1.3
 
-kubectl apply -f bootstrap/root-application.yaml
+kubectl apply -f ../../bootstrap/bootstrap-project.yaml
+kubectl apply -f ../../bootstrap/root-application.yaml
+```
+
+```
+mkdir -p ~/.kube
+sudo cp /etc/rancher/k3s/k3s.yaml ~/.kube/config
+sudo chown $(id -u):$(id -g) ~/.kube/config
+chmod 600 ~/.kube/config
+export KUBECONFIG=~/.kube/config
+```
+
+
+- Make it permanent
+```
+nano ~/.bashrc
+
+alias k='kubectl'
+export KUBECONFIG=~/.kube/config
+
+source ~/.bashrc
 ```
 
 - Tailscale Ingress handles HTTPS externally, configure Argo CD server to serve HTTP internally:

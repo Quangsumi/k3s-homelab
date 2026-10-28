@@ -1,0 +1,126 @@
+---
+# Standalone, one-time job. Never imported by install/configure.
+- name: Move Fluent Bit pod state once
+  hosts: control_planes[0]  # choose 1 control plane to run kubectl
+  gather_facts: false       # Skip Ansible’s automatic collection of machine information, such as OS, CPU and network details
+  become: false       # no auto use sudo for those tasks
+  vars:
+    nodes: "{{ (groups['control_planes'] + groups['workers']) | unique | list }}"
+  tasks:
+    - name: Read the current collector and config
+      ansible.builtin.command:
+        argv: [kubectl, -n, monitoring, get, daemonset/fluent-bit, configmap/fluent-bit-config, -o, json]
+      register: current
+      changed_when: false     # Report this task as unchanged
+      check_mode: false       # Run this task even when the playbook uses --check
+
+    - name: Read Argo CD sync settings
+      ansible.builtin.command:
+        argv: [kubectl, -n, argocd, get, application, monitoring, -o, json]
+      register: argo
+      changed_when: false     # Report this task as unchanged
+      check_mode: false       # Run this task even when the playbook uses --check
+
+    - name: Remember the collector settings
+      ansible.builtin.set_fact:
+        ds: "{{ (current.stdout | from_json)['items'] | selectattr('kind', 'equalto', 'DaemonSet') | first }}"
+        cm: "{{ (current.stdout | from_json)['items'] | selectattr('kind', 'equalto', 'ConfigMap') | first }}"
+        app: "{{ argo.stdout | from_json }}"
+
+    - name: Check sync is paused and the collector still uses the old folders
+      ansible.builtin.assert:
+        that:
+          - app.spec.syncPolicy.automated is not defined or not (app.spec.syncPolicy.automated.enabled | default(true) | bool)
+          - app.status.operationState.phase | default('') != 'Running'
+          - app.operation is not defined
+          - "'/var/lib/fluent-bit/storage' in cm.data['fluent-bit.conf']"
+          - "'/var/lib/fluent-bit/flb_kube.db' in cm.data['fluent-bit.conf']"
+          - ds.status.numberReady | default(0) | int == nodes | length
+        fail_msg: Pause monitoring automatic sync, wait for any sync to finish, and make sure all collectors are ready on the old layout.
+
+    - name: Stop the pod collectors
+      ansible.builtin.command:
+        argv:
+          - kubectl
+          - -n
+          - monitoring
+          - patch
+          - daemonset/fluent-bit
+          - --type=merge
+          - -p
+          - '{"spec":{"template":{"spec":{"nodeSelector":{"homelab/fluent-bit-state-migration":"paused"}}}}}'
+      changed_when: true
+      when: not ansible_check_mode    # --check: skip this task; without --check: run it
+
+    - name: Wait for the collector pods to exit
+      ansible.builtin.command:
+        argv: [kubectl, -n, monitoring, get, pods, -l, app.kubernetes.io/name=fluent-bit, -o, json]
+      register: stopped
+      until: (stopped.stdout | from_json)['items'] | length == 0
+      retries: 60
+      delay: 3
+      changed_when: false
+      when: not ansible_check_mode
+
+    - name: Copy the database and queue, then compare the copies
+      delegate_to: "{{ item }}"
+      become: true
+      ansible.builtin.shell: |
+        set -eu     # Exit on error, treat unset variables as errors
+        cd /var/lib/fluent-bit
+        test ! -e pods
+        test -z "$(k3s crictl ps --name fluent-bit -q)"
+        test -f flb_kube.db
+        test -d storage
+        mkdir -p pods/queue
+        for file in flb_kube.db flb_kube.db-wal flb_kube.db-shm; do
+          if [ -f "$file" ]; then
+            cp -a -- "$file" "pods/$file"
+            cmp -- "$file" "pods/$file"
+          fi
+        done
+        cp -a -- storage/. pods/queue/
+        diff -qr -- storage pods/queue
+      loop: "{{ nodes }}"
+      changed_when: true
+      when: not ansible_check_mode
+
+    # The existing parent mount already makes its new pods/ subfolder visible.
+    - name: Point the collector at the copied files
+      ansible.builtin.command:
+        argv:
+          - kubectl
+          - -n
+          - monitoring
+          - patch
+          - configmap/fluent-bit-config
+          - --type=merge
+          - -p
+          - >-
+            {{ {'data': {'fluent-bit.conf': cm.data['fluent-bit.conf'] |
+              replace('/var/lib/fluent-bit/storage', '/var/lib/fluent-bit/pods/queue') |
+              replace('/var/lib/fluent-bit/flb_kube.db', '/var/lib/fluent-bit/pods/flb_kube.db')}} | to_json }}
+      changed_when: true
+      when: not ansible_check_mode
+
+    - name: Start the collectors again
+      ansible.builtin.command:
+        argv:
+          - kubectl
+          - -n
+          - monitoring
+          - patch
+          - daemonset/fluent-bit
+          - --type=json
+          - -p
+          - >-
+            {{ [{'op': 'replace', 'path': '/spec/template/spec/nodeSelector',
+                 'value': ds.spec.template.spec.nodeSelector | default({})}] | to_json }}
+      changed_when: true
+      when: not ansible_check_mode
+
+    - name: Wait for the collectors to become ready
+      ansible.builtin.command:
+        argv: [kubectl, -n, monitoring, rollout, status, daemonset/fluent-bit, --timeout=180s]
+      changed_when: false
+      when: not ansible_check_mode

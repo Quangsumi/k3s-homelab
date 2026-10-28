@@ -34,6 +34,14 @@ data:
       bearertokenauth/external:
         filename: /etc/otel-auth/token
 
+      file_storage/logs:
+        directory: /var/lib/otelcol/logs
+        create_directory: true
+        fsync: true
+        max_size: 1073741824
+        compaction:
+          on_rebound: true
+
     receivers:
       otlp:                         # internal receiver for app in cluster
         protocols:
@@ -49,11 +57,39 @@ data:
               authenticator: bearertokenauth/external
 
     processors:
+      # check every 1s to protects the pod from being OOM-killed
+      # a log storm could blow past the 512 MiB pod memory limit
       memory_limiter:
         check_interval: 1s
         limit_mib: 384
         spike_limit_mib: 96
 
+      # Log pipeline use this.
+      # Handle host journal logs (systemd, non-K8s) 
+      transform/host:
+        error_mode: ignore
+        log_statements:
+          - set(resource.attributes["host.name"], log.attributes["host_name"]) where log.attributes["host_name"] != nil
+          - set(resource.attributes["host.type"], log.attributes["host_role"]) where log.attributes["host_role"] != nil
+          - set(resource.attributes["service.name"], "host-journal") where log.attributes["log_source"] == "host"
+          - set(resource.attributes["service.namespace"], "homelab-hosts") where log.attributes["log_source"] == "host"
+          - set(resource.attributes["service.name"], log.attributes["_SYSTEMD_UNIT"]) where log.attributes["log_source"] == "host" and log.attributes["_SYSTEMD_UNIT"] != nil
+
+      
+      # # Fluent Bit's kubernetes filter puts pod metadata into a nested map like:
+      # {
+      #   "log": "actual message",
+      #   "kubernetes": {
+      #     "pod_id": "...",
+      #     "pod_name": "...",
+      #     "namespace_name": "...",
+      #     "host": "...",
+      #     "container_name": "...",
+      #     "pod_ip": "..."
+      #   }
+      # }
+      # This processor promotes those nested fields up to the resource level (the OTel Resource), 
+      # where downstream tools (Loki, Grafana, Jaeger) expect them
       transform/fluentbit_k8s:
         error_mode: ignore
 
@@ -95,6 +131,8 @@ data:
           # - delete_key(log.attributes, "time")
           # - delete_key(log.attributes, "logtag")
 
+      # built-in Kubernetes processor
+      # queries the API server to fetch pod metadata and adds it to the resource
       k8s_attributes:
         auth_type: serviceAccount
         extract:
@@ -110,22 +148,31 @@ data:
             - tag_name: app.kubernetes.io.name
               key: app.kubernetes.io/name
               from: pod
-        pod_association:
-          - sources:
+        pod_association:        # tells the processor how to find the pod. It uses two lookup keys
+          - sources:  
               - from: resource_attribute
-                name: k8s.pod.uid
+                name: k8s.pod.uid         # from transform/fluentbit_k8s processor above
           - sources:
               - from: resource_attribute
                 name: k8s.pod.ip
-          - sources:
-              - from: connection
+          # for external logs coming through Traefik, the source IP is the Traefik pod's IP, 
+          # not the actual sender. If the processor tried to associate by IP, 
+          # it would incorrectly tag external host logs as belonging to the Traefik ingress pod. 
+          # The k8s.pod.uid association is the primary reliable path; IP association is secondary 
+          # and only used when UID is absent
 
-      resource/cluster:
-        attributes:
-          - key: k8s.cluster.name
-            value: k3s-homelab
-            action: upsert
+      # Tag everything with the cluster name
+      # Only for K8s-origin telemetry. Host journal logs (which don't have a pod name) are left untouched
+      transform/cluster:
+        error_mode: ignore
+        trace_statements:
+          - set(resource.attributes["k8s.cluster.name"], "k3s-homelab") where resource.attributes["k8s.pod.name"] != nil
+        metric_statements:
+          - set(resource.attributes["k8s.cluster.name"], "k3s-homelab") where resource.attributes["k8s.pod.name"] != nil
+        log_statements:
+          - set(resource.attributes["k8s.cluster.name"], "k3s-homelab") where resource.attributes["k8s.pod.name"] != nil
 
+      # Batch before sending
       batch:
         timeout: 2s
         send_batch_size: 512
@@ -146,8 +193,10 @@ data:
         endpoint: http://loki.monitoring.svc.cluster.local:3100/otlp
         retry_on_failure:
           enabled: true
+          max_elapsed_time: 0s
         sending_queue:
           enabled: true
+          storage: file_storage/logs
           queue_size: 512
 
       prometheus/applications:
@@ -157,21 +206,23 @@ data:
           enabled: true
 
     service:
-      extensions: [health_check, bearertokenauth/external]
+      extensions: [health_check, bearertokenauth/external, file_storage/logs]
       pipelines:
         traces:
           receivers: [otlp, otlp/external]
-          processors: [memory_limiter, k8s_attributes, resource/cluster, batch]
+          processors: [memory_limiter, k8s_attributes, transform/cluster, batch]
           exporters: [otlp_grpc/jaeger]
         metrics:
           receivers: [otlp, otlp/external]
-          processors: [memory_limiter, k8s_attributes, resource/cluster, batch]
+          processors: [memory_limiter, k8s_attributes, transform/cluster, batch]
           exporters: [prometheus/applications]
         logs:
           receivers: [otlp, otlp/external]
-          processors: [memory_limiter, transform/fluentbit_k8s, k8s_attributes, resource/cluster, batch]
+          # The logs pipeline intentionally skips the batch processor
+          # Logs go straight to the exporter, which uses file_storage/logs as its queue.
+          processors: [memory_limiter, transform/fluentbit_k8s, transform/host, k8s_attributes, transform/cluster]
           exporters: [otlp_http/loki]
-      telemetry:
+      telemetry:    # self-metrics for the collector itself
         resource:
           service.name: otel-gateway
         metrics:
@@ -193,7 +244,11 @@ metadata:
     app.kubernetes.io/name: otel-gateway
     app.kubernetes.io/part-of: observability
 spec:
+  # This combined gateway also owns Prometheus application metric state.
+  # One process must own the RWO queue; scale-out needs separate per-replica storage.
   replicas: 1
+  strategy:
+    type: Recreate
   selector:
     matchLabels:
       app.kubernetes.io/name: otel-gateway
@@ -202,6 +257,8 @@ spec:
       labels:
         app.kubernetes.io/name: otel-gateway
         app.kubernetes.io/part-of: observability
+      annotations:
+        homelab/config-revision: "20261027-1"
     spec:
       # tolerations:
       #   - key: node-role.kubernetes.io/control-plane
@@ -230,6 +287,8 @@ spec:
         runAsNonRoot: true
         runAsUser: 10001
         runAsGroup: 10001
+        fsGroup: 10001
+        fsGroupChangePolicy: OnRootMismatch
         seccompProfile:
           type: RuntimeDefault
       containers:
@@ -275,6 +334,8 @@ spec:
             capabilities:
               drop: ["ALL"]
           volumeMounts:
+            - name: log-queue
+              mountPath: /var/lib/otelcol
             - name: config
               mountPath: /conf/collector.yaml
               subPath: collector.yaml
@@ -285,6 +346,9 @@ spec:
               mountPath: /etc/otel-auth
               readOnly: true
       volumes:
+        - name: log-queue
+          persistentVolumeClaim:
+            claimName: otel-gateway-log-queue
         - name: config
           configMap:
             name: otel-gateway-config
@@ -298,6 +362,19 @@ spec:
             items:
               - key: token
                 path: token
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: otel-gateway-log-queue
+  namespace: monitoring
+spec:
+  accessModes: [ReadWriteOnce]
+  storageClassName: longhorn
+  resources:
+    requests:
+      storage: 2Gi
 
 ---
 apiVersion: v1

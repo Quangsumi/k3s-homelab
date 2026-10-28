@@ -6,21 +6,21 @@ metadata:
 
 data:
   fluent-bit.conf: |
-    [SERVICE]
+    [SERVICE] # Global runtime settings
         Flush                     2
         Grace                     30
         Log_Level                 info
 
-        Parsers_File              /fluent-bit/etc/parsers.conf
-
         # Persistent disk buffering.
-        storage.path              /var/lib/fluent-bit/storage
-        storage.sync              normal
-        storage.checksum          off
-        storage.max_chunks_up     128
+        # If gateway is down, chunks spill to this path on the node's filesystem
+        storage.path              /var/lib/fluent-bit/pods/queue
+        storage.sync              full
+        storage.checksum          on
+        storage.max_chunks_up     16
         storage.backlog.mem_limit 5M
 
         # Fluent Bit internal monitoring.
+        # Exposes an internal HTTP API on port 2020 (used by health/liveness probes)
         HTTP_Server               On
         HTTP_Listen               0.0.0.0
         HTTP_Port                 2020
@@ -34,23 +34,30 @@ data:
     # Read container stdout/stderr logs from this Kubernetes node.
     # ------------------------------------------------------------
     [INPUT]
-        Name              tail
-        Tag               kube.*
+        Name              tail        # plugin type
+        Tag               kube.*      # tag prefix for all records from this input
 
         Path              /var/log/containers/*.log
 
         # Don't recursively ingest Fluent Bit's own logs.
         Exclude_Path      /var/log/containers/fluent-bit-*_monitoring_*.log
 
-        Parser            cri
+        # uses the CRI (Container Runtime Interface) multi-line parser. 
+        # This is important because Kubernetes splits each log file's content 
+        # into "partial records" (each line is actually a JSON envelope with 
+        # a log field and a stream field). The CRI parser reassembles these partial 
+        # records into complete log lines before they reach the filter.
+        multiline.parser  cri
 
         # Remember the offset of every file.
-        DB                /var/lib/fluent-bit/flb_kube.db
-        DB.Sync           Normal
+        # so Fluent Bit doesn't re-read the whole file on restart
+        DB                /var/lib/fluent-bit/pods/flb_kube.db
+        DB.Sync           Full
 
         Refresh_Interval  10
         Rotate_Wait       30
         Skip_Long_Lines   On
+        Buffer_Max_Size   256K
 
         Mem_Buf_Limit     10M
 
@@ -58,17 +65,20 @@ data:
         storage.type      filesystem
 
 
-    # ------------------------------------------------------------
-    # KUBERNETES METADATA
-    # ------------------------------------------------------------
+    # Runtime CRI partial records are reconstructed at the input. Application
+    # stack-trace grouping stays disabled: its 5.1.2 regression fixture failed.
     [FILTER]
-        Name                kubernetes
-        Match               kube.*
+        Name                kubernetes        # plugin type
+        Match               kube.*            # INPUT produces this tag
 
+        # Query the Kubernetes API for pod metadata (labels, annotations, node name, container name, etc.)
+        # CA, Token are injected by the SA fluent-bit (see the DaemonSet spec below)
+        # Kubernetes automatically mounts these files into every pod that uses a ServiceAccount
         Kube_URL            https://kubernetes.default.svc:443
         Kube_CA_File        /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
         Kube_Token_File     /var/run/secrets/kubernetes.io/serviceaccount/token
 
+        # strip this prefix off the tag, the rest is the pod identifier
         Kube_Tag_Prefix     kube.var.log.containers.
 
         Merge_Log           On
@@ -101,19 +111,7 @@ data:
 
         TLS           Off
         Retry_Limit   no_limits
-
-
-  parsers.conf: |
-    [PARSER]
-        Name        cri
-        Format      regex
-
-        Regex       ^(?<time>[^ ]+) (?<stream>stdout|stderr) (?<logtag>[FP]) (?<log>.*)$
-
-        Time_Key    time
-        Time_Format %Y-%m-%dT%H:%M:%S.%L%z
-        Time_Keep   On
-
+        storage.total_limit_size 512M
 
 ---
 apiVersion: apps/v1
@@ -136,6 +134,10 @@ spec:
       labels:
         app.kubernetes.io/name: fluent-bit
         app.kubernetes.io/part-of: observability
+      annotations:
+        # Update fluent-bit.conf will not trigger rollout
+        # Bump when subPath-mounted configuration changes to trigger rollout.
+        homelab/config-revision: "20261027-2"
 
     spec:
       priorityClassName: homelab-diagnostics
@@ -161,7 +163,7 @@ spec:
           imagePullPolicy: IfNotPresent
 
           args:
-            - --config=/fluent-bit/etc/fluent-bit.conf
+            - --config=/fluent-bit/etc/fluent-bit.conf  # fluent-bit binary expects its config at this path
 
           ports:
             - name: http-metrics
@@ -170,6 +172,7 @@ spec:
 
           readinessProbe:
             httpGet:
+              # Output failures should affect readiness, not restart the buffer.
               path: /api/v1/health
               port: http-metrics
 
@@ -178,7 +181,7 @@ spec:
 
           livenessProbe:
             httpGet:
-              path: /api/v1/health
+              path: /api/v1/metrics
               port: http-metrics
 
             initialDelaySeconds: 15
@@ -203,12 +206,8 @@ spec:
           volumeMounts:
             - name: config
               mountPath: /fluent-bit/etc/fluent-bit.conf
-              subPath: fluent-bit.conf
-              readOnly: true
-
-            - name: config
-              mountPath: /fluent-bit/etc/parsers.conf
-              subPath: parsers.conf
+              subPath: fluent-bit.conf    # place only this file and leave the rest of the directory intact.
+                                          # better approach: use "items" with configMap, no need bump annotation, auto rollout on config change.
               readOnly: true
 
             - name: container-logs
@@ -220,7 +219,7 @@ spec:
               readOnly: true
 
             - name: state
-              mountPath: /var/lib/fluent-bit
+              mountPath: /var/lib/fluent-bit/pods
 
             - name: tmp
               mountPath: /tmp
@@ -242,8 +241,10 @@ spec:
 
         - name: state
           hostPath:
-            path: /var/lib/fluent-bit
-            type: DirectoryOrCreate
+            # Migrate the old stopped collector's cursor and queue first.
+            # See ansible/playbooks/fluent-bit/STATE-MIGRATION.md.
+            path: /var/lib/fluent-bit/pods
+            type: Directory
 
         - name: tmp
           emptyDir:

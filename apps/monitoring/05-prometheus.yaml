@@ -17,203 +17,6 @@ spec:
         key: /prometheus/LITELLM_MASTER_KEY
 
 ---
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: prometheus-config
-  namespace: monitoring
-data:
-  prometheus.yml: |
-    global:
-      scrape_interval: 15s
-      evaluation_interval: 15s
-
-    scrape_configs:
-      - job_name: prometheus
-        static_configs:
-          - targets:
-              - localhost:9090
-
-      - job_name: litellm
-        metrics_path: /metrics
-        authorization:
-          type: Bearer
-          credentials_file: /etc/prometheus/secrets/litellm/LITELLM_MASTER_KEY
-        static_configs:
-          - targets:
-              - litellm.litellm.svc.cluster.local:4000
-
-      - job_name: postgres-exporter
-        static_configs:
-          - targets:
-              - postgres-exporter.postgres.svc.cluster.local:9187
-
-      - job_name: kube-state-metrics      # k3s api server metrics
-        scrape_interval: 30s
-        static_configs:
-          - targets:
-              - kube-state-metrics.monitoring.svc.cluster.local:8080
-        metric_relabel_configs:
-          - target_label: cluster
-            replacement: k3s-homelab
-
-      - job_name: node-exporter           # Linux node metrics
-        scrape_interval: 30s
-        kubernetes_sd_configs:
-          - role: endpoints
-            namespaces:
-              names: [monitoring]
-        relabel_configs:
-          - source_labels: [__meta_kubernetes_service_name]
-            action: keep
-            regex: node-exporter
-          - source_labels: [__meta_kubernetes_endpoint_port_name]
-            action: keep
-            regex: metrics
-        metric_relabel_configs:
-          - target_label: cluster
-            replacement: k3s-homelab
-
-      - job_name: kubernetes-kubelet        # not deployed by you, it already exist as part of Kubernetes/K3s, for kubelet metrics on each node
-        scrape_interval: 30s
-        scheme: https
-        authorization:
-          credentials_file: /var/run/secrets/kubernetes.io/serviceaccount/token
-        tls_config:
-          ca_file: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
-        kubernetes_sd_configs:
-          - role: node
-        relabel_configs:
-          - target_label: __address__
-            replacement: kubernetes.default.svc.cluster.local:443
-          - source_labels: [__meta_kubernetes_node_name]
-            target_label: __metrics_path__
-            regex: (.+)
-            replacement: /api/v1/nodes/${1}/proxy/metrics
-          - source_labels: [__meta_kubernetes_node_name]
-            target_label: node
-        metric_relabel_configs:
-          # K3s exposes metrics from several embedded control-plane components
-          # through this endpoint. Keep this job scoped to kubelet/node health;
-          # scrape control-plane components with dedicated jobs later.
-          - source_labels: [__name__]
-            action: keep
-            regex: kubelet_.*|volume_manager_.*|storage_operation_.*|process_.*|go_.*|rest_client_.*
-          - target_label: cluster
-            replacement: k3s-homelab
-
-      - job_name: kubernetes-cadvisor   # not deployed by you, it already exist as part of Kubernetes/K3s, for container metrics
-        scrape_interval: 30s
-        scheme: https
-        authorization:
-          credentials_file: /var/run/secrets/kubernetes.io/serviceaccount/token
-        tls_config:
-          ca_file: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
-        kubernetes_sd_configs:
-          - role: node
-        relabel_configs:
-          - target_label: __address__
-            replacement: kubernetes.default.svc.cluster.local:443
-          - source_labels: [__meta_kubernetes_node_name]
-            target_label: __metrics_path__
-            regex: (.+)
-            replacement: /api/v1/nodes/${1}/proxy/metrics/cadvisor
-          - source_labels: [__meta_kubernetes_node_name]
-            target_label: node
-        metric_relabel_configs:
-          - target_label: cluster
-            replacement: k3s-homelab
-
-      - job_name: otel-application-metrics
-        static_configs:
-          - targets:
-              - otel-gateway.monitoring.svc.cluster.local:9464
-
-      - job_name: otel-gateway
-        static_configs:
-          - targets:
-              - otel-gateway.monitoring.svc.cluster.local:8888
-
-      # - job_name: otel-agent
-      #   kubernetes_sd_configs:
-      #     - role: endpoints
-      #       namespaces:
-      #         names: [monitoring]
-      #   relabel_configs:
-      #     - source_labels: [__meta_kubernetes_service_name]
-      #       action: keep
-      #       regex: otel-agent
-      #     - source_labels: [__meta_kubernetes_endpoint_port_name]
-      #       action: keep
-      #       regex: self-metrics
-
-      - job_name: fluent-bit
-        metrics_path: /api/v1/metrics/prometheus
-        kubernetes_sd_configs:
-          - role: endpoints
-            namespaces:
-              names:
-                - monitoring
-        relabel_configs:
-          - source_labels:
-              - __meta_kubernetes_service_name
-            action: keep
-            regex: fluent-bit
-          - source_labels:
-              - __meta_kubernetes_endpoint_port_name
-            action: keep
-            regex: http-metrics
-
-      - job_name: loki
-        static_configs:
-          - targets:
-              - loki.monitoring.svc.cluster.local:3100
-
-      - job_name: jaeger
-        static_configs:
-          - targets:
-              - jaeger.monitoring.svc.cluster.local:8888
-
-      - job_name: traefik
-        scrape_interval: 30s
-
-        kubernetes_sd_configs:
-          - role: pod
-            namespaces:
-              names:
-                - kube-system
-
-        relabel_configs:
-          # Only Traefik pods
-          - source_labels:
-              - __meta_kubernetes_pod_label_app_kubernetes_io_name
-            action: keep
-            regex: traefik
-
-          # Only Traefik's metrics container port
-          - source_labels:
-              - __meta_kubernetes_pod_container_port_name
-            action: keep
-            regex: metrics
-
-          # Useful labels in Prometheus/Grafana
-          - source_labels:
-              - __meta_kubernetes_pod_name
-            target_label: pod
-
-          - source_labels:
-              - __meta_kubernetes_pod_node_name
-            target_label: node
-
-          - source_labels:
-              - __meta_kubernetes_namespace
-            target_label: namespace
-
-        metric_relabel_configs:
-          - target_label: cluster
-            replacement: k3s-homelab
-
----
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
@@ -298,24 +101,41 @@ spec:
               memory: 576Mi
           volumeMounts:
             - name: prometheus-config
-              mountPath: /etc/prometheus/prometheus.yml
-              subPath: prometheus.yml
+              mountPath: /etc/prometheus
               readOnly: true
             - name: prometheus-data
               mountPath: /prometheus
-            - name: litellm-prometheus-job-secret-infisical
-              mountPath: /etc/prometheus/secrets/litellm
-              readOnly: true
       volumes:
+        # One read-only mount contains main config, job files and the existing token.
         - name: prometheus-config
-          configMap:
-            name: prometheus-config
-        - name: litellm-prometheus-job-secret-infisical
-          secret:
-            secretName: litellm-prometheus-job-secret-infisical
-            items:
-              - key: LITELLM_MASTER_KEY
-                path: LITELLM_MASTER_KEY
+          projected:
+            sources:
+              - configMap:
+                  name: prometheus-config
+              - configMap:
+                  name: prometheus-scrapes
+                  items:
+                    - key: applications.yml
+                      path: scrapes/applications.yml
+                    - key: kubernetes.yml
+                      path: scrapes/kubernetes.yml
+                    - key: observability.yml
+                      path: scrapes/observability.yml
+                    - key: network.yml
+                      path: scrapes/network.yml
+                    - key: argocd.yml
+                      path: scrapes/argocd.yml
+                    - key: certificates.yml
+                      path: scrapes/certificates.yml
+                    - key: external-secrets.yml
+                      path: scrapes/external-secrets.yml
+                    - key: storage.yml
+                      path: scrapes/storage.yml
+              - secret:
+                  name: litellm-prometheus-job-secret-infisical
+                  items:
+                    - key: LITELLM_MASTER_KEY
+                      path: secrets/litellm/LITELLM_MASTER_KEY
   volumeClaimTemplates:
     - metadata:
         name: prometheus-data

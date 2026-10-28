@@ -1,0 +1,8 @@
+global:
+  scrape_interval: 15s
+  scrape_timeout: 10s
+  evaluation_interval: 15s
+
+# Each file contains a small group of scrape jobs.
+scrape_config_files:
+  - scrapes/*.yml

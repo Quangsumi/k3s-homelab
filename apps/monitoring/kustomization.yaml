@@ -34,3 +34,19 @@ configMapGenerator:
   - name: prometheus-oauth2-proxy-config
     files:
       - oauth2-proxy.cfg=oauth2-proxy/oauth2-proxy.cfg
+
+  # Name hashes trigger a normal pod rollout when either config changes.
+  - name: prometheus-config
+    files:
+      - prometheus/prometheus.yml
+
+  - name: prometheus-scrapes
+    files:
+      - prometheus/scrapes/applications.yml
+      - prometheus/scrapes/kubernetes.yml
+      - prometheus/scrapes/observability.yml
+      - prometheus/scrapes/network.yml
+      - prometheus/scrapes/argocd.yml
+      - prometheus/scrapes/certificates.yml
+      - prometheus/scrapes/external-secrets.yml
+      - prometheus/scrapes/storage.yml

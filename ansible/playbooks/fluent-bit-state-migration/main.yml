@@ -1,9 +1,21 @@
 ---
 # Standalone, one-time job. Never imported by install/configure.
+- name: Check every node login before stopping collectors
+  hosts: control_planes:workers
+  gather_facts: false
+  become: true
+  any_errors_fatal: true
+  tasks:
+    - name: Check SSH and sudo work on this node
+      ansible.builtin.command: /usr/bin/true
+      changed_when: false
+      check_mode: false
+
 - name: Move Fluent Bit pod state once
   hosts: control_planes[0]  # choose 1 control plane to run kubectl
   gather_facts: false       # Skip Ansible’s automatic collection of machine information, such as OS, CPU and network details
   become: false       # no auto use sudo for those tasks
+  any_errors_fatal: true
   vars:
     nodes: "{{ (groups['control_planes'] + groups['workers']) | unique | list }}"
   tasks:
@@ -27,7 +39,7 @@
         cm: "{{ (current.stdout | from_json)['items'] | selectattr('kind', 'equalto', 'ConfigMap') | first }}"
         app: "{{ argo.stdout | from_json }}"
 
-    - name: Check sync is paused and the collector still uses the old folders
+    - name: Check sync is paused and the old source paths are still configured
       ansible.builtin.assert:
         that:
           - app.spec.syncPolicy.automated is not defined or not (app.spec.syncPolicy.automated.enabled | default(true) | bool)
@@ -35,8 +47,10 @@
           - app.operation is not defined
           - "'/var/lib/fluent-bit/storage' in cm.data['fluent-bit.conf']"
           - "'/var/lib/fluent-bit/flb_kube.db' in cm.data['fluent-bit.conf']"
-          - ds.status.numberReady | default(0) | int == nodes | length
-        fail_msg: Pause monitoring automatic sync, wait for any sync to finish, and make sure all collectors are ready on the old layout.
+          - >-
+            (ds.spec.template.spec.nodeSelector | default({})).get('homelab/fluent-bit-state-migration', '') == 'paused'
+            or (ds.status.numberReady | default(0) | int == nodes | length)
+        fail_msg: Pause monitoring automatic sync and finish any running sync. Collectors must be ready or already paused by this job.
 
     - name: Stop the pod collectors
       ansible.builtin.command:
@@ -62,27 +76,64 @@
       changed_when: false
       when: not ansible_check_mode
 
+# Each node is the play host. Its username and Vault lookup use its own name.
+- name: Copy state on each node using that node's login
+  hosts: control_planes:workers
+  gather_facts: false
+  become: true
+  any_errors_fatal: true
+  tasks:
     - name: Copy the database and queue, then compare the copies
-      delegate_to: "{{ item }}"
-      become: true
       ansible.builtin.shell: |
-        set -eu     # Exit on error, treat unset variables as errors
-        cd /var/lib/fluent-bit
-        test ! -e pods
-        test -z "$(k3s crictl ps --name fluent-bit -q)"
-        test -f flb_kube.db
-        test -d storage
-        mkdir -p pods/queue
+        set -eu
+        fail() { echo "$1" >&2; exit 1; }
+        cd /var/lib/fluent-bit || fail 'Missing /var/lib/fluent-bit'
+        running=$(k3s crictl ps --name fluent-bit -q) || fail 'Cannot check running Fluent Bit containers'
+        [ -z "$running" ] || fail 'A Fluent Bit container is still running; refusing to copy'
+        [ -f flb_kube.db ] || fail 'Missing original database: /var/lib/fluent-bit/flb_kube.db'
+        [ -d storage ] || fail 'Missing original queue: /var/lib/fluent-bit/storage'
+        copied=false
+        if [ ! -d pods/queue ]; then
+          mkdir -p pods/queue
+          copied=true
+        fi
         for file in flb_kube.db flb_kube.db-wal flb_kube.db-shm; do
           if [ -f "$file" ]; then
-            cp -a -- "$file" "pods/$file"
-            cmp -- "$file" "pods/$file"
+            if [ ! -e "pods/$file" ]; then
+              cp -a -- "$file" "pods/$file"
+              copied=true
+            fi
+            cmp -- "$file" "pods/$file" || fail "Existing pods/$file differs; refusing to overwrite"
+          elif [ -e "pods/$file" ]; then
+            fail "pods/$file exists but its original is missing; inspect before continuing"
           fi
         done
-        cp -a -- storage/. pods/queue/
-        diff -qr -- storage pods/queue
+        # Keep existing copies. Fill missing queue files, then compare everything.
+        if ! diff -qr -- storage pods/queue >/dev/null; then copied=true; fi
+        cp -an -- storage/. pods/queue/
+        diff -qr -- storage pods/queue || fail 'Queue copies differ; originals and existing copies were kept'
+        if [ "$copied" = true ]; then echo COPIED; else echo VERIFIED; fi
+      register: state_copy
+      changed_when: "'COPIED' in state_copy.stdout"
+      when: not ansible_check_mode
+
+- name: Use the copied state and restart collectors
+  hosts: control_planes[0]
+  gather_facts: false
+  become: false
+  any_errors_fatal: true
+  vars:
+    nodes: "{{ (groups['control_planes'] + groups['workers']) | unique | list }}"
+  tasks:
+    - name: Require a verified copy on every node before restarting
+      ansible.builtin.assert:
+        that:
+        # hostvars[item] selects vars of node machine
+        # state_copy was registerd as a var in the above play
+          - hostvars[item].state_copy is defined                    
+          - not (hostvars[item].state_copy.failed | default(true))
+          - hostvars[item].state_copy.rc | default(1) == 0
       loop: "{{ nodes }}"
-      changed_when: true
       when: not ansible_check_mode
 
     # The existing parent mount already makes its new pods/ subfolder visible.
@@ -115,7 +166,8 @@
           - -p
           - >-
             {{ [{'op': 'replace', 'path': '/spec/template/spec/nodeSelector',
-                 'value': ds.spec.template.spec.nodeSelector | default({})}] | to_json }}
+                 'value': ds.spec.template.spec.nodeSelector | default({}) | dict2items |
+                   rejectattr('key', 'equalto', 'homelab/fluent-bit-state-migration') | items2dict}] | to_json }}
       changed_when: true
       when: not ansible_check_mode
 

@@ -1,0 +1,56 @@
+---
+- name: Explain what preview mode cannot prove
+  ansible.builtin.debug:
+    msg: Preview only. A real run writes a test message and waits until Loki returns it.
+  when: ansible_check_mode
+
+- name: Verify actual log delivery
+  when: not ansible_check_mode
+  block:
+    - name: Choose a unique test message for this machine
+      ansible.builtin.set_fact:
+        fluent_bit_probe: "host-log-check-{{ inventory_hostname }}-{{ now(utc=true, fmt='%Y%m%dT%H%M%S') }}-{{ 999999999 | random }}"
+
+    - name: Write the test message into this machine's journal
+      ansible.builtin.command:
+        argv: [logger, --tag, fluent-bit-check, --, "{{ fluent_bit_probe }}"]
+      changed_when: false
+
+    - name: Wait until Loki returns this machine's test message
+      ansible.builtin.command:
+        argv:
+          - kubectl
+          - -n
+          - monitoring
+          - exec
+          - deployment/grafana
+          - --
+          - wget
+          - -q
+          - -T
+          - '10'
+          - -U
+          - agent-local
+          - -O
+          - '-'
+          - "http://loki:3100/loki/api/v1/query_range?query={{ fluent_bit_probe_query | urlencode }}&since=10m&limit=1"
+      delegate_to: "{{ fluent_bit_verify_controller }}"
+      become: false
+      vars:
+        ansible_user: "{{ fluent_bit_verify_user }}"
+        ansible_password: >-
+          {{ (vault_hosts | default({})).get(fluent_bit_verify_controller, {}).get('ssh_password', none)
+             if bootstrap_password_auth | default(false) | bool else none }}
+        fluent_bit_probe_query: >-
+          {service_namespace="homelab-hosts"} | host_name={{ inventory_hostname | to_json }} |= {{ fluent_bit_probe | to_json }}
+      register: fluent_bit_delivery
+      changed_when: false
+      until: >-
+        fluent_bit_delivery.rc == 0
+        and ((fluent_bit_delivery.stdout | from_json).data.result | length > 0)
+      retries: 24
+      delay: 5
+
+    - name: Confirm this host's log arrived
+      ansible.builtin.debug:
+        msg: "Verified {{ inventory_hostname }} -> Fluent Bit -> gateway -> Loki. Test message: {{ fluent_bit_probe }}"

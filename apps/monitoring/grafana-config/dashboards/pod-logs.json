@@ -1,0 +1,191 @@
+{
+  "uid": "homelab-pod-logs",
+  "title": "Pod Logs",
+  "description": "Only Kubernetes container stdout/stderr. Host journals are on Host Logs.",
+  "schemaVersion": 39,
+  "version": 1,
+  "editable": false,
+  "tags": [
+    "homelab",
+    "logs"
+  ],
+  "timezone": "browser",
+  "refresh": "30s",
+  "time": {
+    "from": "now-30m",
+    "to": "now"
+  },
+  "links": [
+    {
+      "title": "Host Logs",
+      "url": "/d/homelab-host-logs",
+      "type": "link",
+      "keepTime": true
+    },
+    {
+      "title": "Pod Logs",
+      "url": "/d/homelab-pod-logs",
+      "type": "link",
+      "keepTime": true
+    },
+    {
+      "title": "Log Delivery",
+      "url": "/d/homelab-log-delivery",
+      "type": "link",
+      "keepTime": true
+    }
+  ],
+  "templating": {
+    "list": [
+      {
+        "name": "namespace",
+        "label": "Namespace",
+        "type": "query",
+        "query": "label_values({k8s_namespace_name!=\"\",service_namespace!=\"homelab-hosts\"}, k8s_namespace_name)",
+        "multi": true,
+        "includeAll": true,
+        "allValue": ".+",
+        "current": {
+          "text": "All",
+          "value": "$__all"
+        },
+        "options": [],
+        "datasource": {
+          "type": "loki",
+          "uid": "loki"
+        },
+        "refresh": 2,
+        "sort": 1,
+        "definition": "label_values({k8s_namespace_name!=\"\",service_namespace!=\"homelab-hosts\"}, k8s_namespace_name)"
+      },
+      {
+        "name": "service",
+        "label": "Application",
+        "type": "query",
+        "query": "label_values({k8s_namespace_name=~\"${namespace:regex}\",service_namespace!=\"homelab-hosts\"}, service_name)",
+        "multi": true,
+        "includeAll": true,
+        "allValue": ".+",
+        "current": {
+          "text": "All",
+          "value": "$__all"
+        },
+        "options": [],
+        "datasource": {
+          "type": "loki",
+          "uid": "loki"
+        },
+        "refresh": 2,
+        "sort": 1,
+        "definition": "label_values({k8s_namespace_name=~\"${namespace:regex}\",service_namespace!=\"homelab-hosts\"}, service_name)"
+      },
+      {
+        "name": "pod",
+        "label": "Pod",
+        "type": "query",
+        "query": "label_values({k8s_namespace_name=~\"${namespace:regex}\",service_name=~\"${service:regex}\",service_namespace!=\"homelab-hosts\"}, k8s_pod_name)",
+        "multi": true,
+        "includeAll": true,
+        "allValue": ".+",
+        "current": {
+          "text": "All",
+          "value": "$__all"
+        },
+        "options": [],
+        "datasource": {
+          "type": "loki",
+          "uid": "loki"
+        },
+        "refresh": 2,
+        "sort": 1,
+        "definition": "label_values({k8s_namespace_name=~\"${namespace:regex}\",service_name=~\"${service:regex}\",service_namespace!=\"homelab-hosts\"}, k8s_pod_name)"
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "title": "What this page shows",
+      "type": "text",
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 24,
+        "h": 3
+      },
+      "options": {
+        "mode": "markdown",
+        "content": "**Kubernetes pod logs only.** Choose a namespace, application and pod above. For SSH, kernel, Proxmox and K3s system service logs, open **Host Logs**."
+      }
+    },
+    {
+      "id": 2,
+      "title": "Log volume by application",
+      "type": "timeseries",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 3,
+        "w": 24,
+        "h": 7
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (service_name) (count_over_time({k8s_namespace_name=~`${namespace:regex}`,service_name=~`${service:regex}`,k8s_pod_name=~`${pod:regex}`,service_namespace!=\"homelab-hosts\"}[$__auto]))",
+          "queryType": "range",
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "options": {}
+    },
+    {
+      "id": 3,
+      "title": "Pod messages",
+      "type": "logs",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 10,
+        "w": 24,
+        "h": 16
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "{k8s_namespace_name=~`${namespace:regex}`,service_name=~`${service:regex}`,k8s_pod_name=~`${pod:regex}`,service_namespace!=\"homelab-hosts\"}",
+          "queryType": "range",
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "options": {
+        "showTime": true,
+        "showLabels": true,
+        "wrapLogMessage": true,
+        "sortOrder": "Descending",
+        "enableLogDetails": true,
+        "dedupStrategy": "none"
+      }
+    }
+  ]
+}

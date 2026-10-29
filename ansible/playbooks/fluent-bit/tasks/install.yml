@@ -1,0 +1,56 @@
+---
+- name: Check supported platform and explicit target selection
+  ansible.builtin.assert:
+    that:
+      - ansible_limit | default('') | length > 0
+      - ansible_facts.distribution in ['Ubuntu', 'Debian']
+      - ansible_facts.service_mgr == 'systemd'
+    fail_msg: Use --limit with reviewed hosts; only Debian/Ubuntu systemd hosts are supported.
+
+- name: Install repository prerequisites
+  ansible.builtin.apt:
+    name: [ca-certificates, gnupg]
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+    policy_rc_d: 101
+
+- name: Download vendor signing key
+  ansible.builtin.get_url:
+    url: https://packages.fluentbit.io/fluentbit.key
+    dest: /usr/share/keyrings/fluent-bit.asc
+    owner: root
+    group: root
+    mode: '0644' # 0 = no permissions, 4 = read, 2 = write, 1 = execute
+    http_agent: agent-local
+
+- name: Add distribution-specific signed repository
+  ansible.builtin.copy:
+    dest: /etc/apt/sources.list.d/fluent-bit.sources
+    owner: root
+    group: root
+    mode: '0644'
+    content: |
+      Types: deb
+      URIs: https://packages.fluentbit.io/{{ ansible_facts.distribution | lower }}/{{ fluent_bit_repository_codename }}
+      Suites: {{ fluent_bit_repository_codename }}
+      Components: main
+      Signed-By: /usr/share/keyrings/fluent-bit.asc
+  register: fluent_bit_repository
+
+- name: Explain why a first installation cannot be previewed completely
+  ansible.builtin.fail:
+    msg: >-
+      This preview would add or change the package repository. Check mode cannot
+      download its package list, so it cannot preview the installation yet.
+      Run the real installation after review; nothing was installed by this preview.
+  when: ansible_check_mode and fluent_bit_repository.changed
+
+- name: Install selected package without auto-start
+  ansible.builtin.apt:
+    name: "fluent-bit={{ fluent_bit_package_version }}"
+    state: present
+    policy_rc_d: 101
+    allow_downgrade: false
+    # Also recover if an earlier run wrote the repository but failed before apt update.
+    update_cache: true

@@ -1,0 +1,163 @@
+{
+  "uid": "homelab-host-logs",
+  "title": "Host Logs",
+  "description": "Only VM and Proxmox journals. Select a machine and service. Kubernetes pod output is on Pod Logs.",
+  "schemaVersion": 39,
+  "version": 1,
+  "editable": false,
+  "tags": [
+    "homelab",
+    "logs"
+  ],
+  "timezone": "browser",
+  "refresh": "30s",
+  "time": {
+    "from": "now-30m",
+    "to": "now"
+  },
+  "links": [
+    {
+      "title": "Host Logs",
+      "url": "/d/homelab-host-logs",
+      "type": "link",
+      "keepTime": true
+    },
+    {
+      "title": "Pod Logs",
+      "url": "/d/homelab-pod-logs",
+      "type": "link",
+      "keepTime": true
+    },
+    {
+      "title": "Log Delivery",
+      "url": "/d/homelab-log-delivery",
+      "type": "link",
+      "keepTime": true
+    }
+  ],
+  "templating": {
+    "list": [
+      {
+        "name": "host",
+        "label": "Machine",
+        "type": "custom",
+        "query": "tombstone,whyachi,biteforce,huge,minotaur,valkyrie,hydra,endgame,deepsix",
+        "multi": true,
+        "includeAll": true,
+        "allValue": ".+",
+        "current": {
+          "text": "All",
+          "value": "$__all"
+        },
+        "options": []
+      },
+      {
+        "name": "service",
+        "label": "System service",
+        "type": "query",
+        "query": "label_values({service_namespace=\"homelab-hosts\"}, service_name)",
+        "multi": true,
+        "includeAll": true,
+        "allValue": ".+",
+        "current": {
+          "text": "All",
+          "value": "$__all"
+        },
+        "options": [],
+        "datasource": {
+          "type": "loki",
+          "uid": "loki"
+        },
+        "refresh": 2,
+        "sort": 1,
+        "definition": "label_values({service_namespace=\"homelab-hosts\"}, service_name)"
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "title": "What this page shows",
+      "type": "text",
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 24,
+        "h": 3
+      },
+      "options": {
+        "mode": "markdown",
+        "content": "**VM and Proxmox logs only.** Choose a machine and system service above. For container applications, open **Pod Logs**. To check missing machines, open **Log Delivery**. Heartbeat test messages are hidden here."
+      }
+    },
+    {
+      "id": 2,
+      "title": "Log volume by machine",
+      "type": "timeseries",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 3,
+        "w": 24,
+        "h": 7
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (host_name) (count_over_time({service_namespace=\"homelab-hosts\"} | host_name=~`${host:regex}` | service_name=~`${service:regex}` != \"host-log-heartbeat\"[$__auto]))",
+          "queryType": "range",
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "options": {}
+    },
+    {
+      "id": 3,
+      "title": "Host journal messages",
+      "type": "logs",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 10,
+        "w": 24,
+        "h": 16
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "{service_namespace=\"homelab-hosts\"} | host_name=~`${host:regex}` | service_name=~`${service:regex}` != \"host-log-heartbeat\"",
+          "queryType": "range",
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "options": {
+        "showTime": true,
+        "showLabels": true,
+        "wrapLogMessage": true,
+        "sortOrder": "Descending",
+        "enableLogDetails": true,
+        "dedupStrategy": "none"
+      }
+    }
+  ]
+}

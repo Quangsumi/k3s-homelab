@@ -23,6 +23,16 @@ resources:
   - observability/70-observability-network-policies.yaml
 
 configMapGenerator:
+  - name: grafana-log-dashboard-provider
+    files:
+      - grafana-config/log-dashboards.yaml
+
+  - name: grafana-log-dashboards
+    files:
+      - grafana-config/dashboards/host-logs.json
+      - grafana-config/dashboards/pod-logs.json
+      - grafana-config/dashboards/log-delivery.json
+
   - name: grafana-config
     files:
       - grafana-config/grafana.ini

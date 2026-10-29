@@ -1,0 +1,13 @@
+---
+- name: Restart Fluent Bit
+  ansible.builtin.systemd_service:
+    name: fluent-bit
+    state: restarted
+- name: Restart journald
+  ansible.builtin.systemd_service:
+    name: systemd-journald
+    state: restarted
+  notify: Flush journal to persistent storage
+- name: Flush journal to persistent storage
+  ansible.builtin.command: journalctl --flush
+  changed_when: false

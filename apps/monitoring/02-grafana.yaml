@@ -94,6 +94,13 @@ spec:
               cpu: 100m
               memory: 768Mi
           volumeMounts:
+            - name: log-dashboard-provider
+              mountPath: /etc/grafana/provisioning/dashboards/homelab-logs.yaml
+              subPath: log-dashboards.yaml
+              readOnly: true
+            - name: log-dashboards
+              mountPath: /var/lib/grafana/log-dashboards
+              readOnly: true
             - name: grafana-data
               mountPath: /var/lib/grafana
             - name: grafana-datasources
@@ -111,6 +118,12 @@ spec:
               readOnly: true
             
       volumes:
+        - name: log-dashboard-provider
+          configMap:
+            name: grafana-log-dashboard-provider
+        - name: log-dashboards
+          configMap:
+            name: grafana-log-dashboards
         - name: grafana-data
           persistentVolumeClaim:
             claimName: grafana-data

@@ -1,6 +1,7 @@
-# Use the existing laptop key instead of the shared bootstrap password.
+# account Ansible uses to log in over SSH
 ansible_user: biteforce
 ansible_password: null
+
 # Confirmed working from the user's Ubuntu/WSL SSH command.
 ansible_ssh_private_key_file: ~/.ssh/homelab_laptop
 

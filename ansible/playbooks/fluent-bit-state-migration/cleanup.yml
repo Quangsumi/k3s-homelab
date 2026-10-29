@@ -1,0 +1,74 @@
+---
+# Run separately, after confirming fresh logs from every node reach Loki.
+- name: Check Fluent Bit uses the new paths before cleanup
+  hosts: control_planes[0]
+  gather_facts: false
+  become: false
+  any_errors_fatal: true
+  tasks:
+    - name: Read the current Fluent Bit configuration
+      ansible.builtin.command:
+        argv: [kubectl, -n, monitoring, get, configmap/fluent-bit-config, -o, json]
+      register: current_config
+      changed_when: false
+      check_mode: false
+
+    - name: Require the new database and queue paths
+      ansible.builtin.assert:
+        that:
+          - "'/var/lib/fluent-bit/pods/flb_kube.db' in config_text"
+          - "'/var/lib/fluent-bit/pods/queue' in config_text"
+          - "'/var/lib/fluent-bit/flb_kube.db' not in config_text"
+          - "'/var/lib/fluent-bit/storage' not in config_text"
+        fail_msg: Fluent Bit must use the migrated paths before deleting its old files.
+      vars:
+        config_text: "{{ (current_config.stdout | from_json).data['fluent-bit.conf'] }}"
+
+    - name: Check the collectors finished starting
+      ansible.builtin.command:
+        argv: [kubectl, -n, monitoring, rollout, status, daemonset/fluent-bit, --timeout=30s]
+      changed_when: false
+      check_mode: false
+
+    - name: Remember that the cluster checks passed in this run
+      ansible.builtin.set_fact:
+        fluent_bit_cleanup_ready: true
+
+- name: Delete only the old pod database and queue
+  hosts: control_planes:workers
+  gather_facts: false
+  become: true
+  any_errors_fatal: true
+  tasks:
+    - name: Require the cluster checks before deleting anything
+      ansible.builtin.assert:
+        that: hostvars[groups['control_planes'][0]].fluent_bit_cleanup_ready | default(false)
+        fail_msg: Run the complete cleanup playbook without --limit or --start-at-task.
+
+    - name: Check the new database and queue exist on this node
+      ansible.builtin.stat:
+        path: "{{ item }}"
+        follow: false
+      loop:
+        - /var/lib/fluent-bit/pods/flb_kube.db
+        - /var/lib/fluent-bit/pods/queue
+        - /var/lib/fluent-bit/pods
+      register: new_state
+
+    - name: Require a real database file and queue directory
+      ansible.builtin.assert:
+        that:
+          - new_state.results[0].stat.isreg | default(false)
+          - new_state.results[1].stat.isdir | default(false)
+          - new_state.results[2].stat.isdir | default(false)
+        fail_msg: New pod state is missing or is a symbolic link. Old files were kept.
+
+    - name: Remove the old files while keeping pods and host folders
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - /var/lib/fluent-bit/flb_kube.db
+        - /var/lib/fluent-bit/flb_kube.db-wal
+        - /var/lib/fluent-bit/flb_kube.db-shm
+        - /var/lib/fluent-bit/storage

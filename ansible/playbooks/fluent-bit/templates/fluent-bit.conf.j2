@@ -1,0 +1,79 @@
+[SERVICE]
+    Flush                     2
+    Grace                     30
+    Log_Level                 info
+    storage.path              /var/lib/fluent-bit/host/queue
+    storage.sync              full
+    storage.checksum          on
+    storage.max_chunks_up     16
+    storage.backlog.mem_limit  5M
+    HTTP_Server               On
+    HTTP_Listen               127.0.0.1
+    HTTP_Port                 2021
+
+# One host journal reader. The Kubernetes DaemonSet alone reads pod files.
+# This agent runs on each VM/Proxmox host and reads its journal.
+# The journal already has fields such as MESSAGE and _SYSTEMD_UNIT=k3s.service.
+[INPUT]
+    Name              systemd
+    Tag               host.journal
+    DB                /var/lib/fluent-bit/host/journal.db
+    DB.Sync           Full
+    Read_From_Tail    {{ 'On' if fluent_bit_read_from_tail else 'Off' }}
+    Max_Entries       1000
+    storage.type      filesystem
+
+# Avoid re-ingesting delivery failures from this agent into its own queue.
+[FILTER]
+    Name              grep
+    Match             host.journal
+    Exclude           _SYSTEMD_UNIT ^fluent-bit\.service$
+
+[FILTER]
+    Name              modify
+    Match             host.journal
+    Copy              MESSAGE log
+
+{% for file in fluent_bit_extra_files %}
+[INPUT]
+    Name              tail
+    Tag               host.file.{{ file.name }}
+    Path              {{ file.path }}
+    DB                /var/lib/fluent-bit/host/{{ file.name }}.db
+    DB.Sync           Full
+    Read_From_Head    On
+    Refresh_Interval  5
+    Rotate_Wait       30
+    Buffer_Max_Size   256K
+    Skip_Long_Lines   On
+    storage.type      filesystem
+
+{% endfor %}
+[FILTER]
+    Name              record_modifier
+    Match             host.*
+    # Attach this machine's name and role (proxmox or linux-vm) to each log.
+    # log_source=host tells the gateway to treat this as a host log, not a pod log.
+    # The gateway sets the service label from _SYSTEMD_UNIT (e.g. k3s.service)
+    # and the service group label to homelab-hosts. See 40-otel-gateway.yaml.
+    Record            host_name {{ inventory_hostname }}
+    Record            host_role {{ 'proxmox' if inventory_hostname in groups['proxmox_hosts'] else 'linux-vm' }}
+    Record            log_source host
+
+[OUTPUT]
+    Name                      opentelemetry
+    Match                     host.*
+    Host                      {{ fluent_bit_gateway_host }}
+    Port                      {{ fluent_bit_gateway_port }}
+    Logs_URI                  /v1/logs
+    Logs_Body_Key             $log
+    # Send the other fields too, so the gateway can read _SYSTEMD_UNIT and host_name.
+    Logs_Body_Key_Attributes  On
+    Header                    Authorization Bearer {{ fluent_bit_external_token }}
+    TLS                       On
+    TLS.Verify                On
+    TLS.Verify_Hostname       On
+    TLS.vhost                 {{ fluent_bit_gateway_tls_name }}
+    TLS.CA_File               /etc/fluent-bit/gateway-ca.pem
+    Retry_Limit               no_limits
+    storage.total_limit_size  {{ fluent_bit_queue_limit }}

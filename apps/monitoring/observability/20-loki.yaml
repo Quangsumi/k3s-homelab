@@ -35,6 +35,35 @@ data:
             prefix: loki_index_
             period: 24h
 
+    # Loki default lables, values are set by the sender (Fluent Bit or Gateway).
+    distributor:
+      otlp_config:
+        default_resource_attributes_as_index_labels:
+          # Add machine selection for the Host Logs dashboard.
+          - host.name                    # host_name: e.g. tombstone
+          - host.type                    # host_type: proxmox or linux-vm
+          # Apps can supply these. For host logs, the gateway sets the first two.
+          - service.name                 # service_name: e.g. k3s.service
+          - service.namespace            # service_namespace: e.g. homelab-hosts
+          - service.instance.id          # service_instance_id, if supplied by an app
+          # Pod details from Fluent Bit and the gateway's Kubernetes lookup.
+          - k8s.cluster.name             # k8s_cluster_name
+          - k8s.namespace.name           # k8s_namespace_name
+          - k8s.container.name           # k8s_container_name
+          - k8s.pod.name                 # k8s_pod_name
+          - k8s.deployment.name          # k8s_deployment_name
+          - k8s.statefulset.name         # k8s_statefulset_name
+          - k8s.daemonset.name           # k8s_daemonset_name
+          - k8s.replicaset.name          # k8s_replicaset_name, if supplied
+          - k8s.job.name                 # k8s_job_name, if supplied
+          - k8s.cronjob.name             # k8s_cronjob_name, if supplied
+          # Keep the other Loki defaults. They appear only if a sender provides them.
+          - container.name              # container_name (different from k8s.container.name)
+          - cloud.availability_zone     # cloud_availability_zone
+          - cloud.region                # cloud_region
+          - deployment.environment      # deployment_environment (older app convention)
+          - deployment.environment.name # deployment_environment_name
+
     limits_config:
       allow_structured_metadata: true
       retention_period: 168h
@@ -83,6 +112,8 @@ spec:
       app.kubernetes.io/name: loki
   template:
     metadata:
+      annotations:
+        homelab/config-revision: "20261029-host-labels-1"
       labels:
         app.kubernetes.io/name: loki
         app.kubernetes.io/part-of: observability

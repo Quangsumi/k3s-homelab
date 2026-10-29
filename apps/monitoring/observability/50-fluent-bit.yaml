@@ -69,6 +69,8 @@ data:
     # stack-trace grouping stays disabled: its 5.1.2 regression fixture failed.
     [FILTER]
         Name                kubernetes        # plugin type
+        # This agent reads POD logs. Attach the pod, namespace and container names.
+        # The gateway copies them to the names listed as labels in 20-loki.yaml.
         Match               kube.*            # INPUT produces this tag
 
         # Query the Kubernetes API for pod metadata (labels, annotations, node name, container name, etc.)
@@ -84,6 +86,8 @@ data:
         Merge_Log           On
         Keep_Log            On
 
+        # Include the pod's Kubernetes tags, such as app.kubernetes.io/name.
+        # Loki's label list in 20-loki.yaml decides what appears as Grafana labels.
         Labels              On
         Annotations         Off
 
@@ -242,7 +246,7 @@ spec:
         - name: state
           hostPath:
             # Migrate the old stopped collector's cursor and queue first.
-            # See ansible/playbooks/fluent-bit/STATE-MIGRATION.md.
+            # See ansible/playbooks/fluent-bit-state-migration/README.md.
             path: /var/lib/fluent-bit/pods
             type: Directory
 

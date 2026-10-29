@@ -17,6 +17,7 @@ Ansible connects over SSH and applies the instructions in a playbook.
 | [Discover](playbooks/discover/README.md) | Read OS, interface and networking information |
 | [Certificates](playbooks/certificates/README.md) | Copy public trust files to one Pi/control-plane host |
 | [Verify](playbooks/verify/README.md) | Report addresses, routes, resolver and guest-agent status |
+| [Fluent Bit state move — one time](playbooks/fluent-bit-state-migration/README.md) | Move the pod collector's saved files into the new folder; separate from install/configure |
 
 ## Common command pattern
 
@@ -44,3 +45,8 @@ and stop on failure. One command can cover the whole group.
 Hydra/OMV is excluded from root, baseline and network jobs.
 
 Certificates requires `--limit` matching exactly one host. See its job guide for preview and copy commands.
+
+## Host and VM logging
+
+Review-only Fluent Bit installation and configuration: [playbooks/fluent-bit/README.md](playbooks/fluent-bit/README.md).
+Includes every inventoried Linux VM and both Proxmox hosts; no rollout has been performed.

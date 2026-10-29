@@ -1,4 +1,4 @@
-# OpenMediaVault NAS. Its existing SSH account is root, not hydra.
+# account Ansible uses to log in over SSH
 ansible_user: root
 
 # Manage NAS networking and SSH service policy through OpenMediaVault.

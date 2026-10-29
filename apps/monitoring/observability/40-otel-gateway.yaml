@@ -50,9 +50,26 @@ data:
           http:
             endpoint: 0.0.0.0:4318
       otlp/external:                # external receiver for apps outside cluster
+        # Outside apps CAN use this. The HTTPS ingress forwards here over HTTP.
+        # A receiver name does not expose a LAN port; the Service/Ingress does that.
         protocols:
           http:
             endpoint: 0.0.0.0:14318
+            auth:
+              authenticator: bearertokenauth/external
+
+      # Host agents use this encrypted LAN listener without needing Tailscale.
+      # Same bearer token and certificate name as the existing HTTPS ingress.
+      # TLS ends here because this path bypasses Traefik. Logs pipeline only.
+      otlp/host-lan:
+        protocols:
+          http:
+            endpoint: 0.0.0.0:14319
+            tls:
+              cert_file: /etc/otel-lan-tls/tls.crt
+              key_file: /etc/otel-lan-tls/tls.key
+              # Pick up cert-manager renewals without waiting for a pod restart.
+              reload_interval: 1m
             auth:
               authenticator: bearertokenauth/external
 
@@ -66,16 +83,28 @@ data:
 
       # Log pipeline use this.
       # Handle host journal logs (systemd, non-K8s) 
+      # These copies keep the original fields and leave the message text unchanged.
+      # Which new fields become Grafana labels? See the list in 20-loki.yaml.
       transform/host:
         error_mode: ignore
         log_statements:
+
+          # Copy machine name/type so Loki can show Machine and Role choices in Grafana.
+          # 20-loki.yaml now includes host.name and host.type in its label list.
           - set(resource.attributes["host.name"], log.attributes["host_name"]) where log.attributes["host_name"] != nil
           - set(resource.attributes["host.type"], log.attributes["host_role"]) where log.attributes["host_role"] != nil
+
+          # Use host-journal as the service name when no systemd service is available.
           - set(resource.attributes["service.name"], "host-journal") where log.attributes["log_source"] == "host"
+
+          # Put all host logs in the homelab-hosts group shown in Grafana.
           - set(resource.attributes["service.namespace"], "homelab-hosts") where log.attributes["log_source"] == "host"
+
+          # If _SYSTEMD_UNIT exists, use its value (e.g. k3s.service) instead of host-journal.
+          # Copy to service.name because Loki uses that exact field for the service label.
           - set(resource.attributes["service.name"], log.attributes["_SYSTEMD_UNIT"]) where log.attributes["log_source"] == "host" and log.attributes["_SYSTEMD_UNIT"] != nil
 
-      
+
       # # Fluent Bit's kubernetes filter puts pod metadata into a nested map like:
       # {
       #   "log": "actual message",
@@ -93,32 +122,40 @@ data:
       transform/fluentbit_k8s:
         error_mode: ignore
 
+        # Read details collected by the Fluent Bit pod agent. Keep the originals too.
         log_statements:
+          # Copy the pod's unique ID so the Kubernetes lookup below can identify it.
           - set(
               resource.attributes["k8s.pod.uid"],
               log.attributes["kubernetes"]["pod_id"]
             ) where log.attributes["kubernetes"]["pod_id"] != nil
 
+          # Copy to k8s.pod.name so Loki can show the k8s_pod_name label.
           - set(
               resource.attributes["k8s.pod.name"],
               log.attributes["kubernetes"]["pod_name"]
             ) where log.attributes["kubernetes"]["pod_name"] != nil
 
+          # Copy to k8s.namespace.name so Loki can show the k8s_namespace_name label.
           - set(
               resource.attributes["k8s.namespace.name"],
               log.attributes["kubernetes"]["namespace_name"]
             ) where log.attributes["kubernetes"]["namespace_name"] != nil
 
+          # Copy the node name to a standard name. The original is searchable too.
+          # k8s.node.name is not in our Loki label list.
           - set(
               resource.attributes["k8s.node.name"],
               log.attributes["kubernetes"]["host"]
             ) where log.attributes["kubernetes"]["host"] != nil
 
+          # Copy to k8s.container.name so Loki can show the k8s_container_name label.
           - set(
               resource.attributes["k8s.container.name"],
               log.attributes["kubernetes"]["container_name"]
             ) where log.attributes["kubernetes"]["container_name"] != nil
 
+          # Copy the pod IP as a second way for the Kubernetes lookup to find the pod.
           - set(
               resource.attributes["k8s.pod.ip"],
               log.attributes["kubernetes"]["pod_ip"]
@@ -144,6 +181,8 @@ data:
             - k8s.deployment.name
             - k8s.statefulset.name
             - k8s.daemonset.name
+          # Copy the pod's app.kubernetes.io/name tag. It stays searchable in Loki.
+          # This setting does not add it to Grafana's label list.
           labels:
             - tag_name: app.kubernetes.io.name
               key: app.kubernetes.io/name
@@ -217,7 +256,7 @@ data:
           processors: [memory_limiter, k8s_attributes, transform/cluster, batch]
           exporters: [prometheus/applications]
         logs:
-          receivers: [otlp, otlp/external]
+          receivers: [otlp, otlp/external, otlp/host-lan]
           # The logs pipeline intentionally skips the batch processor
           # Logs go straight to the exporter, which uses file_storage/logs as its queue.
           processors: [memory_limiter, transform/fluentbit_k8s, transform/host, k8s_attributes, transform/cluster]
@@ -258,7 +297,7 @@ spec:
         app.kubernetes.io/name: otel-gateway
         app.kubernetes.io/part-of: observability
       annotations:
-        homelab/config-revision: "20261027-1"
+        homelab/config-revision: "20261029-host-lan-1"
     spec:
       # tolerations:
       #   - key: node-role.kubernetes.io/control-plane
@@ -304,6 +343,8 @@ spec:
               containerPort: 4318
             - name: otlp-external
               containerPort: 14318
+            - name: host-lan-tls
+              containerPort: 14319
             - name: app-metrics
               containerPort: 9464
             - name: self-metrics
@@ -345,6 +386,9 @@ spec:
             - name: external-auth
               mountPath: /etc/otel-auth
               readOnly: true
+            - name: host-lan-tls
+              mountPath: /etc/otel-lan-tls
+              readOnly: true
       volumes:
         - name: log-queue
           persistentVolumeClaim:
@@ -362,6 +406,10 @@ spec:
             items:
               - key: token
                 path: token
+        - name: host-lan-tls
+          secret:
+            secretName: otel-otlp-lab-tls
+            defaultMode: 0440
 
 ---
 apiVersion: v1
@@ -404,6 +452,22 @@ spec:
     - name: self-metrics
       port: 8888
       targetPort: self-metrics
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: otel-gateway-host-lan
+  namespace: monitoring
+spec:
+  type: NodePort
+  selector:
+    app.kubernetes.io/name: otel-gateway
+  ports:
+    - name: host-lan-tls
+      port: 14319
+      targetPort: host-lan-tls
+      nodePort: 31419
 
 ---
 apiVersion: networking.k8s.io/v1

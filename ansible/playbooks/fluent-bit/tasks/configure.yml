@@ -1,0 +1,118 @@
+---
+- name: Require explicit targets and a separately supplied bearer token
+  ansible.builtin.assert:
+    that:
+      - ansible_limit | default('') | length > 0
+      - ansible_facts.distribution in ['Ubuntu', 'Debian']
+      - ansible_facts.service_mgr == 'systemd'
+      - fluent_bit_external_token | default('') | length > 0
+      - fluent_bit_external_token | default('') is match('^[A-Za-z0-9._~+/-]+=*$')
+    fail_msg: Select --limit and supply fluent_bit_external_token through an encrypted vars file.
+  no_log: true
+
+- name: Check the installed binary
+  ansible.builtin.stat:
+    path: /opt/fluent-bit/bin/fluent-bit
+  register: fluent_bit_binary
+
+- name: Require installation before configuration
+  ansible.builtin.assert:
+    that: fluent_bit_binary.stat.exists
+    fail_msg: Run main.yml without --check after review; preview mode cannot install a missing binary.
+
+- name: Create configuration and persistent state directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: root
+    group: root
+    mode: '0700'
+  loop:
+    - /etc/fluent-bit
+    - /var/lib/fluent-bit/host
+    - /var/lib/fluent-bit/host/queue
+
+- name: Copy public gateway trust bundle
+  ansible.builtin.copy:
+    src: "{{ fluent_bit_ca_source }}"
+    dest: /etc/fluent-bit/gateway-ca.pem
+    owner: root
+    group: root
+    mode: '0644'
+    backup: true
+  notify: Restart Fluent Bit
+
+- name: Render and validate the agent configuration before replacement
+  ansible.builtin.template:
+    src: fluent-bit.conf.j2
+    dest: /etc/fluent-bit/fluent-bit.conf
+    owner: root
+    group: root
+    mode: '0600'
+    backup: true
+    validate: /opt/fluent-bit/bin/fluent-bit --dry-run --config=%s
+  no_log: true
+  diff: false
+  notify: Restart Fluent Bit
+
+- name: Create journald configuration directory
+  ansible.builtin.file:
+    path: /etc/systemd/journald.conf.d
+    state: directory
+    mode: '0755'
+  when: fluent_bit_manage_journal | bool
+
+- name: Ensure persistent journal directory exists
+  ansible.builtin.file:
+    path: /var/log/journal
+    state: directory
+    owner: root
+    group: systemd-journal
+    mode: '2755'
+  when: fluent_bit_manage_journal | bool
+  notify: Restart journald
+
+- name: Keep bounded journal history across host reboots
+  ansible.builtin.copy:
+    dest: /etc/systemd/journald.conf.d/60-fluent-bit-retention.conf
+    owner: root
+    group: root
+    mode: '0644'
+    backup: true
+    content: |
+      [Journal]
+      Storage=persistent
+      SystemMaxUse={{ fluent_bit_journal_max_use }}
+      RuntimeMaxUse={{ fluent_bit_journal_runtime_max_use }}
+      SystemKeepFree={{ fluent_bit_journal_keep_free }}
+      MaxRetentionSec={{ fluent_bit_journal_retention }}
+  when: fluent_bit_manage_journal | bool
+  notify: Restart journald
+
+- name: Apply validated configuration before checking service state
+  ansible.builtin.meta: flush_handlers
+
+- name: Enable and start the agent
+  ansible.builtin.systemd_service:
+    name: fluent-bit
+    enabled: true
+    state: started
+
+- name: Install a small heartbeat so quiet hosts still show delivery health
+  ansible.builtin.copy:
+    src: "{{ item }}"
+    dest: "/etc/systemd/system/{{ item }}"
+    owner: root
+    group: root
+    mode: '0644'
+  loop:
+    - fluent-bit-heartbeat.service
+    - fluent-bit-heartbeat.timer
+  register: fluent_bit_heartbeat_units
+
+- name: Send one heartbeat every minute
+  ansible.builtin.systemd_service:
+    name: fluent-bit-heartbeat.timer
+    daemon_reload: "{{ fluent_bit_heartbeat_units.changed }}"
+    enabled: true
+    state: started

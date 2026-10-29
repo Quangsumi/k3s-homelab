@@ -1,0 +1,30 @@
+---
+# Override only after verifying the vendor publishes packages for the actual OS.
+# Never silently point a newer Ubuntu release at an older release's repository.
+fluent_bit_repository_codename: "{{ ansible_facts.distribution_release }}"
+fluent_bit_package_version: '5.1.2'
+# Existing floating K3s address; every LAN host can reach it without Tailscale.
+fluent_bit_gateway_host: 192.168.63.69
+fluent_bit_gateway_port: 31419
+# Check the certificate's DNS name while connecting to the LAN IP.
+fluent_bit_gateway_tls_name: otel-otlp.lab
+# Tombstone runs kubectl to check that each host's test message reached Loki.
+fluent_bit_verify_controller: "{{ groups['control_planes'][0] }}"
+fluent_bit_verify_user: "{{ fluent_bit_verify_controller }}"
+fluent_bit_ca_source: "{{ inventory_dir }}/../../pki/bundles/application-trust.pem"
+fluent_bit_queue_limit: 512M
+# Initial installation reads retained journal history; a saved cursor wins thereafter.
+fluent_bit_read_from_tail: false
+fluent_bit_extra_files: []
+# Example optional file (no broad /var/log glob, which duplicates journal/syslog):
+# fluent_bit_extra_files:
+#   - name: pveproxy-access
+#     path: /var/log/pveproxy/access.log
+# true manages journald's own storage/rotation policy, not Fluent Bit's queue.
+# false skips those journald tasks; collection and forwarding still run.
+# Switching to false later does not remove an already installed drop-in.
+fluent_bit_manage_journal: true
+fluent_bit_journal_max_use: 256M
+fluent_bit_journal_runtime_max_use: 64M
+fluent_bit_journal_keep_free: 1G
+fluent_bit_journal_retention: 7day

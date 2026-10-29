@@ -1,0 +1,51 @@
+---
+- name: Require a target, gateway settings and a Vault token
+  ansible.builtin.assert:
+    that:
+      - ansible_limit | default('') | length > 0
+      - fluent_bit_external_token | default('') is match('^[A-Za-z0-9._~+/-]+=*$')
+      - fluent_bit_gateway_tls_name is match('^[A-Za-z0-9.-]+$')
+      - fluent_bit_gateway_port | int > 0
+      - fluent_bit_gateway_port | int < 65536
+    fail_msg: Select --limit and load the logging Vault file.
+  no_log: true
+
+- name: Check gateway connection, certificate and token from this machine
+  ansible.builtin.command:
+    argv:
+      - "{{ ansible_facts.python.executable }}"
+      - -c
+      - "{{ lookup('ansible.builtin.file', playbook_dir + '/files/check-gateway.py') }}"
+    stdin: >-
+      {{ {'host': fluent_bit_gateway_host, 'port': fluent_bit_gateway_port | int,
+          'tls_name': fluent_bit_gateway_tls_name, 'token': fluent_bit_external_token,
+          'ca': lookup('ansible.builtin.file', fluent_bit_ca_source)} | to_json }}
+  register: fluent_bit_gateway_check
+  changed_when: false
+  failed_when: false
+  check_mode: false
+  no_log: true
+
+- name: Stop before installation if the gateway cannot accept logs
+  ansible.builtin.assert:
+    that: fluent_bit_gateway_check.rc | default(1) == 0
+    fail_msg: >-
+      {{ inventory_hostname }} cannot use {{ fluent_bit_gateway_host }}:{{ fluent_bit_gateway_port }}.
+      Check LAN access, the gateway deployment, CA trust and the Vault token.
+      No agent settings have been changed on this host by this run.
+      Details: {{ fluent_bit_gateway_check.stderr | default('Connection check could not run.') }}
+
+- name: Check access to the machine used to verify delivery
+  ansible.builtin.command:
+    argv: [kubectl, -n, monitoring, get, deployment/grafana, -o, name]
+  delegate_to: "{{ fluent_bit_verify_controller }}"
+  become: false
+  vars:
+    # Delegation keeps inventory_hostname set to the original host.
+    # Use the verification machine's login and password explicitly.
+    ansible_user: "{{ fluent_bit_verify_user }}"
+    ansible_password: >-
+      {{ (vault_hosts | default({})).get(fluent_bit_verify_controller, {}).get('ssh_password', none)
+         if bootstrap_password_auth | default(false) | bool else none }}
+  changed_when: false
+  check_mode: false

@@ -1,0 +1,21 @@
+---
+- name: Install, configure and verify one host before moving to the next
+  hosts: linux_vms:proxmox_hosts
+  become: true
+  gather_facts: true
+  gather_subset: ['!all', min]  # Gather only minimal facts needed, will run faster
+  serial: 1
+  any_errors_fatal: true
+  pre_tasks:
+    - name: Check the gateway before changing this host
+      ansible.builtin.import_tasks: tasks/check-gateway.yml
+  tasks:
+    - name: Install the package
+      ansible.builtin.import_tasks: tasks/install.yml
+    - name: Configure and start the agent
+      ansible.builtin.import_tasks: tasks/configure.yml
+    - name: Prove this host sends new logs to Loki
+      ansible.builtin.import_tasks: tasks/verify-delivery.yml
+  handlers:
+    - name: Load service handlers
+      ansible.builtin.import_tasks: handlers.yml

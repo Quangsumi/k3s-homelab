@@ -1,0 +1,9 @@
+[Unit]
+Description=Write one host log so Grafana can check log delivery
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/logger --tag fluent-bit-heartbeat -- host-log-heartbeat
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true

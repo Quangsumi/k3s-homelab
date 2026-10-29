@@ -33,3 +33,23 @@ reviewed new paths. No package installation, journald or gateway changes occur.
 
 Pod-log forwarding pauses during the copy. Applications keep writing their local
 logs; Fluent Bit catches up afterward while those files remain available.
+
+## Clean up the old files later
+
+First confirm fresh logs from all five nodes reach Loki. Then run from the
+`ansible/` folder on your Linux controller, adding your normal Vault options:
+
+```bash
+# Preview only: no files are deleted.
+ansible-playbook playbooks/fluent-bit-state-migration/cleanup.yml --check
+
+# Delete the old files after reviewing the preview.
+ansible-playbook playbooks/fluent-bit-state-migration/cleanup.yml
+```
+
+This separate job checks the configured paths, collector rollout and new files.
+It deletes only the old `flb_kube.db`, optional `-wal`/`-shm` files and `storage/`
+under `/var/lib/fluent-bit/`. It keeps `pods/`, `host/` and the parent folder.
+It does not restart anything. Missing old files are harmless on reruns.
+It does not check delivery to Loki for you. Run the whole job without `--limit`
+or `--start-at-task` so the checks are included.

@@ -1,3 +1,11 @@
+# Current gateway access
+
+For the receiver names, ports, Tailscale route and proposed LAN route, read
+[Gateway access](../../../docs/operations/otel-gateway-access.md).
+For host installation and updates, use
+[the host-agent README](../../../ansible/playbooks/fluent-bit/README.md).
+The earlier questions and notes below are retained as background.
+
 ```
 For app to otel-gateway:
 $env:OTEL_EXPORTER_OTLP_ENDPOINT = "https://otel-otlp.lab"

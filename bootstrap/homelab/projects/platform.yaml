@@ -1,0 +1,26 @@
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: homelab-platform
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"      # Child Applications reference this project, so create it first.
+spec:
+  description: Administrative GitOps resources for the homelab platform
+
+  sourceRepos:
+    - https://github.com/Quangsumi/k3s-homelab.git
+    - https://argoproj.github.io/argo-helm
+    - https://charts.external-secrets.io
+    - https://charts.jetstack.io
+    - https://charts.longhorn.io
+    - https://metallb.github.io/metallb
+    - https://pkgs.tailscale.com/helmcharts
+
+  destinations:
+    - server: https://kubernetes.default.svc     # Local cluster
+      namespace: "*"                             # Applications in this project may target any namespace in this local cluster
+
+  clusterResourceWhitelist:
+    - group: "*"              # Allows Applications in homelab-platform to
+      kind: "*"               # create any cluster-scoped resource

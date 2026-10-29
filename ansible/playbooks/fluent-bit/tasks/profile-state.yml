@@ -1,0 +1,113 @@
+---
+- name: Reject links that could redirect the shared host state elsewhere
+  ansible.builtin.stat:
+    path: "{{ item }}"
+    follow: false
+  loop: >-
+    {{ [fluent_bit_state_directory, fluent_bit_state_directory + '/queue',
+        fluent_bit_state_directory + '/journal.db'] +
+       (fluent_bit_extra_files | map(attribute='name') |
+        map('regex_replace', '$', '.db') |
+        map('regex_replace', '^', fluent_bit_state_directory + '/') | list) }}
+  register: fluent_bit_state_paths
+
+- name: Require separate regular state paths
+  ansible.builtin.assert:
+    that: not (item.stat.islnk | default(false))
+    fail_msg: A profile state path is a link. Review it before applying this profile.
+  loop: "{{ fluent_bit_state_paths.results }}"
+  loop_control:
+    label: "{{ item.item }}"
+
+- name: Inspect unused bookmarks and queued logs without exposing configuration
+  ansible.builtin.command:
+    argv:
+      - "{{ ansible_facts.python.executable }}"
+      - -c
+      - "{{ lookup('ansible.builtin.file', playbook_dir + '/files/profile-state.py') }}"
+      - inspect
+    stdin: "{{ fluent_bit_state_request | to_json }}"
+  vars:
+    fluent_bit_state_request:
+      directory: "{{ fluent_bit_state_directory }}"
+      extra_names: "{{ fluent_bit_extra_files | map(attribute='name') | list }}"
+      save_positions: "{{ fluent_bit_settings.save_positions }}"
+      disk_buffering: "{{ fluent_bit_settings.disk_buffering }}"
+      queue_limit: "{{ fluent_bit_settings.queue_limit }}"
+  register: fluent_bit_state_raw
+  changed_when: false
+  check_mode: false
+
+- name: Remember the state inspection for this host
+  ansible.builtin.set_fact:
+    fluent_bit_existing_state: "{{ fluent_bit_state_raw.stdout | from_json }}"
+
+- name: Stop before a smaller queue limit could discard existing queued logs
+  ansible.builtin.assert:
+    that: not fluent_bit_existing_state.queue_would_overflow
+    fail_msg: >-
+      Existing queue files occupy {{ fluent_bit_existing_state.queue_bytes }} bytes;
+      the selected cap is {{ fluent_bit_existing_state.queue_limit_bytes }} bytes.
+      No settings or state files changed. Select an explicit larger queue_limit
+      override to retain and drain this queue before reducing its cap.
+
+- name: Show the explicit state choice that is needed
+  ansible.builtin.debug:
+    msg:
+      unused_bookmarks: "{{ fluent_bit_existing_state.unused_bookmarks }}"
+      will_resume_queued_unsent_logs: "{{ fluent_bit_existing_state.resume_queued_logs }}"
+      choice: RESUME may repeat logs sent in RAM mode. NEW deletes unused bookmarks without backup and reads new entries. The queue is kept.
+  when: fluent_bit_existing_state.needs_choice
+
+- name: Ask how to handle existing state before changing any agent settings
+  ansible.builtin.pause:
+    prompt: >-
+      Type RESUME to resume saved state.
+      {% if fluent_bit_existing_state.unused_bookmarks | length > 0 %}
+      Or type NEW to delete unused bookmarks WITHOUT backup and start with new entries.
+      {% endif %}
+      Queued unsent logs will resume: {{ fluent_bit_existing_state.resume_queued_logs }}.
+      Anything else stops.
+  register: fluent_bit_state_answer
+  when:
+    - fluent_bit_existing_state.needs_choice
+    - fluent_bit_position_action == 'ask'
+    - not ansible_check_mode
+
+- name: Resolve only this host's explicit choice
+  ansible.builtin.set_fact:
+    fluent_bit_state_choice: >-
+      {{ (fluent_bit_state_answer.user_input | default(fluent_bit_position_action) | trim | lower)
+         | replace('new_entries', 'new') }}
+
+- name: Stop unless the operator explicitly chose a valid action
+  ansible.builtin.assert:
+    that:
+      - fluent_bit_state_choice in ['resume', 'new']
+      - fluent_bit_state_choice != 'new' or fluent_bit_existing_state.unused_bookmarks | length > 0
+    fail_msg: >-
+      No agent settings changed. Choose RESUME, or NEW when unused bookmarks exist.
+      For unattended runs set fluent_bit_position_action to resume or new_entries.
+  when: fluent_bit_existing_state.needs_choice and not ansible_check_mode
+
+- name: Delete only unused bookmark files after the explicit NEW choice
+  ansible.builtin.command:
+    argv:
+      - "{{ ansible_facts.python.executable }}"
+      - -c
+      - "{{ lookup('ansible.builtin.file', playbook_dir + '/files/profile-state.py') }}"
+      - reset
+    stdin: >-
+      {{ {'directory': fluent_bit_state_directory,
+          'extra_names': fluent_bit_extra_files | map(attribute='name') | list} | to_json }}
+  register: fluent_bit_bookmark_reset
+  changed_when: true
+  when:
+    - fluent_bit_existing_state.needs_choice
+    - fluent_bit_state_choice == 'new'
+    - not ansible_check_mode
+
+- name: Show exactly which bookmark files were reset
+  ansible.builtin.debug:
+    msg: "{{ fluent_bit_bookmark_reset.stdout | from_json }}"
+  when: fluent_bit_bookmark_reset is not skipped

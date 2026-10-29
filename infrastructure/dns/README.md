@@ -5,6 +5,14 @@ This lets in-cluster OAuth2 Proxy clients resolve `auth.lab` and its `rpivn.lab`
 CNAME target consistently, independently of each node's upstream DNS settings.
 Other domains retain the packaged CoreDNS configuration.
 
+Keep two DNS replicas so one unavailable node cannot remove the only DNS endpoint:
+
+```sh
+kubectl -n kube-system scale deployment/coredns --replicas=2
+```
+
+Recheck the replica count after K3s-managed addon updates.
+
 K3s CoreDNS already imports custom `*.server` files from `coredns-custom`.
 Apply this standalone configuration (no Argo CD Application is registered here):
 

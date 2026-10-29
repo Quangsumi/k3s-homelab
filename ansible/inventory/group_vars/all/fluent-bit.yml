@@ -3,6 +3,7 @@
 # Never silently point a newer Ubuntu release at an older release's repository.
 fluent_bit_repository_codename: "{{ ansible_facts.distribution_release }}"
 fluent_bit_package_version: '5.1.2'
+# Select a named host profile in playbooks/fluent-bit/settings.yml.
 # Existing floating K3s address; every LAN host can reach it without Tailscale.
 fluent_bit_gateway_host: 192.168.63.69
 fluent_bit_gateway_port: 31419
@@ -12,9 +13,12 @@ fluent_bit_gateway_tls_name: otel-otlp.lab
 fluent_bit_verify_controller: "{{ groups['control_planes'][0] }}"
 fluent_bit_verify_user: "{{ fluent_bit_verify_controller }}"
 fluent_bit_ca_source: "{{ inventory_dir }}/../../pki/bundles/application-trust.pem"
-fluent_bit_queue_limit: 512M
-# Initial installation reads retained journal history; a saved cursor wins thereafter.
-fluent_bit_read_from_tail: false
+# Buffer sizes and profile overrides live in playbooks/fluent-bit/settings.yml.
+# Fresh installations start with new entries instead of importing all journal history.
+# Existing saved cursors still resume; this does not clear or skip an existing queue.
+# Profiles without saved positions leave existing state unused.
+# All profiles share the existing host folder; returning to saved state requires a choice.
+fluent_bit_read_from_tail: true
 fluent_bit_extra_files: []
 # Example optional file (no broad /var/log glob, which duplicates journal/syslog):
 # fluent_bit_extra_files:

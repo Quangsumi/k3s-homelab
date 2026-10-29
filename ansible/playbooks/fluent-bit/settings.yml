@@ -1,0 +1,94 @@
+---
+# Choose a complete profile from PROFILES.md. Nothing applies until you run main.yml.
+fluent_bit_profile: buffered
+
+# Overrides belong to ONE named profile, never to the previously selected profile.
+# Example under light: {rate_records: 80, rate_bytes: 96K}
+fluent_bit_profile_overrides:
+  survival: {}
+  light: {}
+  buffered: {}
+  busy: {}
+fluent_bit_settings: >-
+  {{ fluent_bit_profiles[fluent_bit_profile] |
+     combine(fluent_bit_profile_overrides[fluent_bit_profile]) }}
+
+# The same playbook applies every profile. Package installation is opt-in.
+fluent_bit_install_package: false
+fluent_bit_verify_delivery: false
+fluent_bit_observe_load: false
+fluent_bit_observe_seconds: 30
+fluent_bit_position_action: ask          # On parked state: ask, resume, or new_entries.
+# Leave ask here. Supply a deliberate unattended choice with -e for that run only.
+# For urgent survival changes during a gateway outage, set fluent_bit_verify_delivery: false.
+# Observation reports measurements; it does not choose a profile or block on load.
+
+# Keep the installed journald policy unchanged; these profiles govern Fluent Bit only.
+fluent_bit_manage_journal: false
+# All profiles use the existing host folder. RAM profiles leave these files unused.
+# Returning to disk requires RESUME or NEW; NEW deletes unused bookmarks without backup.
+# Queue files are never moved or deleted by the playbook.
+fluent_bit_state_directory: /var/lib/fluent-bit/host
+
+# Complete profile collections. These are candidates to measure, not capacity guarantees.
+# Rate limits apply per input to log data, not physical disk reads.
+# agent_diagnostic_log_level controls Fluent Bit's OWN messages, not collected host/app logs.
+# memory_buffer applies only to RAM mode; filesystem mode uses max_chunks_up instead.
+# Queue limits are logical: oldest chunks drop at the cap, with extra DB/filesystem overhead.
+fluent_bit_profiles:
+  survival:
+    cpu_quota_percent: 5
+    flush_seconds: 10
+    agent_diagnostic_log_level: error
+    rate_records: 20
+    rate_bytes: 32K
+    memory_buffer: 1M
+    save_positions: false
+    disk_buffering: false
+    queue_limit: 64M
+    storage_max_chunks_up: 2
+    storage_backlog_memory: 1M
+    journal_max_entries: 20
+    tail_batch_size: 32K
+  light:
+    cpu_quota_percent: 5
+    flush_seconds: 10
+    agent_diagnostic_log_level: error
+    rate_records: 100
+    rate_bytes: 128K
+    memory_buffer: 2M
+    save_positions: false
+    disk_buffering: false
+    queue_limit: 64M
+    storage_max_chunks_up: 2
+    storage_backlog_memory: 1M
+    journal_max_entries: 50
+    tail_batch_size: 32K
+  buffered:
+    cpu_quota_percent: 5
+    flush_seconds: 10
+    agent_diagnostic_log_level: error
+    rate_records: 100
+    rate_bytes: 128K
+    memory_buffer: 2M
+    save_positions: true
+    disk_buffering: true
+    queue_limit: 64M
+    storage_max_chunks_up: 2
+    storage_backlog_memory: 1M
+    journal_max_entries: 50
+    tail_batch_size: 32K
+  busy:
+    cpu_quota_percent: 10
+    flush_seconds: 10
+    agent_diagnostic_log_level: error
+    rate_records: 200
+    rate_bytes: 256K
+    memory_buffer: 4M
+    save_positions: true
+    disk_buffering: true
+    queue_limit: 64M
+    storage_max_chunks_up: 4
+    storage_backlog_memory: 2M
+    journal_max_entries: 100
+    tail_batch_size: 64K

@@ -18,7 +18,7 @@
 - name: Require installation before configuration
   ansible.builtin.assert:
     that: fluent_bit_binary.stat.exists
-    fail_msg: Run main.yml without --check after review; preview mode cannot install a missing binary.
+    fail_msg: Set fluent_bit_install_package to true for a new host. Check mode cannot install a missing binary.
 
 - name: Create configuration and persistent state directories
   ansible.builtin.file:
@@ -30,7 +30,15 @@
   loop:
     - /etc/fluent-bit
     - /var/lib/fluent-bit/host
-    - /var/lib/fluent-bit/host/queue
+
+- name: Ensure the shared host queue folder exists when disk buffering is selected
+  ansible.builtin.file:
+    path: "{{ fluent_bit_state_directory }}/queue"
+    state: directory
+    owner: root
+    group: root
+    mode: '0700'
+  when: fluent_bit_settings.disk_buffering | bool
 
 - name: Copy public gateway trust bundle
   ansible.builtin.copy:
@@ -53,6 +61,23 @@
     validate: /opt/fluent-bit/bin/fluent-bit --dry-run --config=%s
   no_log: true
   diff: false
+  notify: Restart Fluent Bit
+
+- name: Create the host agent service settings directory
+  ansible.builtin.file:
+    path: /etc/systemd/system/fluent-bit.service.d
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+
+- name: Keep the host agent below application and Kubernetes priority
+  ansible.builtin.template:
+    src: 20-host-logs-limits.conf.j2
+    dest: /etc/systemd/system/fluent-bit.service.d/20-host-logs-limits.conf
+    owner: root
+    group: root
+    mode: '0644'
   notify: Restart Fluent Bit
 
 - name: Create journald configuration directory

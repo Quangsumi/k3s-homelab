@@ -1,21 +1,62 @@
 ---
-- name: Install, configure and verify one host before moving to the next
+- name: Apply the selected host log profile one machine at a time
   hosts: linux_vms:proxmox_hosts
   become: true
   gather_facts: true
   gather_subset: ['!all', min]  # Gather only minimal facts needed, will run faster
   serial: 1
   any_errors_fatal: true
+  vars_files:
+    - settings.yml
   pre_tasks:
+    - name: Validate the complete profile and selected overrides
+      ansible.builtin.import_tasks: tasks/validate-settings.yml
     - name: Check the gateway before changing this host
       ansible.builtin.import_tasks: tasks/check-gateway.yml
+      when: fluent_bit_verify_delivery | bool
+    - name: Check existing reading positions before changing settings
+      ansible.builtin.import_tasks: tasks/profile-state.yml
+    - name: Measure existing load when requested
+      ansible.builtin.script:
+        cmd: "files/sample-load.py --seconds {{ fluent_bit_observe_seconds }}"
+        executable: "{{ ansible_facts.python.executable }}"
+      register: fluent_bit_before_raw
+      changed_when: false
+      failed_when: false
+      when: fluent_bit_observe_load | bool and not ansible_check_mode
   tasks:
-    - name: Install the package
-      ansible.builtin.import_tasks: tasks/install.yml
+    - name: Install only when explicitly requested
+      ansible.builtin.include_tasks: tasks/install.yml
+      when: fluent_bit_install_package | bool
     - name: Configure and start the agent
       ansible.builtin.import_tasks: tasks/configure.yml
     - name: Prove this host sends new logs to Loki
       ansible.builtin.import_tasks: tasks/verify-delivery.yml
+      when: fluent_bit_verify_delivery | bool
+    - name: State when delivery verification was disabled
+      ansible.builtin.debug:
+        msg: Profile applied. Delivery verification was disabled; Loki delivery has not been proved by this run.
+      when: not fluent_bit_verify_delivery | bool
+    - name: Measure the selected profile when requested
+      ansible.builtin.script:
+        cmd: "files/sample-load.py --seconds {{ fluent_bit_observe_seconds }}"
+        executable: "{{ ansible_facts.python.executable }}"
+      register: fluent_bit_after_raw
+      changed_when: false
+      when: fluent_bit_observe_load | bool and not ansible_check_mode
+    - name: Show measurements for the operator to judge
+      ansible.builtin.debug:
+        msg:
+          host: "{{ inventory_hostname }}"
+          profile: "{{ fluent_bit_profile }}"
+          settings: "{{ fluent_bit_settings }}"
+          before: >-
+            {{ (fluent_bit_before_raw.stdout | from_json)
+               if fluent_bit_before_raw.rc | default(1) == 0 else
+               'Unavailable: the existing agent was stopped, restarting or could not expose its metrics.' }}
+          after: "{{ fluent_bit_after_raw.stdout | from_json }}"
+          next: Observe normal and busy periods. Choose your next profile or host yourself; no load threshold chose it for you.
+      when: fluent_bit_observe_load | bool and not ansible_check_mode
   handlers:
     - name: Load service handlers
       ansible.builtin.import_tasks: handlers.yml

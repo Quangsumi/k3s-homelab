@@ -1,58 +1,58 @@
-# Host log agent
+# Host log agents
 
-Collects VM/Proxmox journals and sends them to Loki. Pod logs use the separate Kubernetes collector.
-Completes **install → configure → verify delivery to Loki** on one host before moving to the next. Stops on failure.
+**One playbook, four complete profiles.** Choose `survival`, `light`, `buffered` or `busy` in
+[settings.yml](settings.yml). Default: **survival**. See [PROFILES.md](PROFILES.md) for every value and tradeoff.
+Host agents collect VM/Proxmox journals. Kubernetes pod collectors keep their separate configuration.
 
-## Before running
+## Apply a profile
 
-- Deploy the reviewed gateway LAN endpoint first: `192.168.63.69:31419`, TLS name `otel-otlp.lab`.
-- Hosts need working SSH/sudo. Tombstone needs working `kubectl` access to the Grafana pod for delivery checks.
-- Load your SSH/sudo Vault and logging Vault. The logging Vault must contain:
-
-```yaml
-fluent_bit_external_token: 'YOUR_EXISTING_INFISICAL_TOKEN'
-```
-
-Use the value from Infisical `/otel-gateway/EXTERNAL_BEARER_TOKEN`, without `Bearer `.
-Keep real tokens out of Git. [Example](../../secrets/logging-vault.example.yml).
-
-## Run
-
-From the repository's **`ansible/` folder on your Linux/WSL controller**:
+Run from the repository's **`ansible/` folder on your Linux/WSL controller**:
 
 ```bash
-ansible-playbook playbooks/fluent-bit/main.yml \
-  --limit 'linux_vms:proxmox_hosts' \
-  -e @secrets/vault.yml \
-  -e @secrets/logging-vault.yml \
-  --ask-vault-pass
+ansible-playbook playbooks/fluent-bit/main.yml --limit tombstone \
+  -e @secrets/vault.yml -e @secrets/logging-vault.yml --ask-vault-pass
 ```
 
-- Test Tombstone first: replace the limit with `tombstone`.
-- Skip Tombstone afterward: use `'linux_vms:proxmox_hosts:!tombstone'`.
-- Preview: add `--check --diff`. Connection checks still run; a fresh installation cannot be fully simulated.
-- Different Vault passwords: replace `--ask-vault-pass` with `--vault-id hosts@prompt --vault-id logging@prompt`.
-- Run the whole playbook; do not use `--start-at-task`.
+1. Choose the profile and any changes under **that profile's** overrides in `settings.yml`.
+2. Select one host with `--limit`. The same command applies survival or any other profile.
+3. Review the before/after measurements and Grafana. Choose another profile or host when ready.
 
-Success ends with **Verified HOST -> Fluent Bit -> gateway -> Loki** for each host.
+No stages or automatic load thresholds. Several selected hosts are processed one at a time; failures stop the run.
+Existing hosts skip package installation. For a new host, set `fluent_bit_install_package: true`.
+Fluent Bit restarts only when configuration changes. No VM/K3s restart is performed.
 
-## Settings that matter
+- Preview: add `--check --diff`. Connection checks still run; new load/delivery cannot be proved in preview.
+- Different Vault passwords: use `--vault-id hosts@prompt --vault-id logging@prompt` instead of `--ask-vault-pass`.
+- For gateway outages, disable `fluent_bit_verify_delivery` explicitly; the run then makes no delivery claim.
+- Before/after samples are optional: `fluent_bit_observe_load`. They report load without choosing a mode for you.
 
-Defaults: [fluent-bit.yml](../../inventory/group_vars/all/fluent-bit.yml).
+## Connections and secrets
 
-- **Journal retention:** managed by default: 256 MB / up to 7 days. May restart journald. Set `fluent_bit_manage_journal: false` to skip policy changes; this does not undo an earlier policy change.
-- **Saved positions and queue:** `/var/lib/fluent-bit/host/`. Queue cap: 512 MB; oldest queued data is dropped at the cap.
-- **Token:** stored in root-only agent configuration. Protected backups also contain tokens.
-- **Heartbeat:** one test log per minute proves delivery, even when the host is quiet.
+- Hosts need working SSH/sudo. Tombstone runs `kubectl` and queries Loki through Grafana for delivery checks.
+- Gateway: `192.168.63.69:31419`, TLS certificate name `otel-otlp.lab`. Deploy that endpoint before enabling verification.
+- The logging Vault contains `fluent_bit_external_token: 'YOUR_EXISTING_INFISICAL_TOKEN'`.
+  Use Infisical `/otel-gateway/EXTERNAL_BEARER_TOKEN`, without `Bearer `. [Vault example](../../secrets/logging-vault.example.yml).
+- Tokens stay out of Git. Agent configuration and backups containing tokens are root-only; template diffs are hidden.
+- Journald retention stays unchanged by default. Previously installed retention settings are not removed.
+
+## Profile changes and saved state
+
+Every profile is complete. The collection is rebuilt from the selected profile and its own overrides, never the previous profile.
+All profiles use `/var/lib/fluent-bit/host/`: `journal.db` remembers where reading stopped; `queue/` holds unsent logs.
+Returning from RAM asks **RESUME** (use the old bookmark; duplicates possible) or **NEW** (delete the unused bookmark without backup; read new entries).
+Both keep the queue. Its waiting messages are still sent. No extra state folder is created.
+[Line-number example and unattended choices](PROFILES.md#existing-state-no-silent-replay-or-deletion).
+RAM modes can lose unsent logs on restart. Positions alone do not preserve unsent RAM logs.
+`agent_diagnostic_log_level` affects Fluent Bit's own messages only; all host/application severities are collected.
 
 ## View logs
 
-Grafana → **Dashboards → Logs** after deploying the dashboard configuration:
+Grafana → **Dashboards → Logs**:
 
-- **Host Logs:** select a machine and system service.
-- **Pod Logs:** select a namespace, application and pod.
-- **Log Delivery:** green = heartbeat received within 5 minutes; red = missing.
+- **Host Logs:** choose a machine and system service.
+- **Pod Logs:** choose a namespace, application and pod.
+- **Log Delivery:** heartbeat age under five minutes indicates current host delivery; a backlog can make it red.
 
-[Gateway connection paths](../../../docs/operations/otel-gateway-access.md) · [Label explanation](../../../docs/operations/log-labels.md) · [Review/rollout notes](../../../docs/operations/host-logging-review-2026-10-29.md)
-
-Pod-state [migration and cleanup](../fluent-bit-state-migration/README.md) remain separate, one-time jobs.
+[Gateway paths](../../../docs/operations/otel-gateway-access.md) · [Labels](../../../docs/operations/log-labels.md) ·
+[Recovery history](../../../docs/operations/host-logging-review-2026-10-29.md).
+Pod-state [migration/cleanup](../fluent-bit-state-migration/README.md) remain separate one-time jobs.

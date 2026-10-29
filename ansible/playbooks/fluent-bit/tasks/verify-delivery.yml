@@ -20,6 +20,7 @@
       ansible.builtin.command:
         argv:
           - kubectl
+          - --request-timeout=15s
           - -n
           - monitoring
           - exec
@@ -42,7 +43,8 @@
           {{ (vault_hosts | default({})).get(fluent_bit_verify_controller, {}).get('ssh_password', none)
              if bootstrap_password_auth | default(false) | bool else none }}
         fluent_bit_probe_query: >-
-          {service_namespace="homelab-hosts"} | host_name={{ inventory_hostname | to_json }} |= {{ fluent_bit_probe | to_json }}
+          {service_namespace="homelab-hosts"} | host_name={{ inventory_hostname | to_json }}
+          | SYSLOG_IDENTIFIER="fluent-bit-check" |= {{ fluent_bit_probe | to_json }}
       register: fluent_bit_delivery
       changed_when: false
       until: >-

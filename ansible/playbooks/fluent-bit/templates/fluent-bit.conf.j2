@@ -1,12 +1,18 @@
 [SERVICE]
-    Flush                     2
+    Flush                     {{ fluent_bit_settings.flush_seconds }}
     Grace                     30
-    Log_Level                 info
-    storage.path              /var/lib/fluent-bit/host/queue
-    storage.sync              full
+    # Fluent Bit's OWN diagnostics only. This does not filter collected host/app logs.
+    # Error avoids the rate limiter writing a warning every second.
+    Log_Level                 {{ fluent_bit_settings.agent_diagnostic_log_level }}
+{% if fluent_bit_settings.disk_buffering | bool %}
+    # Reuse the existing queue only after the playbook's explicit state check.
+    storage.path              {{ fluent_bit_state_directory }}/queue
+    # Normal sync reduces forced disk writes compared with the old Full profile.
+    storage.sync              normal
     storage.checksum          on
-    storage.max_chunks_up     16
-    storage.backlog.mem_limit  5M
+    storage.max_chunks_up     {{ fluent_bit_settings.storage_max_chunks_up }}
+    storage.backlog.mem_limit  {{ fluent_bit_settings.storage_backlog_memory }}
+{% endif %}
     HTTP_Server               On
     HTTP_Listen               127.0.0.1
     HTTP_Port                 2021
@@ -17,11 +23,21 @@
 [INPUT]
     Name              systemd
     Tag               host.journal
-    DB                /var/lib/fluent-bit/host/journal.db
-    DB.Sync           Full
-    Read_From_Tail    {{ 'On' if fluent_bit_read_from_tail else 'Off' }}
-    Max_Entries       1000
-    storage.type      filesystem
+{% if fluent_bit_settings.save_positions | bool %}
+    DB                {{ fluent_bit_state_directory }}/journal.db
+    DB.Sync           Normal
+{% endif %}
+    # New databases start with new journal entries; existing permanent cursors resume.
+    Read_From_Tail    {{ 'On' if fluent_bit_read_from_tail | bool else 'Off' }}
+    Max_Entries       {{ fluent_bit_settings.journal_max_entries }}
+    storage.type      {{ 'filesystem' if fluent_bit_settings.disk_buffering | bool else 'memory' }}
+{% if not fluent_bit_settings.disk_buffering | bool %}
+    # Pause when this RAM buffer fills, instead of writing a disk queue.
+    Mem_Buf_Limit     {{ fluent_bit_settings.memory_buffer }}
+{% endif %}
+    Rate_Gate         On
+    Rate_Gate.Max_Records {{ fluent_bit_settings.rate_records }}
+    Rate_Gate.Max_Bytes {{ fluent_bit_settings.rate_bytes }}
 
 # Avoid re-ingesting delivery failures from this agent into its own queue.
 [FILTER]
@@ -39,14 +55,24 @@
     Name              tail
     Tag               host.file.{{ file.name }}
     Path              {{ file.path }}
-    DB                /var/lib/fluent-bit/host/{{ file.name }}.db
-    DB.Sync           Full
-    Read_From_Head    On
+{% if fluent_bit_settings.save_positions | bool %}
+    DB                {{ fluent_bit_state_directory }}/{{ file.name }}.db
+    DB.Sync           Normal
+{% endif %}
+    Read_From_Head    Off
     Refresh_Interval  5
     Rotate_Wait       30
     Buffer_Max_Size   256K
     Skip_Long_Lines   On
-    storage.type      filesystem
+    storage.type      {{ 'filesystem' if fluent_bit_settings.disk_buffering | bool else 'memory' }}
+{% if not fluent_bit_settings.disk_buffering | bool %}
+    Mem_Buf_Limit     {{ fluent_bit_settings.memory_buffer }}
+{% endif %}
+    Static_Batch_Size {{ fluent_bit_settings.tail_batch_size }}
+    Event_Batch_Size  {{ fluent_bit_settings.tail_batch_size }}
+    Rate_Gate         On
+    Rate_Gate.Max_Records {{ fluent_bit_settings.rate_records }}
+    Rate_Gate.Max_Bytes {{ fluent_bit_settings.rate_bytes }}
 
 {% endfor %}
 [FILTER]
@@ -76,4 +102,6 @@
     TLS.vhost                 {{ fluent_bit_gateway_tls_name }}
     TLS.CA_File               /etc/fluent-bit/gateway-ca.pem
     Retry_Limit               no_limits
-    storage.total_limit_size  {{ fluent_bit_queue_limit }}
+{% if fluent_bit_settings.disk_buffering | bool %}
+    storage.total_limit_size  {{ fluent_bit_settings.queue_limit }}
+{% endif %}

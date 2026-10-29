@@ -1,0 +1,91 @@
+---
+- name: Require a known profile and profile-specific overrides
+  ansible.builtin.assert:
+    that:
+      - ansible_limit | default('') | length > 0
+      - fluent_bit_profile in fluent_bit_profiles
+      - fluent_bit_profile_overrides is mapping
+      - fluent_bit_profile in fluent_bit_profile_overrides
+      - fluent_bit_profile_overrides.keys() | difference(fluent_bit_profiles.keys()) | length == 0
+      - fluent_bit_survival_mode is not defined
+      - fluent_bit_cpu_quota_percent is not defined
+      - fluent_bit_save_positions is not defined
+      - fluent_bit_disk_buffering is not defined
+    fail_msg: Select --limit and a named profile in settings.yml. Put changes under that profile's overrides; obsolete flat settings are not inherited.
+
+- name: Require every profile to contain the full collection
+  ansible.builtin.assert:
+    that:
+      - item.value is mapping
+      - item.value.keys() | sort == fluent_bit_required_keys | sort
+      - item.key in fluent_bit_profile_overrides
+      - fluent_bit_profile_overrides[item.key] is mapping
+      - fluent_bit_profile_overrides[item.key].keys() | difference(fluent_bit_required_keys) | length == 0
+    fail_msg: Each profile must define every key. Overrides may contain known keys only; no previous profile supplies missing values.
+  vars:
+    fluent_bit_required_keys:
+      - cpu_quota_percent
+      - flush_seconds
+      - agent_diagnostic_log_level
+      - rate_records
+      - rate_bytes
+      - memory_buffer
+      - save_positions
+      - disk_buffering
+      - queue_limit
+      - storage_max_chunks_up
+      - storage_backlog_memory
+      - journal_max_entries
+      - tail_batch_size
+  loop: "{{ fluent_bit_profiles | dict2items }}"
+  loop_control:
+    label: "{{ item.key }}"
+
+- name: Check the freshly resolved collection before changing anything
+  ansible.builtin.assert:
+    that:
+      - fluent_bit_settings == (fluent_bit_profiles[fluent_bit_profile] | combine(fluent_bit_profile_overrides[fluent_bit_profile]))
+      - fluent_bit_settings.save_positions is boolean
+      - fluent_bit_settings.disk_buffering is boolean
+      - fluent_bit_manage_journal is boolean
+      - fluent_bit_install_package is boolean
+      - fluent_bit_verify_delivery is boolean
+      - fluent_bit_observe_load is boolean
+      - fluent_bit_position_action in ['ask', 'resume', 'new_entries']
+      - fluent_bit_read_from_tail is boolean
+      - fluent_bit_read_from_tail
+      - fluent_bit_settings.cpu_quota_percent is integer
+      - fluent_bit_settings.cpu_quota_percent >= 1 and fluent_bit_settings.cpu_quota_percent <= 10
+      - fluent_bit_settings.flush_seconds is integer
+      - fluent_bit_settings.flush_seconds >= 5 and fluent_bit_settings.flush_seconds <= 30
+      - fluent_bit_settings.rate_records is integer
+      - fluent_bit_settings.rate_records >= 20 and fluent_bit_settings.rate_records <= 200
+      - fluent_bit_settings.rate_bytes is match('^[1-9][0-9]*K$')
+      - fluent_bit_settings.rate_bytes[:-1] | int <= 256
+      - fluent_bit_settings.memory_buffer in ['1M', '2M', '4M']
+      - fluent_bit_settings.queue_limit in ['16M', '32M', '64M', '128M', '256M', '512M', '1024M']
+      - fluent_bit_settings.storage_max_chunks_up is integer
+      - fluent_bit_settings.storage_max_chunks_up in [1, 2, 3, 4]
+      - fluent_bit_settings.storage_backlog_memory in ['1M', '2M']
+      - fluent_bit_settings.journal_max_entries is integer
+      - fluent_bit_settings.journal_max_entries >= 10 and fluent_bit_settings.journal_max_entries <= 100
+      - fluent_bit_settings.tail_batch_size in ['32K', '64K']
+      - fluent_bit_state_directory == '/var/lib/fluent-bit/host'
+      - fluent_bit_settings.agent_diagnostic_log_level in ['error', 'warn', 'info']
+      - fluent_bit_observe_seconds is integer
+      - fluent_bit_observe_seconds >= 30 and fluent_bit_observe_seconds <= 300
+      - not fluent_bit_settings.disk_buffering or fluent_bit_settings.save_positions
+      - fluent_bit_extra_files | map(attribute='name') | unique | length == fluent_bit_extra_files | length
+    fail_msg: >-
+      Review the selected profile's overrides in settings.yml. Use YAML true/false.
+      Disk buffering requires saved positions. Multiple state folders, Full sync and
+      unbounded collection are not supported by these profiles.
+
+- name: Check optional file names cannot escape the new state directory
+  ansible.builtin.assert:
+    that:
+      - item.name is match('^[A-Za-z0-9_-]+$')
+      - item.name != 'journal'
+      - item.path is match('^/[^\r\n]+$')
+    fail_msg: Optional files need unique simple names and absolute paths.
+  loop: "{{ fluent_bit_extra_files }}"

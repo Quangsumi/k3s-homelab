@@ -1,0 +1,7 @@
+[Service]
+# Keep log collection below the priority of Kubernetes and normal applications.
+CPUQuota={{ fluent_bit_settings.cpu_quota_percent }}%
+Nice=19
+# Give its disk requests lower priority where the storage scheduler supports it.
+IOSchedulingClass=idle
+IOWeight=10

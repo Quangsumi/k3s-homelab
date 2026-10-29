@@ -37,7 +37,7 @@
 
 - name: Check access to the machine used to verify delivery
   ansible.builtin.command:
-    argv: [kubectl, -n, monitoring, get, deployment/grafana, -o, name]
+    argv: [kubectl, '--request-timeout=15s', -n, monitoring, get, deployment/grafana, -o, name]
   delegate_to: "{{ fluent_bit_verify_controller }}"
   become: false
   vars:

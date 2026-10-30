@@ -1,6 +1,6 @@
 # Fluent Bit pod logs
 
-**Kubernetes manifests only. Nothing has been applied.** Host agents keep their separate Ansible playbook.
+**Kubernetes manifests only.** Host agents keep their separate Ansible playbook.
 
 ```text
 profiles/<mode>/fluent-bit.conf → ConfigMap → one DaemonSet → gateway → Loki
@@ -34,7 +34,7 @@ Choose a node's profile in `manifest.yaml`, under `volumes → configMap → ite
   path: whyachi.conf   # Kubernetes node name + .conf
 ```
 
-All five nodes currently select `survival.conf`. Kubernetes supplies `NODE_NAME`;
+All five nodes currently select `buffered.conf`. Kubernetes supplies `NODE_NAME`;
 the collector opens `/fluent-bit/profiles/$(NODE_NAME).conf`. Unlisted nodes have no matching file and fail visibly.
 
 `OnDelete` prevents configuration publication from restarting every collector.

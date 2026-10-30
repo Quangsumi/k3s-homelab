@@ -223,6 +223,9 @@ data:
         send_batch_max_size: 1024
 
     exporters:
+      debug:
+        verbosity: detailed
+
       otlp_grpc/jaeger:
         endpoint: jaeger.monitoring.svc.cluster.local:4317
         tls:
@@ -302,7 +305,7 @@ spec:
         app.kubernetes.io/name: otel-gateway
         app.kubernetes.io/part-of: observability
       annotations:
-        homelab/config-revision: "20261029-host-service-grouping-1"
+        homelab/config-revision: "20261029-stop-debug"
     spec:
       # tolerations:
       #   - key: node-role.kubernetes.io/control-plane

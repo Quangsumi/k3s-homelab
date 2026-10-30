@@ -139,15 +139,15 @@ spec:
           configMap:
             name: fluent-bit-config
             items:
-              - key: survival.conf
+              - key: buffered.conf
                 path: tombstone.conf
-              - key: survival.conf
+              - key: buffered.conf
                 path: whyachi.conf
-              - key: survival.conf
+              - key: buffered.conf
                 path: biteforce.conf
-              - key: survival.conf
+              - key: buffered.conf
                 path: huge.conf
-              - key: survival.conf
+              - key: buffered.conf
                 path: minotaur.conf
 
         - name: container-logs

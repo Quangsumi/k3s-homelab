@@ -1,0 +1,100 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-lan-host-logs-to-gateway
+  namespace: monitoring
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: otel-gateway
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - ipBlock:
+            cidr: 192.168.63.0/24
+        # NodePort forwarding can replace the LAN source with a Flannel/CNI address.
+        # Without this, only the node hosting the gateway can reach this listener.
+        # TLS and the bearer token are still required on this port.
+        - ipBlock:
+            cidr: 10.42.0.0/16
+      ports:
+        - protocol: TCP
+          port: 14319
+
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-cluster-apps-and-prometheus-to-otel-gateway
+  namespace: monitoring
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: otel-gateway
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector: {}
+      ports:
+        - protocol: TCP
+          port: 4317
+        - protocol: TCP
+          port: 4318
+    - from:
+        - podSelector:
+            matchLabels:
+              app: prometheus
+      ports:
+        - protocol: TCP
+          port: 8888
+        - protocol: TCP
+          port: 9464
+
+# ---
+# apiVersion: networking.k8s.io/v1
+# kind: NetworkPolicy
+# metadata:
+#   name: allow-prometheus-to-otel-agent
+#   namespace: monitoring
+# spec:
+#   podSelector:
+#     matchLabels:
+#       app.kubernetes.io/name: otel-agent
+#   policyTypes:
+#     - Ingress
+#   ingress:
+#     - from:
+#         - podSelector:
+#             matchLabels:
+#               app: prometheus
+#       ports:
+#         - protocol: TCP
+#           port: 8888
+
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-traefik-to-otel-gateway-external
+  namespace: monitoring
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: otel-gateway
+
+  policyTypes:
+    - Ingress
+
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: traefik
+              app.kubernetes.io/instance: traefik-kube-system
+      ports:
+        - protocol: TCP
+          port: 14318

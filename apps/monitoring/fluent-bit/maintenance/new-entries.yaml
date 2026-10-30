@@ -1,0 +1,97 @@
+# Explicit NEW action only. Not included in Kustomize or ordinary collector startup.
+# Never run this Job while unpausing the node. Wait for completion first.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: fluent-bit-new-entries
+  namespace: monitoring
+spec:
+  backoffLimit: 0
+  activeDeadlineSeconds: 180
+  ttlSecondsAfterFinished: 600
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: fluent-bit-new-entries
+    spec:
+      restartPolicy: Never
+      serviceAccountName: fluent-bit
+      priorityClassName: homelab-diagnostics
+      # CHANGE to the ONE paused node. Keep its pause label until this Job completes.
+      nodeSelector:
+        kubernetes.io/hostname: whyachi
+        logging.homelab/fluent-bit-paused: 'true'
+      tolerations:
+        - operator: Exists
+      securityContext:
+        runAsUser: 0
+        runAsGroup: 0
+        seccompProfile:
+          type: RuntimeDefault
+      initContainers:
+        - name: wait-for-collector-exit
+          image: registry.k8s.io/kubectl:v1.34.0
+          args:
+            - -n
+            - monitoring
+            - wait
+            - --for=delete
+            - pods
+            - --selector=app.kubernetes.io/name=fluent-bit
+            - --field-selector=spec.nodeName=$(NODE_NAME)
+            - --timeout=120s
+          env:
+            - name: NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+          resources:
+            requests: {cpu: 5m, memory: 32Mi}
+            limits: {cpu: 50m, memory: 64Mi}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: {drop: [ALL]}
+      containers:
+        - name: reset-unused-bookmark
+          image: busybox:1.37.0
+          command:
+            - sh
+            - -ec
+            - |
+              set -o pipefail
+              cd /state
+              test ! -L queue
+              # Validate all four names before deleting any. Queue files are never removed.
+              found=false
+              for file in flb_kube.db flb_kube.db-wal flb_kube.db-shm flb_kube.db-journal; do
+                test ! -L "$file"
+                if [ -e "$file" ]; then test -f "$file"; found=true; fi
+              done
+              test "$found" = true || { echo 'No bookmarks: choose RESUME for any waiting queue.' >&2; exit 1; }
+              used=0
+              if [ -d queue ]; then
+                test -z "$(find queue ! -type f ! -type d -print)"
+                used=$(find queue -type f -exec stat -c '%s' {} \; | awk '{n += $1} END {printf "%.0f\n", n}')
+              fi
+              test "$used" -le "$((QUEUE_LIMIT_KIB * 1024))" || { echo 'Queue exceeds cap; nothing deleted.' >&2; exit 1; }
+              rm -f -- flb_kube.db flb_kube.db-wal flb_kube.db-shm flb_kube.db-journal
+              echo 'NEW: unused bookmarks deleted without backup. Queue preserved. Read new entries after resume.'
+          env:
+            - name: QUEUE_LIMIT_KIB
+              value: '65536'
+          resources:
+            requests: {cpu: 5m, memory: 8Mi}
+            limits: {cpu: 20m, memory: 16Mi}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: {drop: [ALL]}
+          volumeMounts:
+            - name: state
+              mountPath: /state
+      volumes:
+        - name: state
+          hostPath:
+            path: /var/lib/fluent-bit/pods
+            type: Directory

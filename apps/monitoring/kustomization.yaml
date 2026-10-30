@@ -1,62 +1,15 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
-
 namespace: monitoring
-
 resources:
-  - 00-namespace.yaml
-  - 02-grafana.yaml
-  - 05-prometheus.yaml
-  - 08-prometheus-oauth2-proxy.yaml
-  - 09-prometheus-auth-ingress.yaml
-  - 10-network-policies.yaml
-  - observability/11-observability-storage.yaml
-  - observability/12-observability-rbac.yaml
-  - observability/13-kube-state-metrics.yaml
-  - observability/14-node-exporter.yaml
-  - observability/20-loki.yaml
-  - observability/30-jaeger.yaml
-  - observability/40-otel-gateway.yaml
-  # - observability/50-otel-agent.yaml
-  - observability/50-fluent-bit.yaml
-  - observability/60-aspire-dashboard.yaml
-  - observability/70-observability-network-policies.yaml
-
-configMapGenerator:
-  - name: grafana-log-dashboard-provider
-    files:
-      - grafana-config/log-dashboards.yaml
-
-  - name: grafana-log-dashboards
-    files:
-      - grafana-config/dashboards/host-logs.json
-      - grafana-config/dashboards/pod-logs.json
-      - grafana-config/dashboards/log-delivery.json
-
-  - name: grafana-config
-    files:
-      - grafana-config/grafana.ini
-
-  - name: grafana-datasources
-    files:
-      - prometheus.yaml=grafana-config/prometheus-datasource.yaml
-
-  - name: prometheus-oauth2-proxy-config
-    files:
-      - oauth2-proxy.cfg=oauth2-proxy/oauth2-proxy.cfg
-
-  # Name hashes trigger a normal pod rollout when either config changes.
-  - name: prometheus-config
-    files:
-      - prometheus/prometheus.yml
-
-  - name: prometheus-scrapes
-    files:
-      - prometheus/scrapes/applications.yml
-      - prometheus/scrapes/kubernetes.yml
-      - prometheus/scrapes/observability.yml
-      - prometheus/scrapes/network.yml
-      - prometheus/scrapes/argocd.yml
-      - prometheus/scrapes/certificates.yml
-      - prometheus/scrapes/external-secrets.yml
-      - prometheus/scrapes/storage.yml
+- shared
+- grafana
+- prometheus
+- prometheus-oauth2-proxy
+- kube-state-metrics
+- node-exporter
+- loki
+- jaeger
+- otel-gateway
+- fluent-bit
+- aspire-dashboard

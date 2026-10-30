@@ -84,25 +84,30 @@ data:
       # Log pipeline use this.
       # Handle host journal logs (systemd, non-K8s) 
       # These copies keep the original fields and leave the message text unchanged.
-      # Which new fields become Grafana labels? See the list in 20-loki.yaml.
+      # Which new fields become Grafana labels? See ../loki/manifest.yaml.
       transform/host:
         error_mode: ignore
         log_statements:
 
           # Copy machine name/type so Loki can show Machine and Role choices in Grafana.
-          # 20-loki.yaml now includes host.name and host.type in its label list.
+          # ../loki/manifest.yaml includes host.name and host.type in its label list.
           - set(resource.attributes["host.name"], log.attributes["host_name"]) where log.attributes["host_name"] != nil
           - set(resource.attributes["host.type"], log.attributes["host_role"]) where log.attributes["host_role"] != nil
 
           # Use host-journal as the service name when no systemd service is available.
-          - set(resource.attributes["service.name"], "host-journal") where log.attributes["log_source"] == "host"
+          - set(log.attributes["service.name"], "host-journal") where log.attributes["log_source"] == "host"
 
           # Put all host logs in the homelab-hosts group shown in Grafana.
           - set(resource.attributes["service.namespace"], "homelab-hosts") where log.attributes["log_source"] == "host"
 
           # If _SYSTEMD_UNIT exists, use its value (e.g. k3s.service) instead of host-journal.
           # Copy to service.name because Loki uses that exact field for the service label.
-          - set(resource.attributes["service.name"], log.attributes["_SYSTEMD_UNIT"]) where log.attributes["log_source"] == "host" and log.attributes["_SYSTEMD_UNIT"] != nil
+          - set(log.attributes["service.name"], log.attributes["_SYSTEMD_UNIT"]) where log.attributes["log_source"] == "host" and log.attributes["_SYSTEMD_UNIT"] != nil
+
+      # Keep each journal entry with its own service name.
+      # Setting the shared resource directly would label a whole batch as its last service.
+      groupbyattrs/host-service:
+        keys: [service.name]
 
 
       # # Fluent Bit's kubernetes filter puts pod metadata into a nested map like:
@@ -259,7 +264,7 @@ data:
           receivers: [otlp, otlp/external, otlp/host-lan]
           # The logs pipeline intentionally skips the batch processor
           # Logs go straight to the exporter, which uses file_storage/logs as its queue.
-          processors: [memory_limiter, transform/fluentbit_k8s, transform/host, k8s_attributes, transform/cluster]
+          processors: [memory_limiter, transform/fluentbit_k8s, transform/host, groupbyattrs/host-service, k8s_attributes, transform/cluster]
           exporters: [otlp_http/loki]
       telemetry:    # self-metrics for the collector itself
         resource:
@@ -297,7 +302,7 @@ spec:
         app.kubernetes.io/name: otel-gateway
         app.kubernetes.io/part-of: observability
       annotations:
-        homelab/config-revision: "20261029-host-lan-1"
+        homelab/config-revision: "20261029-host-service-grouping-1"
     spec:
       # tolerations:
       #   - key: node-role.kubernetes.io/control-plane
@@ -351,18 +356,29 @@ spec:
               containerPort: 8888
             - name: health
               containerPort: 13133
+          # Let the saved queue open during recovery before liveness can restart us.
+          startupProbe:
+            httpGet:
+              path: /
+              port: health
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 36
           readinessProbe:
             httpGet:
               path: /
               port: health
             initialDelaySeconds: 5
             periodSeconds: 10
+            timeoutSeconds: 5
           livenessProbe:
             httpGet:
               path: /
               port: health
             initialDelaySeconds: 15
             periodSeconds: 20
+            timeoutSeconds: 5
+            failureThreshold: 6
           resources:
             limits:
               memory: 512Mi

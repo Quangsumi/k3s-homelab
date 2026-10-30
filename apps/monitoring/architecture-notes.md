@@ -1,9 +1,9 @@
 # Current gateway access
 
 For the receiver names, ports, Tailscale route and proposed LAN route, read
-[Gateway access](../../../docs/operations/otel-gateway-access.md).
+[Gateway access](../../docs/operations/otel-gateway-access.md).
 For host installation and updates, use
-[the host-agent README](../../../ansible/playbooks/fluent-bit/README.md).
+[the host-agent README](../../ansible/playbooks/fluent-bit/README.md).
 The earlier questions and notes below are retained as background.
 
 ```
@@ -81,7 +81,7 @@ Prometheus
   -> kubelet running on valkyrie
 ```
 
-That behavior comes from the `kubernetes-kubelet` scrape job in [05-prometheus.yaml](D:/OneDrive/Documents/ChatGPT/observability/k3s-homelab/apps/monitoring/05-prometheus.yaml:69).
+That behavior comes from the `kubernetes-kubelet` scrape job in [Prometheus manifest](prometheus/manifest.yaml).
 
 ### cAdvisor
 
@@ -101,7 +101,7 @@ Prometheus requests a different kubelet path:
 /api/v1/nodes/valkyrie/proxy/metrics/cadvisor
 ```
 
-That is configured in [05-prometheus.yaml](D:/OneDrive/Documents/ChatGPT/observability/k3s-homelab/apps/monitoring/05-prometheus.yaml:87).
+That is configured in [Prometheus manifest](prometheus/manifest.yaml).
 
 ## 2. Are those four components only for metrics?
 
@@ -154,7 +154,7 @@ receivers:
       - /var/log/pods/*/*/*.log
 ```
 
-See [50-otel-agent.yaml](D:/OneDrive/Documents/ChatGPT/observability/k3s-homelab/apps/monitoring/50-otel-agent.yaml:15).
+See [Older OTel agent manifest](otel-agent/manifest.yaml).
 
 The DaemonSet mounts the host directory:
 
@@ -182,7 +182,7 @@ service:
       exporters: [otlp_http/loki]
 ```
 
-See [50-otel-agent.yaml](D:/OneDrive/Documents/ChatGPT/observability/k3s-homelab/apps/monitoring/50-otel-agent.yaml:86).
+See [Older OTel agent manifest](otel-agent/manifest.yaml).
 
 ### What each Agent processor does
 
@@ -224,7 +224,7 @@ Sends the batch to:
 http://loki.monitoring.svc.cluster.local:3100/otlp/v1/logs
 ```
 
-The configured base address is visible in [50-otel-agent.yaml](D:/OneDrive/Documents/ChatGPT/observability/k3s-homelab/apps/monitoring/50-otel-agent.yaml:71).
+The configured base address is visible in [Older OTel agent manifest](otel-agent/manifest.yaml).
 
 The OTLP HTTP exporter automatically appends `/v1/logs`.
 
@@ -257,7 +257,7 @@ Application OTel SDK
   -> Grafana
 ```
 
-The Gateway log pipeline is in [40-otel-gateway.yaml](D:/OneDrive/Documents/ChatGPT/observability/k3s-homelab/apps/monitoring/40-otel-gateway.yaml:98).
+The Gateway log pipeline is in [Gateway manifest](otel-gateway/manifest.yaml).
 
 Be careful: if an application sends the same log through OTLP and also writes it to stdout, you can ingest that log twice:
 
@@ -324,7 +324,7 @@ Laptop app
   -> Aspire Dashboard
 ```
 
-The external Aspire endpoint is defined in [60-aspire-dashboard.yaml](D:/OneDrive/Documents/ChatGPT/observability/k3s-homelab/apps/monitoring/60-aspire-dashboard.yaml:203).
+The external Aspire endpoint is defined in [Aspire manifest](aspire-dashboard/manifest.yaml).
 
 ## 4. Your actual trace flows
 
@@ -394,7 +394,7 @@ otlp_grpc/jaeger:
   endpoint: jaeger.monitoring.svc.cluster.local:4317
 ```
 
-See [40-otel-gateway.yaml](D:/OneDrive/Documents/ChatGPT/observability/k3s-homelab/apps/monitoring/40-otel-gateway.yaml:62).
+See [Gateway manifest](otel-gateway/manifest.yaml).
 
 ### Jaeger configuration
 
@@ -426,7 +426,7 @@ service:
       exporters: [jaeger_storage_exporter]
 ```
 
-See [30-jaeger.yaml](D:/OneDrive/Documents/ChatGPT/observability/k3s-homelab/apps/monitoring/30-jaeger.yaml:29).
+See [Jaeger manifest](jaeger/manifest.yaml).
 
 Its physical storage is:
 

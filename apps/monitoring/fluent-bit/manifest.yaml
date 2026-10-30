@@ -1,0 +1,194 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: fluent-bit
+  namespace: monitoring
+
+  labels:
+    app.kubernetes.io/name: fluent-bit
+    app.kubernetes.io/part-of: observability
+
+spec:
+  # Publishing a profile does not automatically replace every node's collector.
+  updateStrategy:
+    type: OnDelete
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: fluent-bit
+
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: fluent-bit
+        app.kubernetes.io/part-of: observability
+
+    spec:
+      priorityClassName: homelab-diagnostics
+      serviceAccountName: fluent-bit
+      automountServiceAccountToken: true
+
+      # Same idea as your current otel-agent:
+      # run on every node, including tainted control-plane nodes.
+      tolerations:
+        - operator: Exists
+
+      securityContext:
+        runAsUser: 0
+        runAsGroup: 0
+
+        seccompProfile:
+          type: RuntimeDefault
+
+      # A paused node has no collector. Use this while inspecting/resetting bookmarks.
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: logging.homelab/fluent-bit-paused
+                    operator: DoesNotExist
+
+      containers:
+        - name: fluent-bit
+
+          image: fluent/fluent-bit:5.1.2
+          imagePullPolicy: IfNotPresent
+
+          args:
+            # Kubernetes expands NODE_NAME; Fluent Bit opens that node's mapped file.
+            - --config=/fluent-bit/profiles/$(NODE_NAME).conf
+
+          env:
+            - name: NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+
+          ports:
+            - name: http-metrics
+              containerPort: 2020
+              protocol: TCP
+
+          readinessProbe:
+            httpGet:
+              # Output failures should affect readiness, not restart the buffer.
+              path: /api/v1/health
+              port: http-metrics
+
+            initialDelaySeconds: 5
+            periodSeconds: 10
+
+          # DNS/API startup can take several minutes during cluster recovery.
+          # Wait for startup before liveness checks are allowed to restart the agent.
+          startupProbe:
+            httpGet:
+              path: /api/v1/metrics
+              port: http-metrics
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 36
+          livenessProbe:
+            httpGet:
+              path: /api/v1/metrics
+              port: http-metrics
+
+            initialDelaySeconds: 15
+            periodSeconds: 20
+
+          resources:
+            requests:
+              cpu: 10m
+              memory: 48Mi
+
+            limits:
+              cpu: 50m
+              memory: 96Mi
+
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+
+            capabilities:
+              drop:
+                - ALL
+
+          volumeMounts:
+            # Immutable ConfigMap: this pod keeps its profile snapshot until replaced.
+            - name: config
+              mountPath: /fluent-bit/profiles
+              readOnly: true
+
+            - name: container-logs
+              mountPath: /var/log/containers
+              readOnly: true
+
+            - name: pod-logs
+              mountPath: /var/log/pods
+              readOnly: true
+
+            - name: state
+              mountPath: /var/lib/fluent-bit/pods
+
+            - name: tmp
+              mountPath: /tmp
+
+      volumes:
+        # NODE → PROFILE. Change key to light.conf, buffered.conf or busy.conf.
+        # path must match the Kubernetes node name plus .conf. There is no fallback.
+        - name: config
+          configMap:
+            name: fluent-bit-config
+            items:
+              - key: survival.conf
+                path: tombstone.conf
+              - key: survival.conf
+                path: whyachi.conf
+              - key: survival.conf
+                path: biteforce.conf
+              - key: survival.conf
+                path: huge.conf
+              - key: survival.conf
+                path: minotaur.conf
+
+        - name: container-logs
+          hostPath:
+            path: /var/log/containers
+            type: Directory
+
+        - name: pod-logs
+          hostPath:
+            path: /var/log/pods
+            type: Directory
+
+        - name: state
+          hostPath:
+            # Keep the existing node-local pod state here. No Longhorn volume.
+            # Create it automatically on fresh nodes; old migrations stay separate.
+            path: /var/lib/fluent-bit/pods
+            type: DirectoryOrCreate
+
+        - name: tmp
+          emptyDir:
+            sizeLimit: 32Mi
+
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: fluent-bit
+  namespace: monitoring
+
+  labels:
+    app.kubernetes.io/name: fluent-bit
+
+spec:
+  clusterIP: None
+
+  selector:
+    app.kubernetes.io/name: fluent-bit
+
+  ports:
+    - name: http-metrics
+      port: 2020
+      targetPort: http-metrics

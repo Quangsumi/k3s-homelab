@@ -1,0 +1,21 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: monitoring
+resources:
+  - manifest.yaml
+  - network-policy.yaml
+  - rbac.yaml
+
+# Standard Kustomize file loading. kubectl and Argo CD build this directly.
+# The hash and immutability keep existing pods on their current config snapshot.
+configMapGenerator:
+  - name: fluent-bit-config
+    files:
+      - survival.conf=profiles/survival/fluent-bit.conf
+      - light.conf=profiles/light/fluent-bit.conf
+      - buffered.conf=profiles/buffered/fluent-bit.conf
+      - busy.conf=profiles/busy/fluent-bit.conf
+    options:
+      immutable: true
+      labels:
+        app.kubernetes.io/name: fluent-bit

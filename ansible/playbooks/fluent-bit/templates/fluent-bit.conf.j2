@@ -81,7 +81,7 @@
     # Attach this machine's name and role (proxmox or linux-vm) to each log.
     # log_source=host tells the gateway to treat this as a host log, not a pod log.
     # The gateway sets the service label from _SYSTEMD_UNIT (e.g. k3s.service)
-    # and the service group label to homelab-hosts. See 40-otel-gateway.yaml.
+    # and the service group label to homelab-hosts. See apps/monitoring/otel-gateway/manifest.yaml.
     Record            host_name {{ inventory_hostname }}
     Record            host_role {{ 'proxmox' if inventory_hostname in groups['proxmox_hosts'] else 'linux-vm' }}
     Record            log_source host

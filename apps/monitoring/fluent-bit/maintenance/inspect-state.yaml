@@ -1,0 +1,102 @@
+# Run manually while the selected node is paused. Not included in Kustomize.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: fluent-bit-state-inspect
+  namespace: monitoring
+spec:
+  backoffLimit: 0
+  activeDeadlineSeconds: 180
+  ttlSecondsAfterFinished: 600
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: fluent-bit-state-inspect
+    spec:
+      restartPolicy: Never
+      serviceAccountName: fluent-bit
+      priorityClassName: homelab-diagnostics
+      # CHANGE this hostname to the ONE node you are reviewing.
+      # The Job cannot schedule until that node has the pause label.
+      nodeSelector:
+        kubernetes.io/hostname: whyachi
+        logging.homelab/fluent-bit-paused: 'true'
+      tolerations:
+        - operator: Exists
+      securityContext:
+        runAsUser: 0
+        runAsGroup: 0
+        seccompProfile:
+          type: RuntimeDefault
+      initContainers:
+        # Wait for the old collector to exit before accessing its state.
+        - name: wait-for-collector-exit
+          image: registry.k8s.io/kubectl:v1.34.0
+          args:
+            - -n
+            - monitoring
+            - wait
+            - --for=delete
+            - pods
+            - --selector=app.kubernetes.io/name=fluent-bit
+            - --field-selector=spec.nodeName=$(NODE_NAME)
+            - --timeout=120s
+          env:
+            - name: NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+          resources:
+            requests: {cpu: 5m, memory: 32Mi}
+            limits: {cpu: 50m, memory: 64Mi}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: {drop: [ALL]}
+      containers:
+        - name: inspect
+          image: busybox:1.37.0
+          command:
+            - sh
+            - -ec
+            - |
+              set -o pipefail
+              cd /state
+              test ! -L queue
+              echo 'Saved bookmarks (file metadata only, no log content):'
+              for file in flb_kube.db flb_kube.db-wal flb_kube.db-shm flb_kube.db-journal; do
+                test ! -L "$file"
+                if [ -e "$file" ]; then test -f "$file"; ls -ln "$file"; fi
+              done
+              used=0
+              if [ -d queue ]; then
+                test -z "$(find queue ! -type f ! -type d -print)"
+                used=$(find queue -type f -exec stat -c '%s' {} \; | awk '{n += $1} END {printf "%.0f\n", n}')
+              fi
+              limit=$((QUEUE_LIMIT_KIB * 1024))
+              echo "Queue file sizes: $used bytes; proposed cap: $limit bytes"
+              test "$used" -le "$limit" || {
+                echo 'STOP: increase the selected profile queue cap before starting disk mode.' >&2
+                exit 1
+              }
+              echo 'State unchanged. Choose RESUME, or the separate NEW Job, before returning to disk.'
+          env:
+            # Match storage.total_limit_size in the selected disk profile (64M = 65536 KiB).
+            - name: QUEUE_LIMIT_KIB
+              value: '65536'
+          resources:
+            requests: {cpu: 5m, memory: 8Mi}
+            limits: {cpu: 20m, memory: 16Mi}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: {drop: [ALL]}
+          volumeMounts:
+            - name: state
+              mountPath: /state
+              readOnly: true
+      volumes:
+        - name: state
+          hostPath:
+            path: /var/lib/fluent-bit/pods
+            type: Directory

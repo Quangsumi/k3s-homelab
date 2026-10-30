@@ -1,0 +1,21 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: monitoring
+resources:
+- manifest.yaml
+- network-policy.yaml
+- rbac.yaml
+configMapGenerator:
+- name: prometheus-config
+  files:
+  - prometheus.yml
+- name: prometheus-scrapes
+  files:
+  - scrapes/applications.yml
+  - scrapes/kubernetes.yml
+  - scrapes/observability.yml
+  - scrapes/network.yml
+  - scrapes/argocd.yml
+  - scrapes/certificates.yml
+  - scrapes/external-secrets.yml
+  - scrapes/storage.yml

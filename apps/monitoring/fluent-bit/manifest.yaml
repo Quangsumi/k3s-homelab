@@ -145,7 +145,7 @@ spec:
                 path: whyachi.conf
               - key: buffered.conf
                 path: biteforce.conf
-              - key: buffered.conf
+              - key: survival.conf
                 path: huge.conf
               - key: buffered.conf
                 path: minotaur.conf

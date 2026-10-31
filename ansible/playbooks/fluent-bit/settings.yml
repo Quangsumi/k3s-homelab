@@ -1,6 +1,6 @@
 ---
 # Choose a complete profile from PROFILES.md. Nothing applies until you run main.yml.
-fluent_bit_profile: buffered
+fluent_bit_profile: survival
 
 # Overrides belong to ONE named profile, never to the previously selected profile.
 # Example under light: {rate_records: 80, rate_bytes: 96K}

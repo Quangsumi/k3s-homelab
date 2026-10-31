@@ -1,0 +1,12 @@
+# account Ansible uses to log in over SSH
+ansible_user: tantrum
+ansible_password: null
+
+# Confirmed working from the user's Ubuntu/WSL SSH command.
+ansible_ssh_private_key_file: ~/.ssh/homelab_laptop
+
+# Load a passphrase-protected key into ssh-agent before running Ansible.
+# If the key path changes, edit this file or override ansible_ssh_private_key_file with -e.
+
+# override main.yml
+ansible_sudo_exe: /usr/bin/sudo

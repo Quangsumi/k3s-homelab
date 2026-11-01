@@ -16,6 +16,7 @@ Ansible connects over SSH and applies the instructions in a playbook.
 | [Network](playbooks/network/README.md) | Change Ubuntu DNS with backup, verification and rollback |
 | [Discover](playbooks/discover/README.md) | Read OS, interface and networking information |
 | [Certificates](playbooks/certificates/README.md) | Copy public trust files to one Pi/control-plane host |
+| [Node Exporter](playbooks/node-exporter/README.md) | Ensure host metrics on non-K3s VMs and Proxmox hosts; reuse existing exporters and exclude K3s nodes |
 | [Verify](playbooks/verify/README.md) | Report addresses, routes, resolver and guest-agent status |
 | [Fluent Bit state move — one time](playbooks/fluent-bit-state-migration/README.md) | Move the pod collector's saved files into the new folder; separate from install/configure |
 

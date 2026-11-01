@@ -1,0 +1,125 @@
+---
+- name: Read minimal platform facts
+  ansible.builtin.setup:
+    gather_subset: ['!all', min]
+
+- name: Check for an unlisted K3s installation before managing this machine
+  ansible.builtin.stat:
+    path: "{{ item }}"
+  loop:
+    - /etc/rancher/k3s
+    - /var/lib/rancher/k3s
+    - /etc/systemd/system/k3s.service
+    - /etc/systemd/system/k3s-agent.service
+  register: node_exporter_k3s_paths
+
+- name: Explain why a machine with K3s files is left alone
+  ansible.builtin.debug:
+    msg: K3s footprint detected. No exporter installation, service change or cluster access will be performed on this host.
+  when: node_exporter_k3s_paths.results | selectattr('stat.exists') | list | length > 0
+
+- name: Leave an unlisted K3s node untouched
+  ansible.builtin.meta: end_host
+  when: node_exporter_k3s_paths.results | selectattr('stat.exists') | list | length > 0
+
+- name: Validate the supported platform and private listen address
+  ansible.builtin.assert:
+    that:
+      - ansible_facts.system == 'Linux'
+      - ansible_facts.service_mgr == 'systemd'
+      - node_exporter_listen_address is match('^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$')
+      - node_exporter_listen_address != '0.0.0.0'
+      - node_exporter_listen_address.split('.') | map('int') | min >= 0
+      - node_exporter_listen_address.split('.') | map('int') | max <= 255
+      - node_exporter_port | int > 0
+      - node_exporter_port | int < 65536
+    fail_msg: This job needs Linux/systemd, a concrete inventory network_address or ansible_host (IPv4) and a valid port.
+
+- name: Freeze this machine's scrape target before any delegated probe
+  ansible.builtin.set_fact:
+    node_exporter_scrape_target: "{{ node_exporter_listen_address }}:{{ node_exporter_port }}"
+
+- name: Read existing service identities
+  ansible.builtin.service_facts:
+
+- name: Check whether this job already owns the listener override
+  ansible.builtin.stat:
+    path: "{{ node_exporter_dropin }}"
+  register: node_exporter_managed_dropin
+
+- name: Inspect an existing exporter without printing its metrics
+  ansible.builtin.uri:
+    url: "http://{{ node_exporter_listen_address }}:{{ node_exporter_port }}/metrics"
+    return_content: true
+    use_proxy: false
+    timeout: 5
+  register: node_exporter_before
+  failed_when: false
+  changed_when: false
+  check_mode: false
+  no_log: true
+
+- name: Classify the existing exporter and service manager
+  ansible.builtin.set_fact:
+    node_exporter_existing_healthy: >-
+      {{ node_exporter_before.status | default(0) | int == 200
+         and (node_exporter_before.content | default('') is search('(?m)^node_exporter_build_info[{ ]'))
+         and (node_exporter_before.content | default('') is search('(?m)^node_uname_info[{ ]')) }}
+    node_exporter_existing_services: >-
+      {{ node_exporter_known_services | intersect(ansible_facts.services.keys() | list) | sort }}
+
+- name: Refuse an ambiguous stopped or unhealthy service layout
+  ansible.builtin.assert:
+    that:
+      - node_exporter_existing_healthy or node_exporter_existing_services | length <= 1
+    fail_msg: Multiple exporter services exist but the endpoint is unhealthy. Resolve the existing deployment; this job will not install another.
+
+- name: Decide whether this job manages the distro exporter
+  ansible.builtin.set_fact:
+    node_exporter_manage_package: >-
+      {{ (node_exporter_managed_dropin.stat.exists
+          and (not node_exporter_existing_healthy
+               or ansible_facts.services.get(node_exporter_service, {}).get('state', '') == 'running'))
+         or (not node_exporter_existing_healthy and node_exporter_existing_services | length == 0) }}
+
+- name: Reuse an existing healthy exporter without changing its deployment
+  ansible.builtin.debug:
+    msg: >-
+      Existing node-exporter is healthy at {{ node_exporter_listen_address }}:{{ node_exporter_port }}.
+      No duplicate installation or listener reconfiguration.
+  when: node_exporter_existing_healthy and not node_exporter_manage_package
+
+- name: Start a recognized existing service rather than installing a second exporter
+  ansible.builtin.systemd_service:
+    name: "{{ node_exporter_existing_services | first }}"
+    enabled: true
+    state: started
+  when:
+    - not node_exporter_manage_package
+    - not node_exporter_existing_healthy
+    - node_exporter_existing_services | length == 1
+
+- name: Install or configure only the exporter owned by this job
+  ansible.builtin.include_tasks: install.yml
+  when: node_exporter_manage_package
+
+- name: Apply a changed managed listener before verification
+  ansible.builtin.meta: flush_handlers
+
+- name: Ensure the managed service stays enabled and running
+  ansible.builtin.systemd_service:
+    name: "{{ node_exporter_service }}"
+    enabled: true
+    state: started
+  when:
+    - node_exporter_manage_package
+    - not ansible_check_mode or node_exporter_service in ansible_facts.services
+
+- name: Verify metrics and network reachability after an actual run
+  ansible.builtin.include_tasks: verify.yml
+  when: not ansible_check_mode
+
+- name: Explain check-mode limits
+  ansible.builtin.debug:
+    msg: Preview only. Package/listener/start changes have not been applied; post-install metrics and monitoring-VM reachability are not proved.
+  when: ansible_check_mode

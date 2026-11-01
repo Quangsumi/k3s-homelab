@@ -1,0 +1,10 @@
+---
+# K3s nodes already have their DaemonSet exporter; exclude them before any SSH/facts.
+- name: Ensure non-K3s VMs and Proxmox hosts expose Linux host metrics
+  hosts: linux_vms:proxmox_hosts:!control_planes:!workers
+  gather_facts: false
+  become: true
+  serial: 1
+  any_errors_fatal: true
+  roles:
+    - node_exporter

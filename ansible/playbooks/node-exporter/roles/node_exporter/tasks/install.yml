@@ -1,0 +1,46 @@
+---
+- name: Require a supported distro for a new package installation
+  ansible.builtin.assert:
+    that:
+      - ansible_facts.os_family == 'Debian'
+    fail_msg: New installations support Debian/Ubuntu (including Debian-based OMV). Other distros need an existing exporter or their own package implementation.
+
+- name: Refuse to install over an unknown process occupying the metrics port
+  ansible.builtin.wait_for:
+    host: "{{ node_exporter_listen_address }}"
+    port: "{{ node_exporter_port }}"
+    state: stopped
+    timeout: 1
+    connect_timeout: 1
+    msg: Metrics port is occupied by an unrecognized service. Check the existing exporter/container; no package will be installed over it.
+  changed_when: false
+  check_mode: false
+  when: not node_exporter_managed_dropin.stat.exists
+
+- name: Install the distro node-exporter without starting a default all-interface listener
+  ansible.builtin.apt:
+    name: "{{ node_exporter_package }}"
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+    install_recommends: false
+    policy_rc_d: 101
+
+- name: Create the managed systemd override directory
+  ansible.builtin.file:
+    path: "{{ node_exporter_dropin_dir }}"
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+
+- name: Bind the managed exporter to this machine's inventory address
+  ansible.builtin.template:
+    src: listen.conf.j2
+    dest: "{{ node_exporter_dropin }}"
+    owner: root
+    group: root
+    mode: '0644'
+  notify: Restart managed node exporter
+  # On a fresh check-mode run neither the package nor this parent directory exists.
+  when: not ansible_check_mode or node_exporter_managed_dropin.stat.exists

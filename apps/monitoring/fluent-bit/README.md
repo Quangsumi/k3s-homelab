@@ -3,9 +3,35 @@
 **Kubernetes manifests only.** Host agents keep their separate Ansible playbook.
 
 ```text
-profiles/<mode>/fluent-bit.conf → ConfigMap → one DaemonSet → gateway → Loki
+profiles/<mode>/fluent-bit.conf + gateway.env → ConfigMaps → DaemonSet → Tantrum Caddy → gateway → Loki
 manifest.yaml: node filename → profile key
 ```
+
+This change prepares pod logs for Tantrum. It does not stop old backends or move
+app SDK telemetry/cluster metrics. Follow [MIGRATION.md](MIGRATION.md) after review.
+
+## Destination, token and certificate
+
+| File | Purpose |
+| --- | --- |
+| [gateway.env](gateway.env) | Shared IP, port, HTTPS name, pod-log path and CA path; Kustomize puts these into a ConfigMap, then `envFrom` supplies the pod environment |
+| [gateway-auth.yaml](gateway-auth.yaml) | Infisical `/otel-gateway/APP_BEARER_TOKEN` → Secret `otel-gateway-app-auth`, key `token` → `OTEL_GATEWAY_APP_BEARER_TOKEN` |
+| [public CA](../../../pki/public/tantrum-caddy.crt) | Mounted read-only at `/fluent-bit/gateway-ca/tantrum-caddy.crt` |
+| [public CA Kustomization](../../../pki/public/kustomization.yaml) | Builds the CA ConfigMap without copying the certificate into this app |
+| [manifest.yaml](manifest.yaml) | Environment, Secret reference, CA mount and node/profile mapping |
+
+The profiles use Fluent Bit's `${VARIABLE}` syntax. `gateway.env` is a build input,
+not a file Fluent Bit opens. No token value is stored in that file or in Git.
+Pod logs use **`/v1/logs` + the app token**. Host journals keep their separate
+**`/host/v1/logs` + host token** path and Ansible configuration.
+
+The IP is the connection destination; the HTTPS name is also sent as the HTTP
+`Host` header so Caddy selects the correct route. Certificate and hostname checks
+are enabled. Inputs, Kubernetes metadata collection, rates and queue caps are unchanged.
+
+Non-secret ConfigMaps have content-based names and are immutable. Existing pods
+keep their current settings/CA until replaced. Secret values are read at pod
+startup; token rotation also needs a controlled replacement of collector pods.
 
 ## Settings and profile selection
 
@@ -34,7 +60,8 @@ Choose a node's profile in `manifest.yaml`, under `volumes → configMap → ite
   path: whyachi.conf   # Kubernetes node name + .conf
 ```
 
-All five nodes currently select `buffered.conf`. Kubernetes supplies `NODE_NAME`;
+Tombstone, Whyachi, Biteforce and Minotaur select `buffered.conf`; Huge selects
+`survival.conf`. Kubernetes supplies `NODE_NAME`;
 the collector opens `/fluent-bit/profiles/$(NODE_NAME).conf`. Unlisted nodes have no matching file and fail visibly.
 
 `OnDelete` prevents configuration publication from restarting every collector.
@@ -48,6 +75,15 @@ kubectl kustomize apps/monitoring/fluent-bit
 ```
 
 This prints YAML only. No Ansible or external generation step is needed.
+
+With `kubectl` and Python's PyYAML installed, run the local build checks:
+
+```bash
+python3 -m unittest discover -s apps/monitoring/fluent-bit/tests -v
+```
+
+These check the Secret/CA connections and shared settings snapshots without
+contacting a cluster. They do not prove runtime delivery or Fluent Bit binary compatibility.
 
 ## Roll out ONE node later — a terminal with kubectl and this checkout
 

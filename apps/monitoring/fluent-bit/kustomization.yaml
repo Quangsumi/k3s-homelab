@@ -5,10 +5,19 @@ resources:
   - manifest.yaml
   - network-policy.yaml
   - rbac.yaml
+  - gateway-auth.yaml
+  - ../../../pki/public
 
 # Standard Kustomize file loading. kubectl and Argo CD build this directly.
 # The hash and immutability keep existing pods on their current config snapshot.
 configMapGenerator:
+  - name: fluent-bit-gateway
+    envs:
+      - gateway.env
+    options:
+      immutable: true
+      labels:
+        app.kubernetes.io/name: fluent-bit
   - name: fluent-bit-config
     files:
       - survival.conf=profiles/survival/fluent-bit.conf

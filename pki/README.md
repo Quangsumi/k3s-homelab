@@ -23,6 +23,7 @@ public/proxmox-cluster-ca.crt + public/endgame-selfsigned.crt
 
 public/tantrum-caddy.crt
   -> VM/Proxmox Fluent Bit: /etc/fluent-bit/gateway-ca.pem
+  -> K3s Fluent Bit: /fluent-bit/gateway-ca/tantrum-caddy.crt
   -> verifies the new otel.tantrum.lab HTTPS receiver on 192.168.63.66
 ```
 
@@ -31,6 +32,8 @@ Pi paths are under `/home/pi/Desktop/rpivn-app/ca/`. Browser trust uses the indi
 `tantrum-caddy.crt` is a single public root, copied from
 `tantrum-monitoring/shared/trust/tantrum-caddy-root.crt` on Tantrum. It is separate
 from the older lab Caddy root and is not added to Kubernetes trust bundles.
+`public/kustomization.yaml` publishes only this root as a named ConfigMap when
+included by the pod collector. It does not change the cert-manager Caddy root.
 SHA-256: `12:3B:AD:1A:F1:D3:D2:F8:9E:82:78:41:CE:9B:B7:70:5F:EF:12:24:8D:BC:DB:00:F5:1F:40:D5:DB:8A:5E:D1`.
 
 ## Inspect and rebuild bundles

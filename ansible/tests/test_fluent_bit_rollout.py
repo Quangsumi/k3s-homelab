@@ -41,7 +41,7 @@ class ProfileTests(unittest.TestCase):
         self.settings.update({
             'fluent_bit_read_from_tail': True,
             'inventory_hostname': 'test-host', 'groups': {'proxmox_hosts': []},
-            'fluent_bit_external_token': 'test-token',
+            'otel_gateway_host_bearer_token': 'test-token',
             'fluent_bit_gateway_host': '127.0.0.1', 'fluent_bit_gateway_port': 31419,
             'fluent_bit_gateway_tls_name': 'otel-otlp.lab',
             'fluent_bit_gateway_logs_uri': '/host/v1/logs',

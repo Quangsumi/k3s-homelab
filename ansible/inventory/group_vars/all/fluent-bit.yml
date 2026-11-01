@@ -11,11 +11,11 @@ fluent_bit_gateway_port: 443
 fluent_bit_gateway_tls_name: otel.tantrum.lab
 fluent_bit_gateway_logs_uri: /host/v1/logs
 # Tantrum checks its Docker Loki for each host's test message.
-fluent_bit_verify_controller: tantrum
-fluent_bit_verify_user: "{{ fluent_bit_verify_controller }}"
+fluent_bit_monitoring_host: tantrum
+fluent_bit_monitoring_ssh_user: tantrum
 fluent_bit_monitoring_directory: /home/tantrum/tantrum-monitoring
-fluent_bit_ca_source: "{{ inventory_dir }}/../../pki/bundles/tantrum-caddy.crt"
-# Supply fluent_bit_external_token in the encrypted logging vars file.
+fluent_bit_ca_source: "{{ inventory_dir }}/../../pki/public/tantrum-caddy.crt"
+# Supply otel_gateway_host_bearer_token in the encrypted logging vars file.
 # Use the contents of Tantrum's otel-host-otlp-bearer-token, without "Bearer ".
 # Buffer sizes and profile overrides live in playbooks/fluent-bit/settings.yml.
 # Fresh installations start with new entries instead of importing all journal history.

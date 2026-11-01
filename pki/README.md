@@ -21,7 +21,7 @@ public/proxmox-cluster-ca.crt + public/endgame-selfsigned.crt
   -> bundles/proxmox-api-trust.pem
   -> Pi proxmox-trust.pem -> Caddy verifies both Proxmox APIs
 
-bundles/tantrum-caddy.crt
+public/tantrum-caddy.crt
   -> VM/Proxmox Fluent Bit: /etc/fluent-bit/gateway-ca.pem
   -> verifies the new otel.tantrum.lab HTTPS receiver on 192.168.63.66
 ```

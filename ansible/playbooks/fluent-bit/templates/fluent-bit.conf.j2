@@ -97,7 +97,7 @@
     Logs_Body_Key             $log
     # Send the other fields too, so the gateway can read _SYSTEMD_UNIT and host_name.
     Logs_Body_Key_Attributes  On
-    Header                    Authorization Bearer {{ fluent_bit_external_token }}
+    Header                    Authorization Bearer {{ otel_gateway_host_bearer_token }}
     TLS                       On
     TLS.Verify                On
     TLS.Verify_Hostname       On

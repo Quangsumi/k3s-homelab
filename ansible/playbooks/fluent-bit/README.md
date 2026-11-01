@@ -40,13 +40,30 @@ Fluent Bit restarts only when configuration changes. No VM/K3s restart is perfor
   `fluent_bit_gateway_logs_uri: /host/v1/logs` selects host ingestion; `/v1/logs` uses the separate app receiver.
 - Settings live in [inventory Fluent Bit vars](../../inventory/group_vars/all/fluent-bit.yml).
   Both the agent and connection check read the same path variable.
-- The logging Vault must contain `fluent_bit_external_token` set to the contents of
+- The logging Vault must contain `otel_gateway_host_bearer_token` set to the contents of
   Tantrum's `apps/otel-gateway/secrets/otel-host-otlp-bearer-token`, without `Bearer `.
   Do not reuse the old stack token or the new app/remote-write tokens.
-- Public CA: [tantrum-caddy.crt](../../../pki/bundles/tantrum-caddy.crt), copied from
+- Public CA: [tantrum-caddy.crt](../../../pki/public/tantrum-caddy.crt), copied from
   the new proxy's root. This job copies it to `/etc/fluent-bit/gateway-ca.pem`.
 - Tokens stay out of Git. Agent configuration and backups containing tokens are root-only; template diffs are hidden.
 - Journald retention stays unchanged by default. Previously installed retention settings are not removed.
+
+| Setting | Meaning |
+| --- | --- |
+| `fluent_bit_monitoring_host: tantrum` | Inventory machine where Docker/Loki delivery checks run |
+| `fluent_bit_monitoring_ssh_user: tantrum` | SSH login for that machine |
+| `fluent_bit_monitoring_directory` | Monitoring Compose project folder on that machine |
+| `otel_gateway_host_bearer_token` | Gateway-owned host ingestion credential used by Fluent Bit |
+
+Before running, edit your encrypted logging vars:
+
+```bash
+ansible-vault edit secrets/logging-vault.yml
+```
+
+Rename the old `fluent_bit_external_token` key to `otel_gateway_host_bearer_token`
+and give it the new gateway's host token value. The old key is no longer read.
+This renames the Ansible setting; it does not change the gateway's secret filename or rotate its token.
 
 This update prepares a destination change; no host agents have been changed by preparing it.
 Existing installations keep `fluent_bit_install_package: false`. Keep your selected
@@ -78,6 +95,5 @@ Grafana → **Dashboards → Logs**:
 - **Pod Logs:** choose a namespace, application and pod.
 - **Log Delivery:** heartbeat age under five minutes indicates current host delivery; a backlog can make it red.
 
-[New gateway paths](https://github.com/Quangsumi/tantrum-monitoring/blob/main/apps/otel-gateway/README.md) · [Labels](../../../docs/operations/log-labels.md) ·
-[Recovery history](../../../docs/operations/host-logging-review-2026-10-29.md).
+[New gateway paths](https://github.com/Quangsumi/tantrum-monitoring/blob/main/apps/otel-gateway/README.md).
 Pod-state [migration/cleanup](../fluent-bit-state-migration/README.md) remain separate one-time jobs.

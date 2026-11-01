@@ -5,9 +5,10 @@
       - ansible_limit | default('') | length > 0
       - ansible_facts.distribution in ['Ubuntu', 'Debian']
       - ansible_facts.service_mgr == 'systemd'
-      - fluent_bit_external_token | default('') | length > 0
-      - fluent_bit_external_token | default('') is match('^[A-Za-z0-9._~+/-]+=*$')
-    fail_msg: Select --limit and supply fluent_bit_external_token through an encrypted vars file.
+      - otel_gateway_host_bearer_token | default('') | length > 0
+      - otel_gateway_host_bearer_token | default('') is match('^[A-Za-z0-9._~+/-]+=*$')
+      - fluent_bit_gateway_logs_uri is match('^/[A-Za-z0-9/_-]+$')
+    fail_msg: Select --limit and supply otel_gateway_host_bearer_token through an encrypted vars file.
   no_log: true
 
 - name: Check the installed binary

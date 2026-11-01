@@ -3,8 +3,9 @@
   ansible.builtin.assert:
     that:
       - ansible_limit | default('') | length > 0
-      - fluent_bit_external_token | default('') is match('^[A-Za-z0-9._~+/-]+=*$')
+      - otel_gateway_host_bearer_token | default('') is match('^[A-Za-z0-9._~+/-]+=*$')
       - fluent_bit_gateway_tls_name is match('^[A-Za-z0-9.-]+$')
+      - fluent_bit_gateway_logs_uri is match('^/[A-Za-z0-9/_-]+$')
       - fluent_bit_gateway_port | int > 0
       - fluent_bit_gateway_port | int < 65536
     fail_msg: Select --limit and load the logging Vault file.
@@ -18,7 +19,8 @@
       - "{{ lookup('ansible.builtin.file', playbook_dir + '/files/check-gateway.py') }}"
     stdin: >-
       {{ {'host': fluent_bit_gateway_host, 'port': fluent_bit_gateway_port | int,
-          'tls_name': fluent_bit_gateway_tls_name, 'token': fluent_bit_external_token,
+          'tls_name': fluent_bit_gateway_tls_name, 'logs_uri': fluent_bit_gateway_logs_uri,
+          'token': otel_gateway_host_bearer_token,
           'ca': lookup('ansible.builtin.file', fluent_bit_ca_source)} | to_json }}
   register: fluent_bit_gateway_check
   changed_when: false
@@ -37,15 +39,30 @@
 
 - name: Check access to the machine used to verify delivery
   ansible.builtin.command:
-    argv: [kubectl, '--request-timeout=15s', -n, monitoring, get, deployment/grafana, -o, name]
-  delegate_to: "{{ fluent_bit_verify_controller }}"
-  become: false
+    argv:
+      - docker
+      - compose
+      - --project-directory
+      - "{{ fluent_bit_monitoring_directory }}"
+      - exec
+      - -T
+      - grafana
+      - wget
+      - -q
+      - -T
+      - '10'
+      - -O
+      - '-'
+      - http://loki:3100/ready
+  delegate_to: "{{ fluent_bit_monitoring_host }}"
+  become: true
   vars:
-    # Delegation keeps inventory_hostname set to the original host.
-    # Use the verification machine's login and password explicitly.
-    ansible_user: "{{ fluent_bit_verify_user }}"
+    # This check runs on the monitoring machine; use its login details.
+    ansible_user: "{{ fluent_bit_monitoring_ssh_user }}"
     ansible_password: >-
-      {{ (vault_hosts | default({})).get(fluent_bit_verify_controller, {}).get('ssh_password', none)
+      {{ (vault_hosts | default({})).get(fluent_bit_monitoring_host, {}).get('ssh_password', none)
          if bootstrap_password_auth | default(false) | bool else none }}
+    ansible_become_password: >-
+      {{ (vault_hosts | default({})).get(fluent_bit_monitoring_host, {}).get('sudo_password', none) }}
   changed_when: false
   check_mode: false

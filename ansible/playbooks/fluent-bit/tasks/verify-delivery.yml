@@ -19,13 +19,13 @@
     - name: Wait until Loki returns this machine's test message
       ansible.builtin.command:
         argv:
-          - kubectl
-          - --request-timeout=15s
-          - -n
-          - monitoring
+          - docker
+          - compose
+          - --project-directory
+          - "{{ fluent_bit_monitoring_directory }}"
           - exec
-          - deployment/grafana
-          - --
+          - -T
+          - grafana
           - wget
           - -q
           - -T
@@ -36,12 +36,14 @@
           - '-'
           - "http://loki:3100/loki/api/v1/query_range?query={{ fluent_bit_probe_query | urlencode }}&since=10m&limit=1"
       delegate_to: "{{ fluent_bit_verify_controller }}"
-      become: false
+      become: true
       vars:
         ansible_user: "{{ fluent_bit_verify_user }}"
         ansible_password: >-
           {{ (vault_hosts | default({})).get(fluent_bit_verify_controller, {}).get('ssh_password', none)
              if bootstrap_password_auth | default(false) | bool else none }}
+        ansible_become_password: >-
+          {{ (vault_hosts | default({})).get(fluent_bit_verify_controller, {}).get('sudo_password', none) }}
         fluent_bit_probe_query: >-
           {service_namespace="homelab-hosts"} | host_name={{ inventory_hostname | to_json }}
           | SYSLOG_IDENTIFIER="fluent-bit-check" |= {{ fluent_bit_probe | to_json }}

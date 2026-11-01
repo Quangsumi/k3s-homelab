@@ -20,9 +20,18 @@ public/k3s-server-ca.crt
 public/proxmox-cluster-ca.crt + public/endgame-selfsigned.crt
   -> bundles/proxmox-api-trust.pem
   -> Pi proxmox-trust.pem -> Caddy verifies both Proxmox APIs
+
+bundles/tantrum-caddy.crt
+  -> VM/Proxmox Fluent Bit: /etc/fluent-bit/gateway-ca.pem
+  -> verifies the new otel.tantrum.lab HTTPS receiver on 192.168.63.66
 ```
 
 Pi paths are under `/home/pi/Desktop/rpivn-app/ca/`. Browser trust uses the individual Caddy and Homelab roots. Retain Homelab v1 while old certificates still require it.
+
+`tantrum-caddy.crt` is a single public root, copied from
+`tantrum-monitoring/shared/trust/tantrum-caddy-root.crt` on Tantrum. It is separate
+from the older lab Caddy root and is not added to Kubernetes trust bundles.
+SHA-256: `12:3B:AD:1A:F1:D3:D2:F8:9E:82:78:41:CE:9B:B7:70:5F:EF:12:24:8D:BC:DB:00:F5:1F:40:D5:DB:8A:5E:D1`.
 
 ## Inspect and rebuild bundles
 

@@ -44,6 +44,7 @@ class ProfileTests(unittest.TestCase):
             'fluent_bit_external_token': 'test-token',
             'fluent_bit_gateway_host': '127.0.0.1', 'fluent_bit_gateway_port': 31419,
             'fluent_bit_gateway_tls_name': 'otel-otlp.lab',
+            'fluent_bit_gateway_logs_uri': '/host/v1/logs',
             'fluent_bit_extra_files': [{'name': 'demo', 'path': '/var/log/demo.log'}],
         })
         self.env = jinja2.Environment(undefined=jinja2.StrictUndefined, keep_trailing_newline=True)

@@ -10,6 +10,7 @@ metadata:
 
 spec:
   # Publishing a profile does not automatically replace every node's collector.
+  # need to delete the pod to pick up a new profile.
   updateStrategy:
     type: OnDelete
   selector:
@@ -27,8 +28,7 @@ spec:
       serviceAccountName: fluent-bit
       automountServiceAccountToken: true
 
-      # Same idea as your current otel-agent:
-      # run on every node, including tainted control-plane nodes.
+      # Tolerate every taint
       tolerations:
         - operator: Exists
 
@@ -167,7 +167,7 @@ spec:
                 path: whyachi.conf
               - key: buffered.conf
                 path: biteforce.conf
-              - key: survival.conf
+              - key: buffered.conf
                 path: huge.conf
               - key: buffered.conf
                 path: minotaur.conf

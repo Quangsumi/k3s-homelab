@@ -1,0 +1,34 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: monitoring
+resources:
+- statefulset.yaml
+- service.yaml
+- rbac.yaml
+- network-policy.yaml
+- remote-write-external-secret.yaml
+- litellm-external-secret.yaml
+# Kustomize reads the Git files listed below and builds ConfigMap YAML.
+# Explicit syntax: CONFIGMAP_KEY=GIT_FILE_PATH (path relative to this folder).
+# Example: kubernetes.yml=config/scrapes/kubernetes.yml creates:
+#   data:
+#     kubernetes.yml: |          # Key is exactly the text LEFT of '='.
+#       <entire file contents>  # Read from the Git path RIGHT of '='.
+# 'config/scrapes/' is a Git folder path, NOT part of the ConfigMap key.
+# Argo CD creates the resulting ConfigMaps in Kubernetes.
+# Kustomize adds name hashes and updates the StatefulSet's references for us.
+configMapGenerator:
+- name: prometheus-agent-config
+  files:
+  - prometheus.yml=config/prometheus.yml
+- name: prometheus-agent-scrapes
+  files:
+  - applications.yml=config/scrapes/applications.yml
+  - kubernetes.yml=config/scrapes/kubernetes.yml
+  - control-plane.yml=config/scrapes/control-plane.yml
+  - observability.yml=config/scrapes/observability.yml
+  - network.yml=config/scrapes/network.yml
+  - argocd.yml=config/scrapes/argocd.yml
+  - certificates.yml=config/scrapes/certificates.yml
+  - external-secrets.yml=config/scrapes/external-secrets.yml
+  - storage.yml=config/scrapes/storage.yml

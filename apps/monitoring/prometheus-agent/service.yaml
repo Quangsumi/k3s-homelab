@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: prometheus-agent
+spec:
+  # DNS returns the pod IP directly; no separate Service IP is allocated.
+  # The StatefulSet uses this Service name for its pod's stable DNS name.
+  clusterIP: None
+  selector:
+    app: prometheus-agent
+  ports:
+  - name: http
+    port: 9095
+    targetPort: http

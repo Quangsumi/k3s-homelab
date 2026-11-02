@@ -6,11 +6,14 @@ Pod-log move to Tantrum: [migration and retirement order](fluent-bit/MIGRATION.m
 Old backends stay in this build until their replacement paths have been verified.
 Node Exporter moves to systemd on every machine:
 [DaemonSet retirement and installation guide](../../ansible/playbooks/node-exporter/MIGRATION.md).
+Kubernetes metrics to Tantrum: [Agent initialization](prometheus-agent/INIT.md) and
+[verification](prometheus-agent/VERIFY.md). The old server stays until these checks pass.
 
 | Folder | Contents |
 |---|---|
 | `grafana/` | UI, data sources, dashboards and network rules |
 | `prometheus/` | Server, scrape configuration, access rules and RBAC |
+| `prometheus-agent/` | Kubernetes scraper, own disk buffer, remote write to Tantrum and rollout guides |
 | `prometheus-oauth2-proxy/` | Prometheus login proxy and ingress |
 | `fluent-bit/` | Pod collector, four editable profile files and manual state-maintenance Jobs |
 | `otel-gateway/` | Log/metric/trace receiver, routes, RBAC and network rules |

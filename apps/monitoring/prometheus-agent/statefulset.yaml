@@ -1,0 +1,211 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: prometheus-agent
+spec:
+  serviceName: prometheus-agent
+  replicas: 1
+  # Retain is already Kubernetes' default when this block is omitted.
+  # State it explicitly: keep PVCs when deleting this StatefulSet or scaling it down.
+  # Only an explicit Delete policy would enable that automatic PVC cleanup.
+  persistentVolumeClaimRetentionPolicy:
+    whenDeleted: Retain
+    whenScaled: Retain
+  selector:
+    matchLabels:
+      app: prometheus-agent
+  template:
+    metadata:
+      labels:
+        app: prometheus-agent
+        app.kubernetes.io/name: prometheus-agent
+        app.kubernetes.io/part-of: observability
+    spec:
+      priorityClassName: homelab-diagnostics
+      # rbac.yaml creates this account and its API permissions.
+      # Kubernetes automatically mounts its short-lived API token + API CA at:
+      # /var/run/secrets/kubernetes.io/serviceaccount/{token,ca.crt,namespace}
+      # Kubernetes scrape jobs use these files; they are NOT the Tantrum write token/CA.
+      serviceAccountName: prometheus-agent
+      terminationGracePeriodSeconds: 60
+      # Like Compose extra_hosts: set a hostname-to-IP mapping inside this pod.
+      # metrics-write.tantrum.lab resolves to 192.168.63.66 via /etc/hosts instead of DNS.
+      # This sends writes to Tantrum while keeping the hostname for HTTPS verification.
+      hostAliases:
+      - ip: 192.168.63.66
+        hostnames:
+        - metrics-write.tantrum.lab
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65534
+        runAsGroup: 65534
+        fsGroup: 65534
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile:
+          type: RuntimeDefault
+      initContainers:
+      - name: validate-config
+        image: prom/prometheus:v3.15.1
+        imagePullPolicy: IfNotPresent
+        command: [/bin/promtool, check, config, --agent, /etc/prometheus/prometheus.yml]
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop: [ALL]
+        resources:
+          requests:
+            cpu: 50m
+            memory: 64Mi
+          limits:
+            memory: 256Mi
+        volumeMounts:
+        # Same 'config' volume and file paths as the main container below.
+        - name: config
+          mountPath: /etc/prometheus
+          readOnly: true
+      containers:
+      - name: prometheus-agent
+        image: prom/prometheus:v3.15.1
+        imagePullPolicy: IfNotPresent
+        args:
+        - --agent
+        # Open this mounted file first; it lists the scrape-job files to load.
+        - --config.file=/etc/prometheus/prometheus.yml
+        - --storage.agent.path=/prometheus
+        - --storage.agent.retention.max-time=4h
+        - --web.listen-address=:9095
+        ports:
+        - name: http
+          containerPort: 9095
+        startupProbe:
+          httpGet:
+            path: /-/ready
+            port: http
+          periodSeconds: 10
+          failureThreshold: 30
+        readinessProbe:
+          httpGet:
+            path: /-/ready
+            port: http
+          periodSeconds: 10
+        livenessProbe:
+          httpGet:
+            path: /-/healthy
+            port: http
+          periodSeconds: 20
+        # Same baseline as the existing K3s Prometheus; measure after rollout.
+        resources:
+          requests:
+            cpu: 100m
+            memory: 576Mi
+          limits:
+            memory: 1Gi
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop: [ALL]
+        volumeMounts:
+        # 'config' matches volumes.name below; mount its contents at /etc/prometheus.
+        - name: config
+          mountPath: /etc/prometheus
+          readOnly: true
+        - name: wal
+          # 'wal' matches volumeClaimTemplates.name: the Agent's Longhorn disk.
+          mountPath: /prometheus
+      volumes:
+      # Result INSIDE THE CONTAINER, after volumeMounts.name=config mounts this volume:
+      # /etc/prometheus/
+      # |-- prometheus.yml
+      # |-- scrapes/
+      # |   |-- applications.yml
+      # |   |-- kubernetes.yml
+      # |   |-- control-plane.yml
+      # |   |-- observability.yml
+      # |   |-- network.yml
+      # |   |-- argocd.yml
+      # |   |-- certificates.yml
+      # |   |-- external-secrets.yml
+      # |   `-- storage.yml
+      # `-- secrets/
+      #     |-- litellm/LITELLM_MASTER_KEY
+      #     `-- remote-write/
+      #         |-- token
+      #         `-- ca.crt
+      # These are container paths, NOT folders that must exist in Git.
+      - name: config
+        # 'projected' combines the following ConfigMap/Secret keys into this volume.
+        # 'key' selects stored content; 'path' names its file RELATIVE to this volume.
+        # Example: path scrapes/kubernetes.yml + mount /etc/prometheus
+        #          = /etc/prometheus/scrapes/kubernetes.yml inside the container.
+        projected:
+          sources:
+          - configMap:
+              name: prometheus-agent-config
+              items:
+              - key: prometheus.yml
+                path: prometheus.yml
+          - configMap:
+              name: prometheus-agent-scrapes
+              items:
+              - key: applications.yml
+                path: scrapes/applications.yml
+              - key: kubernetes.yml
+                path: scrapes/kubernetes.yml
+              - key: control-plane.yml
+                path: scrapes/control-plane.yml
+              - key: observability.yml
+                path: scrapes/observability.yml
+              - key: network.yml
+                path: scrapes/network.yml
+              - key: argocd.yml
+                path: scrapes/argocd.yml
+              - key: certificates.yml
+                path: scrapes/certificates.yml
+              - key: external-secrets.yml
+                path: scrapes/external-secrets.yml
+              - key: storage.yml
+                path: scrapes/storage.yml
+          - secret:
+              # Secret name: litellm-prometheus-job-secret-infisical
+              # Key: LITELLM_MASTER_KEY
+              # Value: fetched from Infisical /prometheus/LITELLM_MASTER_KEY.
+              # Mounted at: /etc/prometheus/secrets/litellm/LITELLM_MASTER_KEY
+              # Used by: applications.yml to authenticate the LiteLLM scrape.
+              name: litellm-prometheus-job-secret-infisical
+              items:
+              - key: LITELLM_MASTER_KEY
+                path: secrets/litellm/LITELLM_MASTER_KEY
+          - secret:
+              # Secret name: prometheus-agent-remote-write-token
+              # Key: token
+              # Value: fetched from Infisical /prometheus/REMOTE_WRITE_BEARER_TOKEN.
+              # Mounted at: /etc/prometheus/secrets/remote-write/token
+              # Used by: prometheus.yml to authenticate writes to Tantrum.
+              name: prometheus-agent-remote-write-token
+              items:
+              - key: token
+                path: secrets/remote-write/token
+          - configMap:
+              # ConfigMap name: tantrum-caddy-trust-bundle (created by trust-manager).
+              # Key: tantrum-caddy.crt
+              # Value: public certificate from Git pki/public/tantrum-caddy.crt.
+              # Mounted at: /etc/prometheus/secrets/remote-write/ca.crt
+              # Used by: prometheus.yml to verify Tantrum's HTTPS certificate.
+              name: tantrum-caddy-trust-bundle
+              items:
+              - key: tantrum-caddy.crt
+                path: secrets/remote-write/ca.crt
+  volumeClaimTemplates:
+  # StatefulSet creates PVC wal-prometheus-agent-0 from this template.
+  # StorageClass longhorn provisions its disk; volumeMounts.name=wal mounts it at /prometheus.
+  # --storage.agent.path=/prometheus writes the pending metric samples there.
+  - metadata:
+      name: wal
+    spec:
+      accessModes: [ReadWriteOnce]
+      storageClassName: longhorn
+      resources:
+        requests:
+          storage: 5Gi

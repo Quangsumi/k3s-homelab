@@ -3,25 +3,6 @@
   ansible.builtin.setup:
     gather_subset: ['!all', min]
 
-- name: Check for an unlisted K3s installation before managing this machine
-  ansible.builtin.stat:
-    path: "{{ item }}"
-  loop:
-    - /etc/rancher/k3s
-    - /var/lib/rancher/k3s
-    - /etc/systemd/system/k3s.service
-    - /etc/systemd/system/k3s-agent.service
-  register: node_exporter_k3s_paths
-
-- name: Explain why a machine with K3s files is left alone
-  ansible.builtin.debug:
-    msg: K3s footprint detected. No exporter installation, service change or cluster access will be performed on this host.
-  when: node_exporter_k3s_paths.results | selectattr('stat.exists') | list | length > 0
-
-- name: Leave an unlisted K3s node untouched
-  ansible.builtin.meta: end_host
-  when: node_exporter_k3s_paths.results | selectattr('stat.exists') | list | length > 0
-
 - name: Validate the supported platform and private listen address
   ansible.builtin.assert:
     that:
@@ -66,28 +47,57 @@
          and (node_exporter_before.content | default('') is search('(?m)^node_exporter_build_info[{ ]'))
          and (node_exporter_before.content | default('') is search('(?m)^node_uname_info[{ ]')) }}
     node_exporter_existing_services: >-
-      {{ node_exporter_known_services | intersect(ansible_facts.services.keys() | list) | sort }}
+      {{ ansible_facts.services.values()
+         | selectattr('source', 'equalto', 'systemd')
+         | rejectattr('status', 'equalto', 'not-found')
+         | map(attribute='name')
+         | intersect(node_exporter_known_services) | sort }}
 
-- name: Refuse an ambiguous stopped or unhealthy service layout
+- name: Require a single recognized systemd exporter service
   ansible.builtin.assert:
     that:
-      - node_exporter_existing_healthy or node_exporter_existing_services | length <= 1
-    fail_msg: Multiple exporter services exist but the endpoint is unhealthy. Resolve the existing deployment; this job will not install another.
+      - node_exporter_existing_services | length <= 1
+    fail_msg: Multiple exporter services exist. Resolve the existing deployment; this job will not choose between them.
+
+- name: Refuse to reuse a container or an unmanaged metrics endpoint
+  ansible.builtin.assert:
+    that:
+      - >-
+        not node_exporter_existing_healthy or
+        (node_exporter_existing_services | length == 1 and
+         ansible_facts.services[node_exporter_existing_services[0]].state == 'running')
+    fail_msg: >-
+      A healthy exporter is listening without a recognized running systemd exporter service.
+      Retire the K3s Node Exporter DaemonSet or other container first, then rerun.
+      This role does not remove Kubernetes resources or reuse container exporters.
 
 - name: Decide whether this job manages the distro exporter
   ansible.builtin.set_fact:
     node_exporter_manage_package: >-
-      {{ (node_exporter_managed_dropin.stat.exists
-          and (not node_exporter_existing_healthy
-               or ansible_facts.services.get(node_exporter_service, {}).get('state', '') == 'running'))
-         or (not node_exporter_existing_healthy and node_exporter_existing_services | length == 0) }}
+      {{ node_exporter_managed_dropin.stat.exists or node_exporter_existing_services | length == 0 }}
 
-- name: Reuse an existing healthy exporter without changing its deployment
+- name: Reuse an existing healthy systemd exporter
   ansible.builtin.debug:
     msg: >-
       Existing node-exporter is healthy at {{ node_exporter_listen_address }}:{{ node_exporter_port }}.
       No duplicate installation or listener reconfiguration.
   when: node_exporter_existing_healthy and not node_exporter_manage_package
+
+- name: Require a free metrics port before starting an existing stopped service
+  ansible.builtin.wait_for:
+    host: "{{ node_exporter_listen_address }}"
+    port: "{{ node_exporter_port }}"
+    state: stopped
+    timeout: 1
+    connect_timeout: 1
+    msg: Metrics port is occupied. Retire the old DaemonSet/container or resolve the listener before starting the systemd exporter.
+  changed_when: false
+  check_mode: false
+  when:
+    - not node_exporter_manage_package
+    - not node_exporter_existing_healthy
+    - node_exporter_existing_services | length == 1
+    - ansible_facts.services[node_exporter_existing_services[0]].state != 'running'
 
 - name: Start a recognized existing service rather than installing a second exporter
   ansible.builtin.systemd_service:

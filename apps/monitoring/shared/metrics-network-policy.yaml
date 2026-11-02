@@ -10,7 +10,6 @@ spec:
         operator: In
         values:
           - kube-state-metrics
-          - node-exporter
   policyTypes:
     - Ingress
   ingress:
@@ -23,5 +22,3 @@ spec:
           port: 8080
         - protocol: TCP
           port: 8081
-        - protocol: TCP
-          port: 9100

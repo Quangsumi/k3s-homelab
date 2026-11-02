@@ -4,6 +4,8 @@ One folder per application. `kustomization.yaml` remains Argo CD's entry point.
 
 Pod-log move to Tantrum: [migration and retirement order](fluent-bit/MIGRATION.md).
 Old backends stay in this build until their replacement paths have been verified.
+Node Exporter moves to systemd on every machine:
+[DaemonSet retirement and installation guide](../../ansible/playbooks/node-exporter/MIGRATION.md).
 
 | Folder | Contents |
 |---|---|
@@ -15,7 +17,6 @@ Old backends stay in this build until their replacement paths have been verified
 | `loki/` | Log storage |
 | `jaeger/` | Trace storage and UI |
 | `aspire-dashboard/` | Aspire UI and receiver |
-| `node-exporter/` | Node operating-system metrics |
 | `kube-state-metrics/` | Kubernetes object metrics |
 | `shared/` | Namespace, shared storage class and cross-application metrics rule |
 | `otel-agent/` | Retained older collector manifest; **not deployed** |

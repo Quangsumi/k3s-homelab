@@ -7,7 +7,6 @@ resources:
 - prometheus
 - prometheus-oauth2-proxy
 - kube-state-metrics
-- node-exporter
 - loki
 - jaeger
 - otel-gateway

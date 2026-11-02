@@ -56,8 +56,8 @@ so this configuration and the existing inventory are selected.
 [playbooks/node-exporter/main.yml](playbooks/node-exporter/main.yml):
 
 ```yaml
-- name: Ensure non-K3s VMs and Proxmox hosts expose Linux host metrics
-  hosts: linux_vms:proxmox_hosts:!control_planes:!workers
+- name: Ensure Linux VMs and Proxmox hosts expose systemd host metrics
+  hosts: linux_vms:proxmox_hosts
   gather_facts: false
   become: true
   serial: 1
@@ -68,18 +68,19 @@ so this configuration and the existing inventory are selected.
 
 | Part | Meaning |
 | --- | --- |
-| `hosts` | Choose machines; exclude known K3s nodes |
+| `hosts` | Choose Linux VMs, including K3s nodes, and Proxmox hosts |
 | `become` | Use the existing sudo setup |
 | `serial: 1` | Finish one machine before starting another |
 | `roles` | Load and run `roles/node_exporter/tasks/main.yml` |
 
 The role does not pick an inventory or grant itself SSH/sudo access. It can
-still check a machine and refuse/skip unsuitable targets, as this role does for K3s.
+still check a machine and refuse unsuitable targets. This role rejects a container
+exporter instead of treating it as the systemd service we want.
 
 ## 3. Follow the work inside the role
 
 1. Ansible loads the role's defaults and handlers.
-2. `tasks/main.yml` explicitly gathers minimal facts and checks K3s/service state.
+2. `tasks/main.yml` explicitly gathers minimal facts and checks systemd service state.
 3. It chooses whether to reuse an exporter, start an existing service or manage a new install.
 4. When needed, `include_tasks: install.yml` loads the installation tasks.
 5. `template: src=listen.conf.j2` finds the file in this role's `templates/` folder.

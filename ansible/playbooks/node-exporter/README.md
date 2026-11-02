@@ -1,8 +1,11 @@
-# Node Exporter for non-K3s VMs and Proxmox hosts
+# Systemd Node Exporter for Linux VMs and Proxmox hosts
 
-**Prepared playbook only; no rollout performed.** This is model 3 host metrics:
+This is model 3 host metrics:
 central Prometheus scrapes each VM/physical host's Node Exporter directly. It does not install
-a Prometheus Agent, collect application business metrics, or change the live cluster.
+a Prometheus Agent or collect application business metrics. It manages host services,
+including on K3s nodes; it does not change Kubernetes resources.
+
+**Replacing the K3s DaemonSet? Follow [MIGRATION.md](MIGRATION.md) before running.**
 
 The playbook chooses the hosts and calls the shared
 [node_exporter role](../../roles/node_exporter/README.md). Lab addresses/verification
@@ -12,7 +15,7 @@ for how Ansible connects these files. The existing run commands below still appl
 
 ```mermaid
 flowchart LR
-  A[Ansible] -->|ensure package/service if needed| V[Non-K3s VM or Proxmox host node-exporter :9100]
+  A[Ansible] -->|ensure systemd service| V[All Linux VMs and Proxmox hosts: Node Exporter :9100]
   P[Central Prometheus] -->|GET /metrics| V
   V -->|host metric response| P
 ```
@@ -21,21 +24,23 @@ flowchart LR
 
 | Situation | Behavior |
 | --- | --- |
-| Inventory `control_planes` or `workers` | Excluded before any SSH/facts; existing K3s DaemonSet left alone |
-| Other machine has K3s files/service-unit paths | Read-only detection, then skip; no exporter/service mutation |
-| Healthy exporter on selected machine IP/port | Reuse it, whether native or containerized; no duplicate install |
+| Inventory `control_planes` or `workers` | Included; same systemd exporter as every other Linux machine |
+| Healthy exporter with one recognized running systemd service | Reuse it; no duplicate install |
+| Healthy endpoint without a recognized running systemd exporter | Fail; remove the old DaemonSet/container first |
 | Recognized exporter service exists but is unhealthy/stopped | Start/enable that service; do not install another or rewrite its config; verify endpoint |
 | Neither exporter nor known service exists | Ensure port is free, install Debian/Ubuntu package, bind to machine IP, enable/start |
-| Unknown process owns port | Fail before installing; operator resolves the existing process |
+| Another process owns port before install/start | Fail; operator resolves the existing process |
+| Multiple recognized exporter services | Fail; operator chooses which service to keep |
 | Already installed by this job | Keep package present, enforce its own listener drop-in, restart only on config changes |
 
-Default inventory selection is **Valkyrie, Tantrum, Hydra, Endgame and Deep Six**. Hydra/OMV uses
+Default inventory selection is **ten machines**: Valkyrie, Tantrum, Hydra, Endgame,
+Deep Six, Tombstone, Whyachi, Biteforce, Huge and Minotaur. Hydra/OMV uses
 its existing root account; its networking/storage configuration is not changed.
 `proxmox_hosts` is included explicitly; existing Proxmox SSH accounts are reused.
 The Pi is outside these groups and is not selected. Node Exporter measures the
 physical Proxmox OS, not VM inventory/Proxmox API state; an API exporter is a separate future component.
 New installs require Debian-family Linux and systemd. Other systems can reuse
-an already healthy exporter. Distro package version is used, not an unverified
+an already healthy systemd exporter. Distro package version is used, not an unverified
 download of the latest upstream binary.
 
 ## Run from `ansible/`
@@ -72,11 +77,11 @@ post-install reachability checks are skipped where they cannot run in check mode
 | `roles/node_exporter/tasks/` | Detect/reuse/install, then verify endpoint and network |
 | `20-homelab-listen.conf` template | Managed drop-in under the distro service; only for this job's installation |
 
-No VM power, Proxmox API, quorum, storage or cluster settings are changed.
+No VM power, Proxmox API, quorum, storage or Kubernetes resources are changed.
 
 Package auto-start is suppressed during a new install so a default all-interface
 listener is not started before the machine-IP override is applied. An unrelated
-existing exporter configuration is not taken over. If it is loopback-only or
+existing systemd exporter configuration is not taken over. If it is loopback-only or
 uses another port, correct its own settings or select the right port; this job
 fails verification rather than silently installing a duplicate.
 

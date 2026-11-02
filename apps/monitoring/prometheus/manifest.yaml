@@ -1,29 +1,25 @@
-# Keep this existing definition here for both collectors and future reference.
-# Infisical /prometheus/LITELLM_MASTER_KEY
-# -> ExternalSecret litellm-prometheus-job-credentials (this object)
-# -> Secret litellm-prometheus-job-secret-infisical, key LITELLM_MASTER_KEY
-# -> old server AND Agent mount /etc/prometheus/secrets/litellm/LITELLM_MASTER_KEY
-# -> each applications.yml reads the file as the LiteLLM scrape credential.
-# Stopping the old server must not delete this definition or its generated Secret.
-apiVersion: external-secrets.io/v1
-kind: ExternalSecret
-metadata:
-  name: litellm-prometheus-job-credentials
-  namespace: monitoring
-spec:
-  refreshInterval: 1h
-  secretStoreRef:
-    name: infisical
-    kind: ClusterSecretStore
-  target:
-    name: litellm-prometheus-job-secret-infisical
-    creationPolicy: Owner
-  data:
-    - secretKey: LITELLM_MASTER_KEY
-      remoteRef:
-        key: /prometheus/LITELLM_MASTER_KEY
+# Reference only: the active definition is ../prometheus-agent/litellm-external-secret.yaml.
+# Keep this old example commented so the two apps do not create the same object twice.
+# It is safe to remove this old app from the parent Kustomization after verification:
+# the Agent app continues to include the active ExternalSecret.
+# apiVersion: external-secrets.io/v1
+# kind: ExternalSecret
+# metadata:
+#   name: litellm-prometheus-job-credentials
+#   namespace: monitoring
+# spec:
+#   refreshInterval: 1h
+#   secretStoreRef:
+#     name: infisical
+#     kind: ClusterSecretStore
+#   target:
+#     name: litellm-prometheus-job-secret-infisical
+#     creationPolicy: Owner
+#   data:
+#     - secretKey: LITELLM_MASTER_KEY
+#       remoteRef:
+#         key: /prometheus/LITELLM_MASTER_KEY
 
----
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:

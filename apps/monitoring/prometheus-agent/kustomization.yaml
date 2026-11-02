@@ -7,6 +7,7 @@ resources:
 - rbac.yaml
 - network-policy.yaml
 - remote-write-external-secret.yaml
+- litellm-external-secret.yaml
 # Kustomize reads the Git files listed below and builds ConfigMap YAML.
 # Explicit syntax: CONFIGMAP_KEY=GIT_FILE_PATH (path relative to this folder).
 # Example: kubernetes.yml=config/scrapes/kubernetes.yml creates:

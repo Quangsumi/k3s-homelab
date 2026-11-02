@@ -117,14 +117,21 @@ count implied by its 1 GiB memory ceiling.
 
 ## 5. Cutover and rollback
 
-Only after target counts, actual metric families and sending pass, stop the old
-K3s server in a separate reviewed change: set its StatefulSet replicas to zero in
-Git. Keep its manifests, configs and PVC for reference/recovery. Handle the old
-login proxy's scale-down after reviewing remaining consumers.
-Do not remove the old Prometheus Kustomization or prune its resources: its original
-`litellm-prometheus-job-credentials` ExternalSecret still supplies the Agent's
-LiteLLM credential. Keep kube-state-metrics, Fluent Bit, trust-manager's CA and the
-Agent. This PR does not stop the old server or any other backend.
+Only after target counts, actual metric families and sending pass, retire the old
+K3s server/login proxy in a separate reviewed change: remove or comment out
+`prometheus` and `prometheus-oauth2-proxy` in the parent monitoring Kustomization,
+then review the Argo CD diff and sync with Prune to remove those live resources.
+Keep the old folders/manifests in Git as reference; files excluded from Kustomize
+are no longer deployed. Removing the parent entries alone does not delete live
+resources until the GitOps prune happens.
+
+The Agent app includes the active `litellm-prometheus-job-credentials` ExternalSecret,
+so that object and its generated Secret must remain in the desired/live resources.
+Confirm the prune preview does NOT delete them. The old manifest's copy is only a
+commented example. Keep kube-state-metrics, Fluent Bit, the CA and the Agent.
+Review remaining consumers of the old Prometheus Service before pruning it.
+Leave `prometheus-data-prometheus-0` untouched; deleting its history is a separate
+manual decision. This PR does not retire the old server or any other backend.
 
 If Agent verification fails, the old server still works. Temporarily stop sending:
 

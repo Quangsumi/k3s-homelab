@@ -35,7 +35,7 @@ flowchart LR
 | Other `config/scrapes/*.yml` | Existing app, storage, network, certificate, Argo CD, External Secrets and Fluent Bit jobs |
 | `kustomization.yaml` | Explicit `KEY=Git/path` entries; e.g. `kubernetes.yml=config/scrapes/kubernetes.yml`. Changed generated names roll the pod |
 | `remote-write-external-secret.yaml` | Infisical `/prometheus/REMOTE_WRITE_BEARER_TOKEN` → Secret → `secrets/remote-write/token` |
-| `../prometheus/manifest.yaml` | Existing LiteLLM ExternalSecret stays in its original location; both collectors read its generated Secret |
+| `litellm-external-secret.yaml` | Active LiteLLM ExternalSecret; both collectors use the same Secret during migration. Old manifest keeps a commented reference only |
 | `rbac.yaml` | Own account; discovery, API `/metrics` and node-proxy access; no admin kubeconfig or Secret-read permission |
 | `service.yaml`, `network-policy.yaml` | Private 9095 diagnostic UI; use authenticated port-forward |
 

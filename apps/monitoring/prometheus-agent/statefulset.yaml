@@ -168,7 +168,7 @@ spec:
                 path: scrapes/storage.yml
           - secret:
               # Infisical /prometheus/LITELLM_MASTER_KEY
-              # -> ExternalSecret litellm-prometheus-job-credentials (../prometheus/manifest.yaml)
+              # -> ExternalSecret litellm-prometheus-job-credentials (litellm-external-secret.yaml)
               # -> this Secret's key LITELLM_MASTER_KEY
               # -> /etc/prometheus/secrets/litellm/LITELLM_MASTER_KEY
               # -> config/scrapes/applications.yml: authorization.credentials_file

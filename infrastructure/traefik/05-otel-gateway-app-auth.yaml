@@ -1,0 +1,20 @@
+# Infisical creates Secret otel-gateway-app-auth in kube-system.
+# Key: token. Value: the raw app token, without the "Bearer " prefix.
+# Used as container variable OTEL_GATEWAY_APP_TOKEN; no token file is mounted.
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: traefik-otel-gateway-app-auth
+  namespace: kube-system
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    name: infisical
+    kind: ClusterSecretStore
+  target:
+    name: otel-gateway-app-auth
+    creationPolicy: Owner
+  data:
+    - secretKey: token
+      remoteRef:
+        key: /otel-gateway/APP_BEARER_TOKEN

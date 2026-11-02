@@ -24,7 +24,7 @@ flowchart TD
 | Source ConfigMap in `cert-manager` | Bundle name = destination ConfigMap name | Destination namespaces | Data key in destination |
 | --- | --- | --- | --- |
 | `caddy-root-ca` (`ca.crt`) | `caddy-trust-bundle` | `argocd`, `external-secrets`, `postgres`, `monitoring`, `longhorn-system`, `litellm` | `ca-bundle.pem` |
-| `tantrum-caddy-root-source` (`ca.crt`) | `tantrum-caddy-trust-bundle` | **`monitoring` only** | `tantrum-caddy.crt` |
+| `tantrum-caddy-root-source` (`ca.crt`) | `tantrum-caddy-trust-bundle` | `monitoring`, `kube-system` | `tantrum-caddy.crt` |
 
 **Names:** `configMapGenerator.name` names the source; `Bundle.metadata.name`
 names the destination; `namespaceSelector` chooses its namespaces. Source

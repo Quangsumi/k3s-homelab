@@ -1,6 +1,27 @@
 # Public certificate reference
 
-Public certificates only. Host distribution uses the [Ansible certificates job](../ansible/playbooks/certificates/README.md).
+Public certificates only. This is the central source for certificate files and
+Kubernetes distribution rules. Hosts use the [Ansible certificates job](../ansible/playbooks/certificates/README.md)
+or their app's playbook; Kubernetes uses the already installed trust-manager.
+
+```mermaid
+flowchart LR
+  F[pki/public: certificate files] --> K[pki/kustomization.yaml]
+  K --> S[Source ConfigMaps in cert-manager]
+  D[pki/distributions: destination rules] --> T[trust-manager]
+  S --> T
+  T --> M[Selected namespaces: app ConfigMaps]
+```
+
+| Place | What to change |
+| --- | --- |
+| `public/` | Add/update a public certificate once |
+| `kustomization.yaml` | Publish that file as a source ConfigMap in `cert-manager` |
+| `distributions/` | Choose certificates, output filename and recipient namespaces |
+| App manifest | Reference the distributed ConfigMap; no certificate copy or PKI build inclusion |
+
+`infrastructure/cert-manager` includes this PKI build. Sync it first, wait for the
+distribution to succeed, then roll out an app that needs the resulting ConfigMap.
 
 ## Files and consumers
 
@@ -31,22 +52,22 @@ Pi paths are under `/home/pi/Desktop/rpivn-app/ca/`. Browser trust uses the indi
 
 `tantrum-caddy.crt` is a single public root, copied from
 `tantrum-monitoring/shared/trust/tantrum-caddy-root.crt` on Tantrum. It is separate
-from the older lab Caddy root and is not added to Kubernetes trust bundles.
-`public/kustomization.yaml` publishes only this root as a named ConfigMap when
-included by the pod collector. It does not change the cert-manager Caddy root.
+from the older lab Caddy root. Its own distribution contains only this certificate,
+without public Internet CAs, and does not change the existing lab trust bundle.
 SHA-256: `12:3B:AD:1A:F1:D3:D2:F8:9E:82:78:41:CE:9B:B7:70:5F:EF:12:24:8D:BC:DB:00:F5:1F:40:D5:DB:8A:5E:D1`.
 
-The build files deliberately select different certificates:
+Certificate sources and destinations:
 
-| Build | ConfigMap | Namespace |
+| Certificate | Source in `cert-manager` | Distribution / recipients |
 | --- | --- | --- |
-| `pki/kustomization.yaml` | Existing lab `caddy-root-ca` | `cert-manager` |
-| `pki/public/kustomization.yaml` | New `tantrum-caddy-root-<hash>` only | Supplied by the consuming app, currently `monitoring` |
+| Lab Caddy root | `caddy-root-ca`, key `ca.crt` | [lab-caddy.yaml](distributions/lab-caddy.yaml); existing namespaces and public CAs unchanged |
+| Tantrum Caddy root | `tantrum-caddy-root-source`, key `ca.crt` | [tantrum-caddy.yaml](distributions/tantrum-caddy.yaml); only `monitoring` gets `tantrum-caddy-root`, key `tantrum-caddy.crt` |
 
-A parent's `namespace` chooses where resources go; it does not select which
-certificates to generate. Combining both generators would place both roots in
-each consumer's namespace. The separate builds avoid those unrelated ConfigMaps
-without copying certificate files or disabling Kustomize's file checks.
+The `namespaceSelector` in each distribution controls who receives it. To add a
+namespace, update that rule; do not include the whole PKI build in the app.
+Distributed ConfigMaps are updated by trust-manager. After a CA change, replace
+consuming processes that read trust only at startup; keep old and new roots
+together during an actual CA rotation until clients have moved.
 
 ## Inspect and rebuild bundles
 
@@ -116,6 +137,6 @@ Use `caddy-root.crt` for Caddy trust. This affects the current user's Windows st
 - Certificate/bundle contents: this folder.
 - Host addresses and users: `ansible/inventory/`.
 - Remote file paths: `ansible/playbooks/certificates/main.yml`.
-- Kubernetes namespaces: `infrastructure/cert-manager/10-caddy-trust-bundle.yaml`.
+- Kubernetes distribution and namespaces: `pki/distributions/`.
 - Rotation order: distribute old+new trust -> reload/test -> change issuance -> retire old trust.
 - Rollback: restore the previous public file or Ansible backup, then reload its consumer.

@@ -149,6 +149,7 @@ spec:
       volumes:
         - name: gateway-ca
           configMap:
+            # Created in monitoring by trust-manager, from the central pki source.
             name: tantrum-caddy-root
             items:
               - key: tantrum-caddy.crt

@@ -22,6 +22,18 @@ flowchart LR
    or use the host token. This reuses the new gateway's credential, not a new rotation.
 3. Confirm the destination in [gateway.env](gateway.env). The IP avoids the old
    wildcard DNS destination; the HTTP/TLS name remains `otel.tantrum.lab`.
+4. Publish the central CA sources and distribution rule through the existing
+   cert-manager Argo CD app, or review/apply PKI directly:
+
+   ```bash
+   kubectl kustomize pki
+   kubectl apply -k pki
+   kubectl wait --for=condition=Synced bundle/tantrum-caddy-root --timeout=120s
+   kubectl -n monitoring get configmap tantrum-caddy-root
+   ```
+
+   trust-manager copies the public root from `cert-manager` to `monitoring`.
+   Fluent Bit references that managed ConfigMap; this app does not create its own CA copy.
 
 From the repository root on your Linux/WSL controller, test certificate and app
 authentication with an empty request. No log is inserted. Expected codes: **401**,
@@ -47,7 +59,8 @@ unset OTEL_GATEWAY_APP_BEARER_TOKEN
 ## Publish, then move one node
 
 Keep automatic sync/pruning off during the trial. Do not prune old Fluent Bit
-ConfigMaps, gateway settings ConfigMaps or CA ConfigMaps while pods still use them.
+or gateway settings ConfigMaps while pods still use them. If an earlier trial
+used a hashed CA ConfigMap, retain that too until those pods are replaced.
 Merge/review first, then use your normal manual Argo CD sync or apply only this app:
 
 ```bash
@@ -58,7 +71,8 @@ kubectl -n monitoring wait --for=condition=Ready externalsecret/otel-gateway-app
 
 Check the first command's rendered YAML before applying. Publishing changes the
 DaemonSet template, but `OnDelete` leaves current collectors running their old
-settings. A pod recreated for any reason will use the new settings.
+settings. A pod recreated for any reason will use the new settings. The distributed
+CA uses a fixed name; trust-manager updates it when the central certificate changes.
 
 Example: find Whyachi's collector, then delete **only that pod**:
 

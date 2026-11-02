@@ -6,7 +6,6 @@ resources:
   - network-policy.yaml
   - rbac.yaml
   - gateway-auth.yaml
-  - ../../../pki/public
 
 # Standard Kustomize file loading. kubectl and Argo CD build this directly.
 # The hash and immutability keep existing pods on their current config snapshot.

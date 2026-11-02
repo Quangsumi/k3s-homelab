@@ -17,7 +17,7 @@ app SDK telemetry/cluster metrics. Follow [MIGRATION.md](MIGRATION.md) after rev
 | [gateway.env](gateway.env) | Shared IP, port, HTTPS name, pod-log path and CA path; Kustomize puts these into a ConfigMap, then `envFrom` supplies the pod environment |
 | [gateway-auth.yaml](gateway-auth.yaml) | Infisical `/otel-gateway/APP_BEARER_TOKEN` → Secret `otel-gateway-app-auth`, key `token` → `OTEL_GATEWAY_APP_BEARER_TOKEN` |
 | [public CA](../../../pki/public/tantrum-caddy.crt) | Mounted read-only at `/fluent-bit/gateway-ca/tantrum-caddy.crt` |
-| [public CA Kustomization](../../../pki/public/kustomization.yaml) | Builds the CA ConfigMap without copying the certificate into this app |
+| [central PKI build](../../../pki/kustomization.yaml) + [distribution rule](../../../pki/distributions/tantrum-caddy.yaml) | Publish the root in `cert-manager`; trust-manager creates `monitoring/tantrum-caddy-root` for this app |
 | [manifest.yaml](manifest.yaml) | Environment, Secret reference, CA mount and node/profile mapping |
 
 The two ConfigMap inputs have different jobs:
@@ -51,9 +51,11 @@ The IP is the connection destination; the HTTPS name is also sent as the HTTP
 `Host` header so Caddy selects the correct route. Certificate and hostname checks
 are enabled. Inputs, Kubernetes metadata collection, rates and queue caps are unchanged.
 
-Non-secret ConfigMaps have content-based names and are immutable. Existing pods
-keep their current settings/CA until replaced. Secret values are read at pod
-startup; token rotation also needs a controlled replacement of collector pods.
+Profile and connection ConfigMaps have content-based names and are immutable.
+Existing pods keep those settings until replaced. The CA ConfigMap is managed
+and updated by trust-manager under a fixed name. After a CA change, replace pods
+one node at a time so Fluent Bit loads the new trust. Token values are also read
+at startup; token rotation needs controlled pod replacement.
 
 ## Settings and profile selection
 

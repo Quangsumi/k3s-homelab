@@ -1,3 +1,4 @@
+# Existing lab Caddy trust for the namespaces listed below.
 apiVersion: trust.cert-manager.io/v1alpha1
 kind: Bundle
 metadata:
@@ -22,3 +23,27 @@ spec:
             - monitoring
             - longhorn-system
             - litellm
+
+---
+
+# Tantrum Caddy trust for monitoring only.
+apiVersion: trust.cert-manager.io/v1alpha1
+kind: Bundle
+metadata:
+  # trust-manager gives the destination ConfigMap this same name.
+  name: tantrum-caddy-root
+spec:
+  sources:
+    - configMap:
+        name: tantrum-caddy-root-source
+        key: ca.crt
+  target:
+    configMap:
+      key: tantrum-caddy.crt
+    # Only monitoring receives this root. Add other namespace names when needed.
+    namespaceSelector:
+      matchExpressions:
+        - key: kubernetes.io/metadata.name
+          operator: In
+          values:
+            - monitoring

@@ -3,8 +3,7 @@ kind: Kustomization
 
 # Publish certificate sources once. trust-manager handles namespace distribution.
 resources:
-  - distributions/lab-caddy.yaml
-  - distributions/tantrum-caddy.yaml
+  - 10-caddy-trust-bundle.yaml
 
 configMapGenerator:
   - name: caddy-root-ca

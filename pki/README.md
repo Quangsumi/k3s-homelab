@@ -8,7 +8,7 @@ or their app's playbook; Kubernetes uses the already installed trust-manager.
 flowchart LR
   F[pki/public: certificate files] --> K[pki/kustomization.yaml]
   K --> S[Source ConfigMaps in cert-manager]
-  D[pki/distributions: destination rules] --> T[trust-manager]
+  D[pki/10-caddy-trust-bundle.yaml: destination rules] --> T[trust-manager]
   S --> T
   T --> M[Selected namespaces: app ConfigMaps]
 ```
@@ -17,7 +17,7 @@ flowchart LR
 | --- | --- |
 | `public/` | Add/update a public certificate once |
 | `kustomization.yaml` | Publish that file as a source ConfigMap in `cert-manager` |
-| `distributions/` | Choose certificates, output filename and recipient namespaces |
+| `10-caddy-trust-bundle.yaml` | Both distribution rules: certificates, output filenames and recipient namespaces |
 | App manifest | Reference the distributed ConfigMap; no certificate copy or PKI build inclusion |
 
 `infrastructure/cert-manager` includes this PKI build. Sync it first, wait for the
@@ -60,8 +60,11 @@ Certificate sources and destinations:
 
 | Certificate | Source in `cert-manager` | Distribution / recipients |
 | --- | --- | --- |
-| Lab Caddy root | `caddy-root-ca`, key `ca.crt` | [lab-caddy.yaml](distributions/lab-caddy.yaml); existing namespaces and public CAs unchanged |
-| Tantrum Caddy root | `tantrum-caddy-root-source`, key `ca.crt` | [tantrum-caddy.yaml](distributions/tantrum-caddy.yaml); only `monitoring` gets `tantrum-caddy-root`, key `tantrum-caddy.crt` |
+| Lab Caddy root | `caddy-root-ca`, key `ca.crt` | [caddy-trust-bundle](10-caddy-trust-bundle.yaml); existing namespaces and public CAs unchanged |
+| Tantrum Caddy root | `tantrum-caddy-root-source`, key `ca.crt` | [tantrum-caddy-root](10-caddy-trust-bundle.yaml); only `monitoring` gets `tantrum-caddy-root`, key `tantrum-caddy.crt` |
+
+Both named Bundles live in the same file, separated by `---`. They keep their
+own certificate sources and destination lists.
 
 The `namespaceSelector` in each distribution controls who receives it. To add a
 namespace, update that rule; do not include the whole PKI build in the app.
@@ -137,6 +140,6 @@ Use `caddy-root.crt` for Caddy trust. This affects the current user's Windows st
 - Certificate/bundle contents: this folder.
 - Host addresses and users: `ansible/inventory/`.
 - Remote file paths: `ansible/playbooks/certificates/main.yml`.
-- Kubernetes distribution and namespaces: `pki/distributions/`.
+- Kubernetes distribution and namespaces: `pki/10-caddy-trust-bundle.yaml`.
 - Rotation order: distribute old+new trust -> reload/test -> change issuance -> retire old trust.
 - Rollback: restore the previous public file or Ansible backup, then reload its consumer.

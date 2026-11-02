@@ -12,6 +12,8 @@ app SDK telemetry/cluster metrics. Follow [MIGRATION.md](MIGRATION.md) after rev
 
 ## Destination, token and certificate
 
+[Certificate distribution diagram and exact names](../../../pki/README.md#kubernetes-certificate-flow).
+
 | File | Purpose |
 | --- | --- |
 | [gateway.env](gateway.env) | Shared IP, port, HTTPS name, pod-log path and CA path; Kustomize puts these into a ConfigMap, then `envFrom` supplies the pod environment |

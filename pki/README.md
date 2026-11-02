@@ -4,25 +4,38 @@ Public certificates only. This is the central source for certificate files and
 Kubernetes distribution rules. Hosts use the [Ansible certificates job](../ansible/playbooks/certificates/README.md)
 or their app's playbook; Kubernetes uses the already installed trust-manager.
 
+## Kubernetes certificate flow
+
+**One sync/apply of `infrastructure/cert-manager` includes `pki/`.** Kustomize
+builds the YAML first; applying it creates the sources and distribution rules.
+Then the running trust-manager creates the destination ConfigMaps.
+
 ```mermaid
-flowchart LR
-  F[pki/public: certificate files] --> K[pki/kustomization.yaml]
-  K --> S[Source ConfigMaps in cert-manager]
-  D[pki: machine-named distribution files] --> T[trust-manager]
-  S --> T
-  T --> M[Selected namespaces: app ConfigMaps]
+flowchart TD
+  A["infrastructure/cert-manager/kustomization.yaml"] -->|includes| B["pki/kustomization.yaml"]
+  B -->|"configMapGenerator + public/*.crt"| S["Source ConfigMaps<br/>namespace: cert-manager"]
+  B -->|"10-rpivn… / 20-tantrum…"| R["Bundle rules<br/>cluster-wide objects"]
+  S -->|"reads certificate data"| T["trust-manager"]
+  R -->|"reads destination rules"| T
+  T -->|"creates / updates copies"| D["Destination ConfigMaps<br/>selected namespaces only"]
+  D -->|"volume mount"| P["Application reads certificate file"]
 ```
 
-| Place | What to change |
-| --- | --- |
-| `public/` | Add/update a public certificate once |
-| `kustomization.yaml` | Publish that file as a source ConfigMap in `cert-manager` |
-| `10-rpivn-caddy-trust-bundle.yaml` | Rpivn Caddy certificate sources and recipient namespaces |
-| `20-tantrum-caddy-trust-bundle.yaml` | Tantrum Caddy certificate source and recipient namespaces |
-| App manifest | Reference the distributed ConfigMap; no certificate copy or PKI build inclusion |
+| Source ConfigMap in `cert-manager` | Bundle name = destination ConfigMap name | Destination namespaces | Data key in destination |
+| --- | --- | --- | --- |
+| `caddy-root-ca` (`ca.crt`) | `caddy-trust-bundle` | `argocd`, `external-secrets`, `postgres`, `monitoring`, `longhorn-system`, `litellm` | `ca-bundle.pem` |
+| `tantrum-caddy-root-source` (`ca.crt`) | `tantrum-caddy-trust-bundle` | **`monitoring` only** | `tantrum-caddy.crt` |
 
-`infrastructure/cert-manager` includes this PKI build. Sync it first, wait for the
-distribution to succeed, then roll out an app that needs the resulting ConfigMap.
+**Names:** `configMapGenerator.name` names the source; `Bundle.metadata.name`
+names the destination; `namespaceSelector` chooses its namespaces. Source
+ConfigMaps stay in `cert-manager`; trust-manager writes separate destination ConfigMaps.
+The Rpivn bundle also includes public Internet CAs; Tantrum's contains only its root.
+
+For Fluent Bit: `monitoring/tantrum-caddy-trust-bundle` → key `tantrum-caddy.crt`
+→ mounted file `/fluent-bit/gateway-ca/tantrum-caddy.crt` → `TLS.CA_File`.
+
+**Order:** publish PKI through cert-manager → wait for Bundle `Synced` → deploy/recreate
+the consuming pod. [Manual rollout steps](../apps/monitoring/fluent-bit/MIGRATION.md).
 
 ## Files and consumers
 
@@ -56,13 +69,6 @@ Pi paths are under `/home/pi/Desktop/rpivn-app/ca/`. Browser trust uses the indi
 from the older lab Caddy root. Its own distribution contains only this certificate,
 without public Internet CAs, and does not change the existing lab trust bundle.
 SHA-256: `12:3B:AD:1A:F1:D3:D2:F8:9E:82:78:41:CE:9B:B7:70:5F:EF:12:24:8D:BC:DB:00:F5:1F:40:D5:DB:8A:5E:D1`.
-
-Certificate sources and destinations:
-
-| Certificate | Source in `cert-manager` | Distribution / recipients |
-| --- | --- | --- |
-| Rpivn Caddy root | `caddy-root-ca`, key `ca.crt` | [Rpivn distribution](10-rpivn-caddy-trust-bundle.yaml); existing namespaces and public CAs unchanged |
-| Tantrum Caddy root | `tantrum-caddy-root-source`, key `ca.crt` | [Tantrum distribution](20-tantrum-caddy-trust-bundle.yaml); only `monitoring` gets `tantrum-caddy-trust-bundle`, key `tantrum-caddy.crt` |
 
 Each distribution file names the Caddy machine it belongs to. The existing
 Rpivn objects keep their older names (`caddy-root-ca`, `caddy-trust-bundle`) so
@@ -98,7 +104,7 @@ Each bundle should list two certificates. Verify a replacement certificate's fin
 The ACME issuer still requires an embedded base64 value. PowerShell, repository root:
 
 ```powershell
-[Convert]::ToBase64String([IO.File]::ReadAllBytes((Resolve-Path .\pki\public\caddy-root.crt).Path))
+[Convert]::ToBase64String([IO.File]::ReadAllBytes((Resolve-Path .\pki\public\rpivn-caddy.crt).Path))
 ```
 
 Paste the base64 output into `spec.acme.caBundle` in `infrastructure/cert-manager/infisical-acme/05-cluster-issuer.yaml`. It authenticates **infisical.lab HTTPS**, not issued website certificates. An unchanged certificate needs no update merely because its PEM formatting differs.

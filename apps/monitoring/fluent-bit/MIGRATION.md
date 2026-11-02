@@ -23,7 +23,8 @@ flowchart LR
 3. Confirm the destination in [gateway.env](gateway.env). The IP avoids the old
    wildcard DNS destination; the HTTP/TLS name remains `otel.tantrum.lab`.
 4. Publish the central CA sources and distribution rule through the existing
-   cert-manager Argo CD app, or review/apply PKI directly:
+   cert-manager Argo CD app, or review/apply PKI directly.
+   [See the certificate flow diagram](../../../pki/README.md#kubernetes-certificate-flow).
 
    ```bash
    kubectl kustomize pki

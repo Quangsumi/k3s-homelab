@@ -5,7 +5,8 @@ Ansible connects over SSH and applies the instructions in a playbook.
 
 1. Read [Setup and reference](GUIDE.md) for installation, SSH keys, passwords and inventory.
 2. Choose a job below. Each folder contains `main.yml` and its guide.
-3. After the jobs work, read [Roles, handlers and dynamic inventory](ADVANCED.md) for the next concepts, with examples from this lab.
+3. Learn the shared Node Exporter role through the [roles walkthrough](ROLES.md).
+   Continue with [handlers and dynamic inventory](ADVANCED.md).
 
 | Job | What it does |
 |---|---|

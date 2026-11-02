@@ -4,6 +4,12 @@
 central Prometheus scrapes each VM/physical host's Node Exporter directly. It does not install
 a Prometheus Agent, collect application business metrics, or change the live cluster.
 
+The playbook chooses the hosts and calls the shared
+[node_exporter role](../../roles/node_exporter/README.md). Lab addresses/verification
+live in [inventory settings](../../inventory/group_vars/all/node-exporter.yml).
+See the [roles walkthrough](../../ROLES.md)
+for how Ansible connects these files. The existing run commands below still apply.
+
 ```mermaid
 flowchart LR
   A[Ansible] -->|ensure package/service if needed| V[Non-K3s VM or Proxmox host node-exporter :9100]
@@ -57,13 +63,13 @@ post-install reachability checks are skipped where they cannot run in check mode
 
 | Setting | Default / use |
 | --- | --- |
-| `node_exporter_listen_address` | Inventory `network_address`, falling back to numeric `ansible_host` for Proxmox hosts; concrete IPv4, not `0.0.0.0` |
+| `node_exporter_listen_address` | Role default is empty (required input); lab inventory supplies `network_address`, falling back to numeric `ansible_host` for Proxmox hosts |
 | `node_exporter_port` | 9100 |
-| `node_exporter_verify_from` | `tantrum`; read-only HTTP probe from monitoring VM; `''` disables |
+| `node_exporter_verify_from` | Role default `''` disables the extra probe; lab inventory selects `tantrum` for read-only HTTP verification |
 | `node_exporter_known_services` | Distro, `node_exporter`, `node-exporter` systemd unit names |
 | Package/service/binary | `prometheus-node-exporter`, corresponding service, `/usr/bin/prometheus-node-exporter` |
-| Role `defaults/main.yml` | Inventory and `-e` can override these defaults |
-| Role tasks | Detect/reuse/install, then verify endpoint and network |
+| `roles/node_exporter/defaults/main.yml` | Reusable defaults; inventory and `-e` can override them |
+| `roles/node_exporter/tasks/` | Detect/reuse/install, then verify endpoint and network |
 | `20-homelab-listen.conf` template | Managed drop-in under the distro service; only for this job's installation |
 
 No VM power, Proxmox API, quorum, storage or cluster settings are changed.

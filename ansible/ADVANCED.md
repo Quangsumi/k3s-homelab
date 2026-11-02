@@ -12,122 +12,19 @@ We will use three questions:
 | How do I restart a program only after its settings change? | A handler |
 | How do I get the machine list from Proxmox instead of maintaining it manually? | Dynamic inventory |
 
-The examples below are teaching examples. They have not been installed into your
-working project, and no playbooks have been run as part of this explanation.
+Node Exporter now uses a shared role in this project. The handler demo and
+Proxmox dynamic inventory below remain teaching examples; they have not been
+installed on your hosts.
 
 ## 1. Roles: give a reusable job its own home
 
-Look at your current `playbooks/ssh-keys/main.yml`.
-It contains two kinds of information:
+Start with [the Node Exporter roles walkthrough](ROLES.md). It follows our real
+playbook, shared role folders, inventory inputs and restart handler, then explains
+Galaxy packages and how other jobs could move to roles incrementally.
 
-1. **Where and how to run:** the host groups, login permissions, one machine at a time.
-2. **What to do:** read a public key and add or remove it from the login account.
-
-Suppose you later create a job for setting up a new VM. That job needs to add SSH
-keys too. Copying the key task into both playbooks means you now have two copies
-to maintain. If you fix one copy and forget the other, the jobs behave differently.
-
-A **role** lets both playbooks call the same set of tasks.
-
-A possible future layout would be:
-
-```text
-ansible/
-├── ssh-access.yml
-├── inventory/
-│   └── ... existing inventory and host settings ...
-└── roles/
-    └── ssh_access/
-        ├── tasks/
-        │   └── main.yml
-        ├── defaults/
-        │   └── main.yml
-        └── files/
-            └── laptop.pub
-```
-
-Here, `ssh_access` is the role's name. The special folder names tell Ansible what
-the files are for. You only create the folders your role actually needs.
-
-**The outer playbook still chooses the machines.** For example, `ansible/ssh-access.yml`:
-
-```yaml
-- name: Maintain SSH access
-  hosts: linux_vms:proxmox_hosts
-  gather_facts: false
-  become: false
-  serial: 1
-  any_errors_fatal: true
-  roles:
-    - ssh_access
-```
-
-The new part is `roles: - ssh_access`. It means: run the tasks supplied by that role.
-The other settings keep their existing meanings. A role does not choose your
-machines or give itself administrator permission.
-
-For this proposed layout, the playbook is beside `roles/`, so Ansible can find it.
-Your existing playbooks are deeper inside `playbooks/`. To use a shared top-level
-`roles/` folder from those playbooks, you would configure `roles_path` to point
-there. Merely creating a role folder somewhere does not guarantee Ansible finds it.
-
-**The role holds the actual work.** In `roles/ssh_access/tasks/main.yml`:
-
-```yaml
-- name: Add or remove each selected key
-  ansible.posix.authorized_key:
-    user: "{{ ansible_user }}"
-    key: "{{ lookup('ansible.builtin.file', role_path ~ '/files/' ~ item.filename) }}"
-    state: "{{ item.state }}"
-    exclusive: false
-    manage_dir: true
-  loop: "{{ ssh_public_keys }}"
-```
-
-This is your existing key task with the file location adjusted for the example.
-`role_path` means the folder containing this role. We would put the public key in
-its `files/` folder. The private key would still stay outside the repository.
-
-Notice what is missing: there is no `hosts:` and no surrounding `tasks:` line.
-A role's `tasks/main.yml` is already the task list. The outer playbook supplies the
-machines and execution settings.
-
-**Defaults provide fallback settings.** In `roles/ssh_access/defaults/main.yml`:
-
-```yaml
-ssh_public_keys: []
-```
-
-`[]` means an empty list. Without any supplied keys, the loop has nothing to do.
-Your shared inventory settings can supply the real list, as they already do:
-
-```yaml
-ssh_public_keys:
-  - filename: laptop.pub
-    state: present
-```
-
-Role defaults are deliberately easy to override. A setting from your inventory
-replaces this fallback. Host-specific login settings still work too: Hydra remains
-root, while another machine can use its ordinary account.
-
-Two more role folders become useful later:
-
-| Folder | What you put there |
-|---|---|
-| `templates/` | Files containing placeholders, filled in using variables |
-| `handlers/` | Tasks to run in response to a reported change |
-
-The folder `playbooks/ssh-keys/` you currently have is an organized playbook folder.
-A role adds Ansible's agreed structure and automatic loading of tasks, defaults
-and related files. Naming a folder `ssh-keys` alone does not make it a role.
-
-**When would I convert your project?** When another playbook needs the same key
-logic, or a job has several related files that are becoming hard to navigate.
-There is no required line count, and a small readable playbook can stay as it is.
-Move one working job first and compare its behavior before reorganizing the rest.
-
-Further reading: [Ansible roles](https://docs.ansible.com/projects/ansible/latest/playbook_guide/playbooks_reuse_roles.html).
+The entry point is still `playbooks/node-exporter/main.yml`; it calls
+`roles/node_exporter`. `ansible.cfg` supplies the shared role search path.
+Lab settings live in `inventory/group_vars/all/node-exporter.yml`.
 
 ## 2. Handlers: respond to a change instead of restarting every time
 

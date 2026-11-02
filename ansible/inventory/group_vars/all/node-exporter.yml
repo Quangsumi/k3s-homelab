@@ -1,0 +1,4 @@
+---
+# Our lab settings override the reusable role's defaults.
+node_exporter_listen_address: "{{ network_address | default(ansible_host | default('')) }}"
+node_exporter_verify_from: tantrum

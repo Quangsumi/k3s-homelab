@@ -33,7 +33,7 @@
       - node_exporter_listen_address.split('.') | map('int') | max <= 255
       - node_exporter_port | int > 0
       - node_exporter_port | int < 65536
-    fail_msg: This job needs Linux/systemd, a concrete inventory network_address or ansible_host (IPv4) and a valid port.
+    fail_msg: This role needs Linux/systemd, a concrete node_exporter_listen_address (IPv4) and a valid port.
 
 - name: Freeze this machine's scrape target before any delegated probe
   ansible.builtin.set_fact:

@@ -1,5 +1,6 @@
 .venv/
 .validation/
+vendor_roles/
 inventory/group_vars/all/vault.yml
 inventory/group_vars/all/vault.yaml
 secrets/*.yml

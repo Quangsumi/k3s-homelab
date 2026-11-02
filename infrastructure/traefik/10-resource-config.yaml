@@ -76,6 +76,44 @@ spec:
         addEntryPointsLabels: true
         addRoutersLabels: true
         addServicesLabels: true
+
+    # Secret otel-gateway-app-auth, key token, becomes this container variable.
+    # The value is the gateway's existing app token, fetched from Infisical.
+    env:
+      - name: OTEL_GATEWAY_APP_TOKEN
+        valueFrom:
+          secretKeyRef:
+            name: otel-gateway-app-auth
+            key: token
+
+    # ConfigMap key tantrum-caddy.crt becomes this file inside each Traefik pod:
+    # /etc/traefik/tantrum-caddy-trust/tantrum-caddy.crt
+    volumes:
+      - name: tantrum-caddy-trust-bundle
+        type: configMap
+        mountPath: /etc/traefik/tantrum-caddy-trust
+
+    tracing:
+      serviceName: traefik
+      # Trace about 1 in 10 new requests. Incoming parent traces keep their decision.
+      sampleRate: 0.1
+      addInternals: false
+      resourceAttributes:
+        k8s.cluster.name: k3s-homelab
+      otlp:
+        enabled: true
+        http:
+          enabled: true
+          endpoint: https://otel.tantrum.lab/v1/traces
+          headers:
+            # Helm puts this text in a container argument. Kubernetes replaces
+            # $(OTEL_GATEWAY_APP_TOKEN) with the Secret-backed variable at startup.
+            # Example header sent: Authorization: Bearer <actual app token>
+            Authorization: "Bearer $(OTEL_GATEWAY_APP_TOKEN)"
+          tls:
+            ca: /etc/traefik/tantrum-caddy-trust/tantrum-caddy.crt
+        grpc:
+          enabled: false
     
     providers:
       kubernetesIngress:

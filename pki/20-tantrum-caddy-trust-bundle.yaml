@@ -1,8 +1,8 @@
-# Tantrum Caddy trust for monitoring only.
+# Tantrum Caddy trust for monitoring collectors and Traefik trace export.
 apiVersion: trust.cert-manager.io/v1alpha1
 kind: Bundle
 metadata:
-  # Also the name of the ConfigMap created in monitoring.
+  # Also the name of the ConfigMap created in each selected namespace.
   name: tantrum-caddy-trust-bundle
 spec:
   sources:
@@ -19,3 +19,4 @@ spec:
         operator: In
         values:
         - monitoring
+        - kube-system

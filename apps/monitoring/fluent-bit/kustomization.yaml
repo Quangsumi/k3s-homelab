@@ -12,6 +12,7 @@ resources:
 # The hash and immutability keep existing pods on their current config snapshot.
 configMapGenerator:
   - name: fluent-bit-gateway
+    # Each KEY=value line becomes a separate key, e.g. OTEL_GATEWAY_PORT: "443".
     envs:
       - gateway.env
     options:
@@ -19,6 +20,7 @@ configMapGenerator:
       labels:
         app.kubernetes.io/name: fluent-bit
   - name: fluent-bit-config
+    # Each key, e.g. buffered.conf, contains the entire file's contents.
     files:
       - survival.conf=profiles/survival/fluent-bit.conf
       - light.conf=profiles/light/fluent-bit.conf

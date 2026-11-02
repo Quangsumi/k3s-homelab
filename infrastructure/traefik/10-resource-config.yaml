@@ -95,8 +95,10 @@ spec:
 
     tracing:
       serviceName: traefik
-      # Trace about 1 in 10 new requests. Incoming parent traces keep their decision.
-      sampleRate: 0.1
+      # Trace every new request. If an upstream app already chose to skip
+      # recording a trace, Traefik follows that choice.
+      sampleRate: 1.0
+      # Skip Traefik's own services, such as the /ping health check and dashboard.
       addInternals: false
       resourceAttributes:
         k8s.cluster.name: k3s-homelab

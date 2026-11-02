@@ -1,0 +1,5 @@
+# Managed only for the distro exporter installed by this playbook.
+# Clear the original ExecStart, then bind to the explicitly selected machine address.
+[Service]
+ExecStart=
+ExecStart={{ node_exporter_binary }} --web.listen-address={{ node_exporter_listen_address }}:{{ node_exporter_port }}

@@ -5,7 +5,8 @@ Ansible connects over SSH and applies the instructions in a playbook.
 
 1. Read [Setup and reference](GUIDE.md) for installation, SSH keys, passwords and inventory.
 2. Choose a job below. Each folder contains `main.yml` and its guide.
-3. After the jobs work, read [Roles, handlers and dynamic inventory](ADVANCED.md) for the next concepts, with examples from this lab.
+3. Learn the shared Node Exporter role through the [roles walkthrough](ROLES.md).
+   Continue with [handlers and dynamic inventory](ADVANCED.md).
 
 | Job | What it does |
 |---|---|
@@ -16,6 +17,7 @@ Ansible connects over SSH and applies the instructions in a playbook.
 | [Network](playbooks/network/README.md) | Change Ubuntu DNS with backup, verification and rollback |
 | [Discover](playbooks/discover/README.md) | Read OS, interface and networking information |
 | [Certificates](playbooks/certificates/README.md) | Copy public trust files to one Pi/control-plane host |
+| [Node Exporter](playbooks/node-exporter/README.md) | Ensure host metrics on non-K3s VMs and Proxmox hosts; reuse existing exporters and exclude K3s nodes |
 | [Verify](playbooks/verify/README.md) | Report addresses, routes, resolver and guest-agent status |
 | [Fluent Bit state move — one time](playbooks/fluent-bit-state-migration/README.md) | Move the pod collector's saved files into the new folder; separate from install/configure |
 

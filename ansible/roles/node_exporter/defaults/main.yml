@@ -1,0 +1,16 @@
+---
+# These are role defaults: inventory host_vars/group_vars and -e can override them.
+# The caller supplies the machine's private address; no lab machine names here.
+node_exporter_listen_address: ''
+node_exporter_port: 9100
+node_exporter_package: prometheus-node-exporter
+node_exporter_service: prometheus-node-exporter.service
+node_exporter_binary: /usr/bin/prometheus-node-exporter
+node_exporter_dropin_dir: /etc/systemd/system/prometheus-node-exporter.service.d
+node_exporter_dropin: "{{ node_exporter_dropin_dir }}/20-homelab-listen.conf"
+node_exporter_known_services:
+  - prometheus-node-exporter.service
+  - node_exporter.service
+  - node-exporter.service
+# Read-only network verification from the monitoring VM; '' disables that probe.
+node_exporter_verify_from: ''

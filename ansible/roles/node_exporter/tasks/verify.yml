@@ -1,0 +1,61 @@
+---
+- name: Wait for the machine's configured metrics listener
+  ansible.builtin.wait_for:
+    host: "{{ node_exporter_listen_address }}"
+    port: "{{ node_exporter_port }}"
+    timeout: 15
+    connect_timeout: 2
+  changed_when: false
+
+- name: Read the local metrics endpoint without logging the payload
+  ansible.builtin.uri:
+    url: "http://{{ node_exporter_listen_address }}:{{ node_exporter_port }}/metrics"
+    return_content: true
+    use_proxy: false
+    timeout: 10
+  register: node_exporter_after
+  failed_when: false
+  changed_when: false
+  no_log: true
+
+- name: Confirm this is node-exporter and Linux host metrics are present
+  ansible.builtin.assert:
+    that:
+      - node_exporter_after.status | default(0) | int == 200
+      - node_exporter_after.content | default('') is search('(?m)^node_exporter_build_info[{ ]')
+      - node_exporter_after.content | default('') is search('(?m)^node_uname_info[{ ]')
+    fail_msg: >-
+      The configured endpoint does not expose healthy node-exporter metrics.
+      Existing deployments may need their listen address corrected; no duplicate was installed.
+
+- name: Probe the machine from the monitoring VM without logging metrics
+  ansible.builtin.uri:
+    # Explicit original-host fact: delegation must not substitute Tantrum's address.
+    url: "http://{{ hostvars[inventory_hostname].node_exporter_scrape_target }}/metrics"
+    return_content: true
+    use_proxy: false
+    timeout: 10
+  delegate_to: "{{ node_exporter_verify_from }}"
+  become: false
+  register: node_exporter_monitor_probe
+  failed_when: false
+  changed_when: false
+  no_log: true
+  when: node_exporter_verify_from | length > 0
+
+- name: Confirm the monitoring VM can retrieve node-exporter metrics
+  ansible.builtin.assert:
+    that:
+      - node_exporter_monitor_probe.status | default(0) | int == 200
+      - node_exporter_monitor_probe.content | default('') is search('(?m)^node_exporter_build_info[{ ]')
+    fail_msg: Local exporter works but the monitoring VM cannot retrieve it. Check routes/firewall/listen address; this job does not change firewall policy.
+  when: node_exporter_verify_from | length > 0
+
+- name: Report the exact scrape target and verification scope
+  ansible.builtin.debug:
+    msg:
+      target: "{{ node_exporter_listen_address }}:{{ node_exporter_port }}"
+      host: "{{ inventory_hostname }}"
+      collector: "{{ 'managed distro package' if node_exporter_manage_package else 'existing exporter reused' }}"
+      monitoring_vm_probe: "{{ node_exporter_verify_from if node_exporter_verify_from | length > 0 else 'disabled' }}"
+      next: Add this target to central Prometheus manually and check Targets. This playbook does not edit Prometheus or install an agent/gateway.

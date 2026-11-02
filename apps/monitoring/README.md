@@ -2,6 +2,9 @@
 
 One folder per application. `kustomization.yaml` remains Argo CD's entry point.
 
+Pod-log move to Tantrum: [migration and retirement order](fluent-bit/MIGRATION.md).
+Old backends stay in this build until their replacement paths have been verified.
+
 | Folder | Contents |
 |---|---|
 | `grafana/` | UI, data sources, dashboards and network rules |

@@ -3,9 +3,61 @@
 **Kubernetes manifests only.** Host agents keep their separate Ansible playbook.
 
 ```text
-profiles/<mode>/fluent-bit.conf → ConfigMap → one DaemonSet → gateway → Loki
+profiles/<mode>/fluent-bit.conf + gateway.env → ConfigMaps → DaemonSet → Tantrum Caddy → gateway → Loki
 manifest.yaml: node filename → profile key
 ```
+
+This change prepares pod logs for Tantrum. It does not stop old backends or move
+app SDK telemetry/cluster metrics. Follow [MIGRATION.md](MIGRATION.md) after review.
+
+## Destination, token and certificate
+
+[Certificate distribution diagram and exact names](../../../pki/README.md#kubernetes-certificate-flow).
+
+| File | Purpose |
+| --- | --- |
+| [gateway.env](gateway.env) | Shared IP, port, HTTPS name, pod-log path and CA path; Kustomize puts these into a ConfigMap, then `envFrom` supplies the pod environment |
+| [gateway-auth.yaml](gateway-auth.yaml) | Infisical `/otel-gateway/APP_BEARER_TOKEN` → Secret `otel-gateway-app-auth`, key `token` → `OTEL_GATEWAY_APP_BEARER_TOKEN` |
+| [public CA](../../../pki/public/tantrum-caddy.crt) | Mounted read-only at `/fluent-bit/gateway-ca/tantrum-caddy.crt` |
+| [central PKI build](../../../pki/kustomization.yaml) + [Tantrum distribution](../../../pki/20-tantrum-caddy-trust-bundle.yaml) | Publish the root in `cert-manager`; trust-manager creates `monitoring/tantrum-caddy-trust-bundle` for this app |
+| [manifest.yaml](manifest.yaml) | Environment, Secret reference, CA mount and node/profile mapping |
+
+The two ConfigMap inputs have different jobs:
+
+```text
+envs: gateway.env
+  OTEL_GATEWAY_PORT=443 → ConfigMap key OTEL_GATEWAY_PORT: "443"
+  → manifest.yaml envFrom → container environment
+  → Fluent Bit reads Port ${OTEL_GATEWAY_PORT} as Port 443 at startup
+
+files: buffered.conf=profiles/buffered/fluent-bit.conf
+  whole file → ConfigMap key buffered.conf
+  → node mapping, e.g. whyachi.conf → /fluent-bit/profiles/whyachi.conf
+  → --config=/fluent-bit/profiles/whyachi.conf
+```
+
+`envs` splits `KEY=value` lines into separate settings. `files` stores the whole
+file under a single key; it does not split or merge its configuration sections.
+Only the profile selected for that node is opened by Fluent Bit.
+
+Kustomize leaves `${VARIABLE}` text in the generated profile. Kubernetes supplies
+the environment through `envFrom` and the token's `secretKeyRef`; Fluent Bit
+substitutes those values when it reads its `.conf` file. `gateway.env` itself is
+not mounted or opened by Fluent Bit. No token value is stored there or in Git.
+The `$(NODE_NAME)` in the container argument is a separate Kubernetes expansion
+that selects the filename. `$log` in the profile selects a field from a log record.
+Pod logs use **`/v1/logs` + the app token**. Host journals keep their separate
+**`/host/v1/logs` + host token** path and Ansible configuration.
+
+The IP is the connection destination; the HTTPS name is also sent as the HTTP
+`Host` header so Caddy selects the correct route. Certificate and hostname checks
+are enabled. Inputs, Kubernetes metadata collection, rates and queue caps are unchanged.
+
+Profile and connection ConfigMaps have content-based names and are immutable.
+Existing pods keep those settings until replaced. The CA ConfigMap is managed
+and updated by trust-manager under a fixed name. After a CA change, replace pods
+one node at a time so Fluent Bit loads the new trust. Token values are also read
+at startup; token rotation needs controlled pod replacement.
 
 ## Settings and profile selection
 
@@ -34,7 +86,8 @@ Choose a node's profile in `manifest.yaml`, under `volumes → configMap → ite
   path: whyachi.conf   # Kubernetes node name + .conf
 ```
 
-All five nodes currently select `buffered.conf`. Kubernetes supplies `NODE_NAME`;
+Tombstone, Whyachi, Biteforce and Minotaur select `buffered.conf`; Huge selects
+`survival.conf`. Kubernetes supplies `NODE_NAME`;
 the collector opens `/fluent-bit/profiles/$(NODE_NAME).conf`. Unlisted nodes have no matching file and fail visibly.
 
 `OnDelete` prevents configuration publication from restarting every collector.

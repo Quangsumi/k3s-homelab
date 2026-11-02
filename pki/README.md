@@ -36,6 +36,18 @@ from the older lab Caddy root and is not added to Kubernetes trust bundles.
 included by the pod collector. It does not change the cert-manager Caddy root.
 SHA-256: `12:3B:AD:1A:F1:D3:D2:F8:9E:82:78:41:CE:9B:B7:70:5F:EF:12:24:8D:BC:DB:00:F5:1F:40:D5:DB:8A:5E:D1`.
 
+The build files deliberately select different certificates:
+
+| Build | ConfigMap | Namespace |
+| --- | --- | --- |
+| `pki/kustomization.yaml` | Existing lab `caddy-root-ca` | `cert-manager` |
+| `pki/public/kustomization.yaml` | New `tantrum-caddy-root-<hash>` only | Supplied by the consuming app, currently `monitoring` |
+
+A parent's `namespace` chooses where resources go; it does not select which
+certificates to generate. Combining both generators would place both roots in
+each consumer's namespace. The separate builds avoid those unrelated ConfigMaps
+without copying certificate files or disabling Kustomize's file checks.
+
 ## Inspect and rebuild bundles
 
 WSL/Linux, repository root:

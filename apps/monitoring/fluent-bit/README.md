@@ -20,8 +20,30 @@ app SDK telemetry/cluster metrics. Follow [MIGRATION.md](MIGRATION.md) after rev
 | [public CA Kustomization](../../../pki/public/kustomization.yaml) | Builds the CA ConfigMap without copying the certificate into this app |
 | [manifest.yaml](manifest.yaml) | Environment, Secret reference, CA mount and node/profile mapping |
 
-The profiles use Fluent Bit's `${VARIABLE}` syntax. `gateway.env` is a build input,
-not a file Fluent Bit opens. No token value is stored in that file or in Git.
+The two ConfigMap inputs have different jobs:
+
+```text
+envs: gateway.env
+  OTEL_GATEWAY_PORT=443 → ConfigMap key OTEL_GATEWAY_PORT: "443"
+  → manifest.yaml envFrom → container environment
+  → Fluent Bit reads Port ${OTEL_GATEWAY_PORT} as Port 443 at startup
+
+files: buffered.conf=profiles/buffered/fluent-bit.conf
+  whole file → ConfigMap key buffered.conf
+  → node mapping, e.g. whyachi.conf → /fluent-bit/profiles/whyachi.conf
+  → --config=/fluent-bit/profiles/whyachi.conf
+```
+
+`envs` splits `KEY=value` lines into separate settings. `files` stores the whole
+file under a single key; it does not split or merge its configuration sections.
+Only the profile selected for that node is opened by Fluent Bit.
+
+Kustomize leaves `${VARIABLE}` text in the generated profile. Kubernetes supplies
+the environment through `envFrom` and the token's `secretKeyRef`; Fluent Bit
+substitutes those values when it reads its `.conf` file. `gateway.env` itself is
+not mounted or opened by Fluent Bit. No token value is stored there or in Git.
+The `$(NODE_NAME)` in the container argument is a separate Kubernetes expansion
+that selects the filename. `$log` in the profile selects a field from a log record.
 Pod logs use **`/v1/logs` + the app token**. Host journals keep their separate
 **`/host/v1/logs` + host token** path and Ansible configuration.
 
@@ -75,15 +97,6 @@ kubectl kustomize apps/monitoring/fluent-bit
 ```
 
 This prints YAML only. No Ansible or external generation step is needed.
-
-With `kubectl` and Python's PyYAML installed, run the local build checks:
-
-```bash
-python3 -m unittest discover -s apps/monitoring/fluent-bit/tests -v
-```
-
-These check the Secret/CA connections and shared settings snapshots without
-contacting a cluster. They do not prove runtime delivery or Fluent Bit binary compatibility.
 
 ## Roll out ONE node later — a terminal with kubectl and this checkout
 

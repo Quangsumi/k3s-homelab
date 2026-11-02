@@ -2,5 +2,3 @@
 
 **/.vscode/
 **/.agents/
-__pycache__/
-*.pyc

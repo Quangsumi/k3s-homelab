@@ -5,8 +5,9 @@ metadata:
 spec:
   serviceName: prometheus-agent
   replicas: 1
-  # Deleting/scaling down the StatefulSet keeps its PVC (disk claim).
-  # The PV/Longhorn reclaimPolicy separately controls disk deletion if that PVC is deleted.
+  # Retain is already Kubernetes' default when this block is omitted.
+  # State it explicitly: keep PVCs when deleting this StatefulSet or scaling it down.
+  # Only an explicit Delete policy would enable that automatic PVC cleanup.
   persistentVolumeClaimRetentionPolicy:
     whenDeleted: Retain
     whenScaled: Retain
@@ -27,9 +28,9 @@ spec:
       # Kubernetes scrape jobs use these files; they are NOT the Tantrum write token/CA.
       serviceAccountName: prometheus-agent
       terminationGracePeriodSeconds: 60
-      # Adds '192.168.63.66 metrics-write.tantrum.lab' to THIS pod's /etc/hosts.
-      # The HTTPS URL still uses the hostname, so Caddy selects the correct site/cert.
-      # Remove this override once cluster DNS resolves this name to 192.168.63.66.
+      # Like Compose extra_hosts: set a hostname-to-IP mapping inside this pod.
+      # metrics-write.tantrum.lab resolves to 192.168.63.66 via /etc/hosts instead of DNS.
+      # This sends writes to Tantrum while keeping the hostname for HTTPS verification.
       hostAliases:
       - ip: 192.168.63.66
         hostnames:
@@ -167,30 +168,31 @@ spec:
               - key: storage.yml
                 path: scrapes/storage.yml
           - secret:
-              # Infisical /prometheus/LITELLM_MASTER_KEY
-              # -> ExternalSecret litellm-prometheus-job-credentials (litellm-external-secret.yaml)
-              # -> this Secret's key LITELLM_MASTER_KEY
-              # -> /etc/prometheus/secrets/litellm/LITELLM_MASTER_KEY
-              # -> config/scrapes/applications.yml: authorization.credentials_file
+              # Secret name: litellm-prometheus-job-secret-infisical
+              # Key: LITELLM_MASTER_KEY
+              # Value: fetched from Infisical /prometheus/LITELLM_MASTER_KEY.
+              # Mounted at: /etc/prometheus/secrets/litellm/LITELLM_MASTER_KEY
+              # Used by: applications.yml to authenticate the LiteLLM scrape.
               name: litellm-prometheus-job-secret-infisical
               items:
               - key: LITELLM_MASTER_KEY
                 path: secrets/litellm/LITELLM_MASTER_KEY
           - secret:
-              # Infisical /prometheus/REMOTE_WRITE_BEARER_TOKEN
-              # -> remote-write-external-secret.yaml -> this Secret's key token
-              # -> /etc/prometheus/secrets/remote-write/token
-              # -> config/prometheus.yml: remote_write.authorization.credentials_file
+              # Secret name: prometheus-agent-remote-write-token
+              # Key: token
+              # Value: fetched from Infisical /prometheus/REMOTE_WRITE_BEARER_TOKEN.
+              # Mounted at: /etc/prometheus/secrets/remote-write/token
+              # Used by: prometheus.yml to authenticate writes to Tantrum.
               name: prometheus-agent-remote-write-token
               items:
               - key: token
                 path: secrets/remote-write/token
           - configMap:
-              # Git pki/public/tantrum-caddy.crt -> source ConfigMap in cert-manager
-              # -> trust-manager Bundle tantrum-caddy-trust-bundle -> this ConfigMap in monitoring
-              # -> key tantrum-caddy.crt is renamed to /etc/prometheus/secrets/remote-write/ca.crt
-              # -> config/prometheus.yml: remote_write.tls_config.ca_file
-              # This is a PUBLIC certificate, not a private key or bearer token.
+              # ConfigMap name: tantrum-caddy-trust-bundle (created by trust-manager).
+              # Key: tantrum-caddy.crt
+              # Value: public certificate from Git pki/public/tantrum-caddy.crt.
+              # Mounted at: /etc/prometheus/secrets/remote-write/ca.crt
+              # Used by: prometheus.yml to verify Tantrum's HTTPS certificate.
               name: tantrum-caddy-trust-bundle
               items:
               - key: tantrum-caddy.crt

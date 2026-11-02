@@ -78,10 +78,11 @@ in Git. The WAL disk is separate: PVC `wal-prometheus-agent-0` mounts at `/prome
 | Out | `https://metrics-write.tantrum.lab/api/v1/write`, TCP 443; existing VM token + Tantrum root |
 | In | Private 9095 health/targets/Agent self-metrics; no public ingress or host port |
 
-`hostAliases` adds `192.168.63.66 metrics-write.tantrum.lab` to this pod's
-`/etc/hosts`. The URL keeps its hostname for Caddy's site selection and HTTPS
-certificate verification. It avoids the old wildcard DNS route; remove the override
-once cluster DNS returns this VM IP, or update it if Tantrum moves.
+`hostAliases` sets fixed hostname-to-IP mappings inside a pod, like Compose
+`extra_hosts`. Here, resolving `metrics-write.tantrum.lab` uses `192.168.63.66`
+from `/etc/hosts` instead of asking DNS. This was added to avoid the old wildcard
+DNS route. The URL still uses the hostname for Caddy/HTTPS verification. Remove
+the override once cluster DNS returns the VM IP, or update it if Tantrum moves.
 
 `clusterIP: None` means this Service's DNS returns pod IPs directly, without a
 separate Service IP. It supplies the StatefulSet's stable pod name; it does not
@@ -106,6 +107,12 @@ server, this app does not add an egress restriction.
 - No historical queries, recording rules or alert evaluation in Agent mode.
   Config changes roll through Kustomize; after credential/CA changes, restart the
   Agent if needed and recheck sending.
+
+StatefulSets already keep their PVCs when scaled to zero or deleted: `Retain`
+is the default even without `persistentVolumeClaimRetentionPolicy`. The explicit
+block documents that choice; it does not add new protection against scale-down.
+`whenScaled: Delete` would opt into deleting claims for replicas removed by scaling.
+Deleting/replacing an individual pod still retains its claim.
 
 Keep both retention settings; they act on different deletions:
 

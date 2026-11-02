@@ -18,7 +18,7 @@ def check(settings):
         with socket.create_connection((settings["host"], settings["port"]), timeout=10) as tcp:
             with context.wrap_socket(tcp, server_hostname=settings["tls_name"]) as connection:
                 headers = [
-                    "POST /v1/logs HTTP/1.1",
+                    "POST " + settings["logs_uri"] + " HTTP/1.1",
                     "Host: " + settings["tls_name"],
                     "User-Agent: agent-local",
                     "Content-Type: application/json",

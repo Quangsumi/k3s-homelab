@@ -81,7 +81,7 @@
     # Attach this machine's name and role (proxmox or linux-vm) to each log.
     # log_source=host tells the gateway to treat this as a host log, not a pod log.
     # The gateway sets the service label from _SYSTEMD_UNIT (e.g. k3s.service)
-    # and the service group label to homelab-hosts. See apps/monitoring/otel-gateway/manifest.yaml.
+    # and the service group label to homelab-hosts.
     Record            host_name {{ inventory_hostname }}
     Record            host_role {{ 'proxmox' if inventory_hostname in groups['proxmox_hosts'] else 'linux-vm' }}
     Record            log_source host
@@ -91,11 +91,13 @@
     Match                     host.*
     Host                      {{ fluent_bit_gateway_host }}
     Port                      {{ fluent_bit_gateway_port }}
-    Logs_URI                  /v1/logs
+    Logs_URI                  {{ fluent_bit_gateway_logs_uri }}
+    # Caddy uses this name to choose the route, even when connecting by IP.
+    Header                    Host {{ fluent_bit_gateway_tls_name }}
     Logs_Body_Key             $log
     # Send the other fields too, so the gateway can read _SYSTEMD_UNIT and host_name.
     Logs_Body_Key_Attributes  On
-    Header                    Authorization Bearer {{ fluent_bit_external_token }}
+    Header                    Authorization Bearer {{ otel_gateway_host_bearer_token }}
     TLS                       On
     TLS.Verify                On
     TLS.Verify_Hostname       On

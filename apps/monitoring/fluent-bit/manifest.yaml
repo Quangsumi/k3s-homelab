@@ -63,6 +63,16 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: spec.nodeName
+            - name: OTEL_GATEWAY_APP_BEARER_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: otel-gateway-app-auth
+                  key: token
+
+          # Kustomize turns gateway.env into this shared settings ConfigMap.
+          envFrom:
+            - configMapRef:
+                name: fluent-bit-gateway
 
           ports:
             - name: http-metrics
@@ -118,6 +128,10 @@ spec:
               mountPath: /fluent-bit/profiles
               readOnly: true
 
+            - name: gateway-ca
+              mountPath: /fluent-bit/gateway-ca
+              readOnly: true
+
             - name: container-logs
               mountPath: /var/log/containers
               readOnly: true
@@ -133,6 +147,14 @@ spec:
               mountPath: /tmp
 
       volumes:
+        - name: gateway-ca
+          configMap:
+            # Created in monitoring by trust-manager, from the central pki source.
+            name: tantrum-caddy-trust-bundle
+            items:
+              - key: tantrum-caddy.crt
+                path: tantrum-caddy.crt
+
         # NODE → PROFILE. Change key to light.conf, buffered.conf or busy.conf.
         # path must match the Kubernetes node name plus .conf. There is no fallback.
         - name: config

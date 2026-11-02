@@ -1,0 +1,18 @@
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: otel-gateway-app-auth
+  namespace: monitoring
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    name: infisical
+    kind: ClusterSecretStore
+  target:
+    name: otel-gateway-app-auth
+    creationPolicy: Owner
+  data:
+    - secretKey: token
+      remoteRef:
+        # Set this to Tantrum's existing app token before replacing collectors.
+        key: /otel-gateway/APP_BEARER_TOKEN

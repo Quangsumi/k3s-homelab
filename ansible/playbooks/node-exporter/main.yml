@@ -1,7 +1,7 @@
 ---
-# K3s nodes already have their DaemonSet exporter; exclude them before any SSH/facts.
-- name: Ensure non-K3s VMs and Proxmox hosts expose Linux host metrics
-  hosts: linux_vms:proxmox_hosts:!control_planes:!workers
+# Retire the old K3s Node Exporter DaemonSet before running on cluster nodes.
+- name: Ensure Linux VMs and Proxmox hosts expose systemd host metrics
+  hosts: linux_vms:proxmox_hosts
   gather_facts: false
   become: true
   serial: 1

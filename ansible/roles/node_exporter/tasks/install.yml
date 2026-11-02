@@ -5,17 +5,17 @@
       - ansible_facts.os_family == 'Debian'
     fail_msg: New installations support Debian/Ubuntu (including Debian-based OMV). Other distros need an existing exporter or their own package implementation.
 
-- name: Refuse to install over an unknown process occupying the metrics port
+- name: Require a free metrics port before installing or starting the managed service
   ansible.builtin.wait_for:
     host: "{{ node_exporter_listen_address }}"
     port: "{{ node_exporter_port }}"
     state: stopped
     timeout: 1
     connect_timeout: 1
-    msg: Metrics port is occupied by an unrecognized service. Check the existing exporter/container; no package will be installed over it.
+    msg: Metrics port is occupied. Retire the old DaemonSet/container or resolve the listener before installing or starting the systemd exporter.
   changed_when: false
   check_mode: false
-  when: not node_exporter_managed_dropin.stat.exists
+  when: ansible_facts.services.get(node_exporter_service, {}).get('state', '') != 'running'
 
 - name: Install the distro node-exporter without starting a default all-interface listener
   ansible.builtin.apt:

@@ -1,8 +1,10 @@
 # node_exporter role
 
 Reusable host-exporter tasks. The calling playbook chooses hosts, sudo and rollout
-order. This role reads platform/service facts, skips K3s installations, reuses an
-existing exporter or installs the Debian-family package, then verifies its endpoint.
+order. This role reads platform/service facts, reuses a recognized systemd
+exporter or installs the Debian-family package, then verifies its endpoint.
+K3s nodes use the same host service. A healthy endpoint without a recognized
+running systemd exporter fails instead of reusing a DaemonSet/container.
 
 | Input | Role default | This lab supplies |
 | --- | --- | --- |
@@ -25,6 +27,10 @@ tasks/main.yml       detect and choose reuse/install
 `templates/listen.conf.j2` becomes the managed systemd listener file.
 `defaults/main.yml` supplies overridable inputs. No `vars/`, `files/` or `meta/`
 folder is needed for this role's current behavior.
+
+Before installing or starting a stopped service, the metrics port must be free.
+The role never deletes cluster resources; follow the
+[DaemonSet migration guide](../../playbooks/node-exporter/MIGRATION.md) first.
 
 Use [the host-selecting playbook](../../playbooks/node-exporter/main.yml) and
 [manual run guide](../../playbooks/node-exporter/README.md).

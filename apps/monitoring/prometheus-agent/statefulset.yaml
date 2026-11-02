@@ -5,7 +5,8 @@ metadata:
 spec:
   serviceName: prometheus-agent
   replicas: 1
-  # Scaling down or removing this workload keeps its disk buffer for recovery.
+  # Deleting/scaling down the StatefulSet keeps its PVC (disk claim).
+  # The PV/Longhorn reclaimPolicy separately controls disk deletion if that PVC is deleted.
   persistentVolumeClaimRetentionPolicy:
     whenDeleted: Retain
     whenScaled: Retain
@@ -20,9 +21,15 @@ spec:
         app.kubernetes.io/part-of: observability
     spec:
       priorityClassName: homelab-diagnostics
+      # rbac.yaml creates this account and its API permissions.
+      # Kubernetes automatically mounts its short-lived API token + API CA at:
+      # /var/run/secrets/kubernetes.io/serviceaccount/{token,ca.crt,namespace}
+      # Kubernetes scrape jobs use these files; they are NOT the Tantrum write token/CA.
       serviceAccountName: prometheus-agent
       terminationGracePeriodSeconds: 60
-      # Keep HTTP Host and TLS verification correct without using the old wildcard DNS route.
+      # Adds '192.168.63.66 metrics-write.tantrum.lab' to THIS pod's /etc/hosts.
+      # The HTTPS URL still uses the hostname, so Caddy selects the correct site/cert.
+      # Remove this override once cluster DNS resolves this name to 192.168.63.66.
       hostAliases:
       - ip: 192.168.63.66
         hostnames:
@@ -52,6 +59,7 @@ spec:
           limits:
             memory: 256Mi
         volumeMounts:
+        # Same 'config' volume and file paths as the main container below.
         - name: config
           mountPath: /etc/prometheus
           readOnly: true
@@ -61,6 +69,7 @@ spec:
         imagePullPolicy: IfNotPresent
         args:
         - --agent
+        # Open this mounted file first; it lists the scrape-job files to load.
         - --config.file=/etc/prometheus/prometheus.yml
         - --storage.agent.path=/prometheus
         - --storage.agent.retention.max-time=4h
@@ -97,18 +106,45 @@ spec:
           capabilities:
             drop: [ALL]
         volumeMounts:
+        # 'config' matches volumes.name below; mount its contents at /etc/prometheus.
         - name: config
           mountPath: /etc/prometheus
           readOnly: true
         - name: wal
+          # 'wal' matches volumeClaimTemplates.name: the Agent's Longhorn disk.
           mountPath: /prometheus
       volumes:
+      # Result INSIDE THE CONTAINER, after volumeMounts.name=config mounts this volume:
+      # /etc/prometheus/
+      # |-- prometheus.yml
+      # |-- scrapes/
+      # |   |-- applications.yml
+      # |   |-- kubernetes.yml
+      # |   |-- control-plane.yml
+      # |   |-- observability.yml
+      # |   |-- network.yml
+      # |   |-- argocd.yml
+      # |   |-- certificates.yml
+      # |   |-- external-secrets.yml
+      # |   `-- storage.yml
+      # `-- secrets/
+      #     |-- litellm/LITELLM_MASTER_KEY
+      #     `-- remote-write/
+      #         |-- token
+      #         `-- ca.crt
+      # These are container paths, NOT folders that must exist in Git.
       - name: config
-        # Kubernetes combines these sources into one directory; Prometheus loads the job files.
+        # 'projected' combines the following ConfigMap/Secret keys into this volume.
+        # 'key' selects stored content; 'path' names its file RELATIVE to this volume.
+        # Example: path scrapes/kubernetes.yml + mount /etc/prometheus
+        #          = /etc/prometheus/scrapes/kubernetes.yml inside the container.
         projected:
           sources:
           - configMap:
               name: prometheus-agent-config
+              items:
+              - key: prometheus.yml
+                path: prometheus.yml
           - configMap:
               name: prometheus-agent-scrapes
               items:
@@ -131,21 +167,38 @@ spec:
               - key: storage.yml
                 path: scrapes/storage.yml
           - secret:
+              # Infisical /prometheus/LITELLM_MASTER_KEY
+              # -> ExternalSecret litellm-prometheus-job-credentials (../prometheus/manifest.yaml)
+              # -> this Secret's key LITELLM_MASTER_KEY
+              # -> /etc/prometheus/secrets/litellm/LITELLM_MASTER_KEY
+              # -> config/scrapes/applications.yml: authorization.credentials_file
               name: litellm-prometheus-job-secret-infisical
               items:
               - key: LITELLM_MASTER_KEY
                 path: secrets/litellm/LITELLM_MASTER_KEY
           - secret:
+              # Infisical /prometheus/REMOTE_WRITE_BEARER_TOKEN
+              # -> remote-write-external-secret.yaml -> this Secret's key token
+              # -> /etc/prometheus/secrets/remote-write/token
+              # -> config/prometheus.yml: remote_write.authorization.credentials_file
               name: prometheus-agent-remote-write-token
               items:
               - key: token
                 path: secrets/remote-write/token
           - configMap:
+              # Git pki/public/tantrum-caddy.crt -> source ConfigMap in cert-manager
+              # -> trust-manager Bundle tantrum-caddy-trust-bundle -> this ConfigMap in monitoring
+              # -> key tantrum-caddy.crt is renamed to /etc/prometheus/secrets/remote-write/ca.crt
+              # -> config/prometheus.yml: remote_write.tls_config.ca_file
+              # This is a PUBLIC certificate, not a private key or bearer token.
               name: tantrum-caddy-trust-bundle
               items:
               - key: tantrum-caddy.crt
                 path: secrets/remote-write/ca.crt
   volumeClaimTemplates:
+  # StatefulSet creates PVC wal-prometheus-agent-0 from this template.
+  # StorageClass longhorn provisions its disk; volumeMounts.name=wal mounts it at /prometheus.
+  # --storage.agent.path=/prometheus writes the pending metric samples there.
   - metadata:
       name: wal
     spec:

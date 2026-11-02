@@ -105,7 +105,7 @@ count implied by its 1 GiB memory ceiling.
 | Symptom | Check |
 | --- | --- |
 | Pod cannot mount config | CA ConfigMap, both Secrets and ExternalSecret Ready conditions |
-| Config init fails | `logs ... -c validate-config`; projected file names/keys |
+| Config init fails | `logs ... -c validate-config`; compare the file tree and source-key comments above `volumes` in `statefulset.yaml` |
 | Agent Pending | PVC binding, Longhorn capacity and scheduling resources |
 | Discovery or scrapes return 403 | Own ServiceAccount/ClusterRoleBinding, `/metrics` and node-proxy permissions |
 | LiteLLM/Postgres/Longhorn time out | Their Argo apps must sync the Agent network-policy allowance |
@@ -117,14 +117,14 @@ count implied by its 1 GiB memory ceiling.
 
 ## 5. Cutover and rollback
 
-Only after target counts, actual metric families and sending pass, retire the old
-K3s server in a separate reviewed change: remove `prometheus` and
-`prometheus-oauth2-proxy` from the monitoring Kustomization, then sync with Prune.
-The Agent has its own account/config/disk and owns the existing LiteLLM
-ExternalSecret. Keep kube-state-metrics, Fluent Bit, trust-manager's CA and the Agent.
-Review any remaining consumers of the old server before pruning its Service.
-Leave `prometheus-data-prometheus-0` alone; delete its old history only as a separate
-manual decision. This PR does not retire that server or any other backend.
+Only after target counts, actual metric families and sending pass, stop the old
+K3s server in a separate reviewed change: set its StatefulSet replicas to zero in
+Git. Keep its manifests, configs and PVC for reference/recovery. Handle the old
+login proxy's scale-down after reviewing remaining consumers.
+Do not remove the old Prometheus Kustomization or prune its resources: its original
+`litellm-prometheus-job-credentials` ExternalSecret still supplies the Agent's
+LiteLLM credential. Keep kube-state-metrics, Fluent Bit, trust-manager's CA and the
+Agent. This PR does not stop the old server or any other backend.
 
 If Agent verification fails, the old server still works. Temporarily stop sending:
 

@@ -33,15 +33,40 @@ flowchart LR
 | `config/scrapes/kubernetes.yml` | kube-state-metrics, kubelet, cAdvisor |
 | `config/scrapes/control-plane.yml` | API server, scheduler, controller/workqueues and embedded etcd |
 | Other `config/scrapes/*.yml` | Existing app, storage, network, certificate, Argo CD, External Secrets and Fluent Bit jobs |
-| `kustomization.yaml` | Whole files become ConfigMap keys; changed generated names roll the pod |
+| `kustomization.yaml` | Explicit `KEY=Git/path` entries; e.g. `kubernetes.yml=config/scrapes/kubernetes.yml`. Changed generated names roll the pod |
 | `remote-write-external-secret.yaml` | Infisical `/prometheus/REMOTE_WRITE_BEARER_TOKEN` → Secret → `secrets/remote-write/token` |
-| `litellm-external-secret.yaml` | Existing LiteLLM credential, moved here unchanged so Agent outlives the old server folder |
+| `../prometheus/manifest.yaml` | Existing LiteLLM ExternalSecret stays in its original location; both collectors read its generated Secret |
 | `rbac.yaml` | Own account; discovery, API `/metrics` and node-proxy access; no admin kubeconfig or Secret-read permission |
 | `service.yaml`, `network-policy.yaml` | Private 9095 diagnostic UI; use authenticated port-forward |
 
-Kubernetes projects the main config, each job file, credentials and the existing
-`tantrum-caddy-trust-bundle` ConfigMap into `/etc/prometheus`. Prometheus itself
-loads the listed job files. Nothing discovers/merges arbitrary files automatically.
+Read [the explicit key examples](kustomization.yaml) and
+[the container file tree directly above `volumes`](statefulset.yaml) together:
+
+1. Parent `apps/monitoring/kustomization.yaml` includes this app's Kustomization.
+   Kustomize reads its listed Git files and builds ConfigMap YAML; Argo CD creates
+   those objects in Kubernetes.
+2. External Secrets reads Infisical and creates Secrets. trust-manager supplies
+   the CA ConfigMap. These controllers run independently; the pod waits if a
+   required object/key is missing.
+3. `volumes.name: config` chooses object keys and gives each a relative file path.
+   `volumeMounts.name: config` mounts that SAME volume at `/etc/prometheus`.
+4. The validator reads those files first. Then `--config.file` opens
+   `/etc/prometheus/prometheus.yml`; its `scrape_config_files` opens the job files.
+   `credentials_file` and `ca_file` open the particular credential/certificate files.
+
+| Starts at | Kubernetes object + key | Container file / reader |
+| --- | --- | --- |
+| Git `config/prometheus.yml` | ConfigMap `prometheus-agent-config`: `prometheus.yml` | `/etc/prometheus/prometheus.yml`; startup argument |
+| Git `config/scrapes/kubernetes.yml` | ConfigMap `prometheus-agent-scrapes`: `kubernetes.yml` | `/etc/prometheus/scrapes/kubernetes.yml`; main config's `scrapes/*.yml` |
+| Infisical `/prometheus/REMOTE_WRITE_BEARER_TOKEN` | ExternalSecret → Secret `prometheus-agent-remote-write-token`: `token` | `/etc/prometheus/secrets/remote-write/token`; remote-write `credentials_file` |
+| Infisical `/prometheus/LITELLM_MASTER_KEY` | Existing ExternalSecret → Secret `litellm-prometheus-job-secret-infisical`: `LITELLM_MASTER_KEY` | `/etc/prometheus/secrets/litellm/LITELLM_MASTER_KEY`; LiteLLM `credentials_file` |
+| Git `pki/public/tantrum-caddy.crt` | PKI source → trust-manager → ConfigMap `tantrum-caddy-trust-bundle`: `tantrum-caddy.crt` | Renamed `/etc/prometheus/secrets/remote-write/ca.crt`; remote-write `ca_file` |
+| ServiceAccount `prometheus-agent` | Kubernetes automatically supplies its API token + API CA | `/var/run/secrets/kubernetes.io/serviceaccount/token` and `ca.crt`; Kubernetes discovery/scrapes |
+
+ConfigMaps store non-secret file contents; Secrets store private values.
+An ExternalSecret is the instruction for fetching a value, not the value itself.
+The container's `secrets/` folders are assembled by the volume; they need not exist
+in Git. The WAL disk is separate: PVC `wal-prometheus-agent-0` mounts at `/prometheus`.
 
 ## Connections
 
@@ -53,8 +78,17 @@ loads the listed job files. Nothing discovers/merges arbitrary files automatical
 | Out | `https://metrics-write.tantrum.lab/api/v1/write`, TCP 443; existing VM token + Tantrum root |
 | In | Private 9095 health/targets/Agent self-metrics; no public ingress or host port |
 
-`hostAliases` pins the write hostname to `192.168.63.66`, preserving HTTP Host and
-TLS name while avoiding the old wildcard DNS route. Update it if Tantrum moves.
+`hostAliases` adds `192.168.63.66 metrics-write.tantrum.lab` to this pod's
+`/etc/hosts`. The URL keeps its hostname for Caddy's site selection and HTTPS
+certificate verification. It avoids the old wildcard DNS route; remove the override
+once cluster DNS returns this VM IP, or update it if Tantrum moves.
+
+`clusterIP: None` means this Service's DNS returns pod IPs directly, without a
+separate Service IP. It supplies the StatefulSet's stable pod name; it does not
+restrict who can connect. The `prometheus-agent-private-ui` NetworkPolicy provides
+that separate restriction: block direct incoming pod connections to diagnostics.
+It is not required to scrape/send metrics; outgoing requests, node health probes
+and authenticated port-forward still work.
 Existing scrape-target policies allow both old/new scrapers. As with the old
 server, this app does not add an egress restriction.
 
@@ -73,6 +107,17 @@ server, this app does not add an egress restriction.
   Config changes roll through Kustomize; after credential/CA changes, restart the
   Agent if needed and recheck sending.
 
+Keep both retention settings; they act on different deletions:
+
+| Setting | Trigger | Kept |
+| --- | --- | --- |
+| StatefulSet `whenDeleted/whenScaled: Retain` | Delete the StatefulSet or scale it down | PVC (disk claim), still bound to its disk |
+| Longhorn StorageClass `reclaimPolicy: Retain` | Explicitly delete that PVC | PV/backing disk, requiring manual recovery or cleanup |
+
+The Longhorn Helm values already configure `persistence.reclaimPolicy: Retain` in
+`infrastructure/longhorn/argocd-app.yaml`. That does not update previously created
+PVs automatically. Check the actual bound PV when verifying; retention is not a backup.
+
 For another cluster, deploy its own Agent/account/disk and change the cluster
 labels in the main config/job files, destination/token/trust and write-host address. For new in-cluster apps,
 add the relevant scrape job and target ingress permission here.
@@ -83,3 +128,5 @@ read-only discovery and the exact rollout checks.
 Sources: [K3s shared metrics registry](https://docs.k3s.io/reference/metrics),
 [etcd exposure flag](https://docs.k3s.io/cli/server#database),
 [Prometheus Agent](https://prometheus.io/docs/prometheus/latest/prometheus_agent/).
+Storage semantics: [StatefulSet PVC retention](https://kubernetes.io/docs/concepts/workloads/controllers/statefulset/#persistentvolumeclaim-retention),
+[PV reclaim policy](https://kubernetes.io/docs/concepts/storage/persistent-volumes/#reclaiming).

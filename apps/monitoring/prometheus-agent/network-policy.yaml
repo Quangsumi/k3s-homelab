@@ -7,5 +7,7 @@ spec:
     matchLabels:
       app: prometheus-agent
   policyTypes: [Ingress]
-  # Diagnostics use authenticated kubectl port-forward; there is no public ingress.
+  # Block direct connections from other pods, including to the UI on port 9095.
+  # Scraping/sending out is unaffected: this policy only controls incoming traffic.
+  # Node health probes and authenticated kubectl port-forward still work.
   ingress: []

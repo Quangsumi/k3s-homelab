@@ -4,6 +4,8 @@ scrape_configs:
   metrics_path: /metrics
   authorization:
     type: Bearer
+    # Existing LiteLLM Secret is mounted here by statefulset.yaml.
+    # This authenticates the LiteLLM scrape; it is NOT the Tantrum remote-write token.
     credentials_file: /etc/prometheus/secrets/litellm/LITELLM_MASTER_KEY
   static_configs:
   - targets:

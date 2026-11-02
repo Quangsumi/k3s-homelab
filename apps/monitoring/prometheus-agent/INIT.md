@@ -101,9 +101,9 @@ argocd app sync longhorn
 argocd app sync monitoring
 ```
 
-This sync adds the Agent; do not prune or disable the old server yet. Moved LiteLLM
-ExternalSecret keeps the same name and target Secret; moving its source file does
-not replace that live resource.
+This sync adds the Agent; do not prune or disable the old server yet. The existing
+LiteLLM ExternalSecret stays in `../prometheus/manifest.yaml`; both collectors use
+its generated Secret. Keep that definition when later stopping the old server.
 
 ## 4. Wait for prerequisites and the pod
 

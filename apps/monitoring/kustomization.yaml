@@ -3,13 +3,13 @@ kind: Kustomization
 namespace: monitoring
 resources:
 - shared
-- grafana
-- prometheus
+# - grafana
+# - prometheus
 - prometheus-agent
-- prometheus-oauth2-proxy
+# - prometheus-oauth2-proxy
 - kube-state-metrics
-- loki
-- jaeger
-- otel-gateway
+# - loki
+# - jaeger
+# - otel-gateway
 - fluent-bit
-- aspire-dashboard
+# - aspire-dashboard

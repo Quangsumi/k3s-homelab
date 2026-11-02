@@ -1,22 +1,3 @@
-apiVersion: external-secrets.io/v1
-kind: ExternalSecret
-metadata:
-  name: litellm-prometheus-job-credentials
-  namespace: monitoring
-spec:
-  refreshInterval: 1h
-  secretStoreRef:
-    name: infisical
-    kind: ClusterSecretStore
-  target:
-    name: litellm-prometheus-job-secret-infisical
-    creationPolicy: Owner
-  data:
-    - secretKey: LITELLM_MASTER_KEY
-      remoteRef:
-        key: /prometheus/LITELLM_MASTER_KEY
-
----
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:

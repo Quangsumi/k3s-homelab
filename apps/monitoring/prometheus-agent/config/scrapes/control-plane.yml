@@ -1,0 +1,124 @@
+# K3s shares Kubernetes metrics on :6443. These jobs keep separate metric groups.
+# No scheduler/controller-manager bind-address changes or private etcd keys are needed.
+# The etcd job needs etcd-expose-metrics: true on each etcd member; see INIT.md.
+scrape_configs:
+- job_name: kubernetes-apiserver
+  scrape_interval: 30s
+  scheme: https
+  kubernetes_sd_configs:
+  - role: node
+  relabel_configs:
+  - source_labels:
+    - __meta_kubernetes_node_labelpresent_node_role_kubernetes_io_control_plane
+    action: keep
+    regex: 'true'
+  - source_labels:
+    - __meta_kubernetes_node_address_InternalIP
+    target_label: __address__
+    regex: (.+)
+    replacement: ${1}:6443
+  - source_labels:
+    - __meta_kubernetes_node_name
+    target_label: node
+  - target_label: cluster
+    replacement: k3s-homelab
+  authorization:
+    credentials_file: /var/run/secrets/kubernetes.io/serviceaccount/token
+  tls_config:
+    ca_file: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+  metric_relabel_configs:
+  - source_labels:
+    - __name__
+    action: drop
+    regex: scheduler_.*
+  - source_labels:
+    - __name__
+    action: drop
+    regex: running_managed_controllers|workqueue_.*|pv_collector_.*|(attachdetach|cronjob|daemonset|deployment|device_taint_eviction|disruption|endpoint_slice|endpoint_slice_mirroring|ephemeral_volume|garbagecollector|horizontal_pod_autoscaler|job|namespace|node|node_ipam|replicaset|replication|resource_claim|root_ca_cert_publisher|service|statefulset|taint_eviction|ttl_after_finished|ttl|validating_admission_policy_status|volumeattributesclass)_controller_.*
+  - source_labels:
+    - __name__
+    action: drop
+    regex: kubelet_.*|volume_manager_.*|storage_operation_.*|process_.*|go_.*|rest_client_.*
+- job_name: kubernetes-scheduler
+  scrape_interval: 30s
+  scheme: https
+  kubernetes_sd_configs:
+  - role: node
+  relabel_configs:
+  - source_labels:
+    - __meta_kubernetes_node_labelpresent_node_role_kubernetes_io_control_plane
+    action: keep
+    regex: 'true'
+  - source_labels:
+    - __meta_kubernetes_node_address_InternalIP
+    target_label: __address__
+    regex: (.+)
+    replacement: ${1}:6443
+  - source_labels:
+    - __meta_kubernetes_node_name
+    target_label: node
+  - target_label: cluster
+    replacement: k3s-homelab
+  authorization:
+    credentials_file: /var/run/secrets/kubernetes.io/serviceaccount/token
+  tls_config:
+    ca_file: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+  metric_relabel_configs:
+  - source_labels:
+    - __name__
+    action: keep
+    regex: scheduler_.*
+- job_name: kubernetes-controller-manager
+  scrape_interval: 30s
+  scheme: https
+  kubernetes_sd_configs:
+  - role: node
+  relabel_configs:
+  - source_labels:
+    - __meta_kubernetes_node_labelpresent_node_role_kubernetes_io_control_plane
+    action: keep
+    regex: 'true'
+  - source_labels:
+    - __meta_kubernetes_node_address_InternalIP
+    target_label: __address__
+    regex: (.+)
+    replacement: ${1}:6443
+  - source_labels:
+    - __meta_kubernetes_node_name
+    target_label: node
+  - target_label: cluster
+    replacement: k3s-homelab
+  authorization:
+    credentials_file: /var/run/secrets/kubernetes.io/serviceaccount/token
+  tls_config:
+    ca_file: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+  metric_relabel_configs:
+  - source_labels:
+    - __name__
+    action: keep
+    regex: running_managed_controllers|workqueue_.*|pv_collector_.*|(attachdetach|cronjob|daemonset|deployment|device_taint_eviction|disruption|endpoint_slice|endpoint_slice_mirroring|ephemeral_volume|garbagecollector|horizontal_pod_autoscaler|job|namespace|node|node_ipam|replicaset|replication|resource_claim|root_ca_cert_publisher|service|statefulset|taint_eviction|ttl_after_finished|ttl|validating_admission_policy_status|volumeattributesclass)_controller_.*
+- job_name: kubernetes-etcd
+  scrape_interval: 30s
+  scheme: http
+  kubernetes_sd_configs:
+  - role: node
+  relabel_configs:
+  - source_labels:
+    - __meta_kubernetes_node_labelpresent_node_role_kubernetes_io_etcd
+    action: keep
+    regex: 'true'
+  - source_labels:
+    - __meta_kubernetes_node_address_InternalIP
+    target_label: __address__
+    regex: (.+)
+    replacement: ${1}:2381
+  - source_labels:
+    - __meta_kubernetes_node_name
+    target_label: node
+  - target_label: cluster
+    replacement: k3s-homelab
+  metric_relabel_configs:
+  - source_labels:
+    - __name__
+    action: keep
+    regex: etcd_.*

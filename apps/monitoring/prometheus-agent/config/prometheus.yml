@@ -1,0 +1,21 @@
+global:
+  scrape_interval: 15s
+  scrape_timeout: 10s
+  evaluation_interval: 15s
+  # Applied to every outgoing series, including generated up/scrape metrics.
+  external_labels:
+    cluster: k3s-homelab
+scrape_config_files:
+  - scrapes/*.yml
+remote_write:
+  - name: tantrum
+    url: https://metrics-write.tantrum.lab/api/v1/write
+    authorization:
+      type: Bearer
+      credentials_file: /etc/prometheus/secrets/remote-write/token
+    tls_config:
+      ca_file: /etc/prometheus/secrets/remote-write/ca.crt
+    queue_config:
+      capacity: 5000
+      max_shards: 4
+      min_shards: 1

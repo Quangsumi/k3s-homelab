@@ -89,8 +89,11 @@ spec:
             matchLabels:
               kubernetes.io/metadata.name: monitoring
           podSelector:
-            matchLabels:
-              app: prometheus
+            # Keep the old scraper working during the Agent migration.
+            matchExpressions:
+              - key: app
+                operator: In
+                values: [prometheus, prometheus-agent]
       ports:
         - protocol: TCP
           port: 9187

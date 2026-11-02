@@ -1,0 +1,11 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: prometheus-agent-private-ui
+spec:
+  podSelector:
+    matchLabels:
+      app: prometheus-agent
+  policyTypes: [Ingress]
+  # Diagnostics use authenticated kubectl port-forward; there is no public ingress.
+  ingress: []

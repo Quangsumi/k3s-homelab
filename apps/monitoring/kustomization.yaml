@@ -5,6 +5,7 @@ resources:
 - shared
 - grafana
 - prometheus
+- prometheus-agent
 - prometheus-oauth2-proxy
 - kube-state-metrics
 - loki

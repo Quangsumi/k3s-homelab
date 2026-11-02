@@ -1,0 +1,156 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: prometheus-agent
+spec:
+  serviceName: prometheus-agent
+  replicas: 1
+  # Scaling down or removing this workload keeps its disk buffer for recovery.
+  persistentVolumeClaimRetentionPolicy:
+    whenDeleted: Retain
+    whenScaled: Retain
+  selector:
+    matchLabels:
+      app: prometheus-agent
+  template:
+    metadata:
+      labels:
+        app: prometheus-agent
+        app.kubernetes.io/name: prometheus-agent
+        app.kubernetes.io/part-of: observability
+    spec:
+      priorityClassName: homelab-diagnostics
+      serviceAccountName: prometheus-agent
+      terminationGracePeriodSeconds: 60
+      # Keep HTTP Host and TLS verification correct without using the old wildcard DNS route.
+      hostAliases:
+      - ip: 192.168.63.66
+        hostnames:
+        - metrics-write.tantrum.lab
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65534
+        runAsGroup: 65534
+        fsGroup: 65534
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile:
+          type: RuntimeDefault
+      initContainers:
+      - name: validate-config
+        image: prom/prometheus:v3.15.1
+        imagePullPolicy: IfNotPresent
+        command: [/bin/promtool, check, config, --agent, /etc/prometheus/prometheus.yml]
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop: [ALL]
+        resources:
+          requests:
+            cpu: 50m
+            memory: 64Mi
+          limits:
+            memory: 256Mi
+        volumeMounts:
+        - name: config
+          mountPath: /etc/prometheus
+          readOnly: true
+      containers:
+      - name: prometheus-agent
+        image: prom/prometheus:v3.15.1
+        imagePullPolicy: IfNotPresent
+        args:
+        - --agent
+        - --config.file=/etc/prometheus/prometheus.yml
+        - --storage.agent.path=/prometheus
+        - --storage.agent.retention.max-time=4h
+        - --web.listen-address=:9095
+        ports:
+        - name: http
+          containerPort: 9095
+        startupProbe:
+          httpGet:
+            path: /-/ready
+            port: http
+          periodSeconds: 10
+          failureThreshold: 30
+        readinessProbe:
+          httpGet:
+            path: /-/ready
+            port: http
+          periodSeconds: 10
+        livenessProbe:
+          httpGet:
+            path: /-/healthy
+            port: http
+          periodSeconds: 20
+        # Same baseline as the existing K3s Prometheus; measure after rollout.
+        resources:
+          requests:
+            cpu: 100m
+            memory: 576Mi
+          limits:
+            memory: 1Gi
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop: [ALL]
+        volumeMounts:
+        - name: config
+          mountPath: /etc/prometheus
+          readOnly: true
+        - name: wal
+          mountPath: /prometheus
+      volumes:
+      - name: config
+        # Kubernetes combines these sources into one directory; Prometheus loads the job files.
+        projected:
+          sources:
+          - configMap:
+              name: prometheus-agent-config
+          - configMap:
+              name: prometheus-agent-scrapes
+              items:
+              - key: applications.yml
+                path: scrapes/applications.yml
+              - key: kubernetes.yml
+                path: scrapes/kubernetes.yml
+              - key: control-plane.yml
+                path: scrapes/control-plane.yml
+              - key: observability.yml
+                path: scrapes/observability.yml
+              - key: network.yml
+                path: scrapes/network.yml
+              - key: argocd.yml
+                path: scrapes/argocd.yml
+              - key: certificates.yml
+                path: scrapes/certificates.yml
+              - key: external-secrets.yml
+                path: scrapes/external-secrets.yml
+              - key: storage.yml
+                path: scrapes/storage.yml
+          - secret:
+              name: litellm-prometheus-job-secret-infisical
+              items:
+              - key: LITELLM_MASTER_KEY
+                path: secrets/litellm/LITELLM_MASTER_KEY
+          - secret:
+              name: prometheus-agent-remote-write-token
+              items:
+              - key: token
+                path: secrets/remote-write/token
+          - configMap:
+              name: tantrum-caddy-trust-bundle
+              items:
+              - key: tantrum-caddy.crt
+                path: secrets/remote-write/ca.crt
+  volumeClaimTemplates:
+  - metadata:
+      name: wal
+    spec:
+      accessModes: [ReadWriteOnce]
+      storageClassName: longhorn
+      resources:
+        requests:
+          storage: 5Gi

@@ -24,7 +24,7 @@
         mode: '0644'
         backup: true
       loop:
-        - { src: public/caddy-root.crt, dest: rpivn-caddy.crt }
+        - { src: public/rpivn-caddy.crt, dest: rpivn-caddy.crt }
         - { src: bundles/application-trust.pem, dest: homelab-root-ca.pem }
         - { src: public/k3s-server-ca.crt, dest: k3s-ca.pem }
         - { src: bundles/proxmox-api-trust.pem, dest: proxmox-trust.pem }
@@ -34,7 +34,7 @@
     - name: Copy Caddy trust for control-plane OIDC
       become: "{{ ansible_user != 'root' }}"
       ansible.builtin.copy:
-        src: "{{ pki_dir }}/public/caddy-root.crt"
+        src: "{{ pki_dir }}/public/rpivn-caddy.crt"
         dest: /etc/rancher/k3s/certs/rpivn-caddy.crt
         owner: root
         group: root

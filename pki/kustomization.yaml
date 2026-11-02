@@ -3,13 +3,15 @@ kind: Kustomization
 
 # Publish certificate sources once. trust-manager handles namespace distribution.
 resources:
-  - 10-caddy-trust-bundle.yaml
+  - 10-rpivn-caddy-trust-bundle.yaml
+  - 20-tantrum-caddy-trust-bundle.yaml
 
 configMapGenerator:
+  # Rpivn Caddy: keep the existing object name for current readers.
   - name: caddy-root-ca
     namespace: cert-manager
     files:
-      - ca.crt=public/caddy-root.crt
+      - ca.crt=public/rpivn-caddy.crt
   - name: tantrum-caddy-root-source
     namespace: cert-manager
     files:

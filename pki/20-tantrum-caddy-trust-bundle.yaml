@@ -1,0 +1,21 @@
+# Tantrum Caddy trust for monitoring only.
+apiVersion: trust.cert-manager.io/v1alpha1
+kind: Bundle
+metadata:
+  # Also the name of the ConfigMap created in monitoring.
+  name: tantrum-caddy-trust-bundle
+spec:
+  sources:
+  - configMap:
+      name: tantrum-caddy-root-source
+      key: ca.crt
+  target:
+    configMap:
+      key: tantrum-caddy.crt
+    # Add namespace names here when other apps need this certificate.
+    namespaceSelector:
+      matchExpressions:
+      - key: kubernetes.io/metadata.name
+        operator: In
+        values:
+        - monitoring

@@ -8,7 +8,7 @@ or their app's playbook; Kubernetes uses the already installed trust-manager.
 flowchart LR
   F[pki/public: certificate files] --> K[pki/kustomization.yaml]
   K --> S[Source ConfigMaps in cert-manager]
-  D[pki/10-caddy-trust-bundle.yaml: destination rules] --> T[trust-manager]
+  D[pki: machine-named distribution files] --> T[trust-manager]
   S --> T
   T --> M[Selected namespaces: app ConfigMaps]
 ```
@@ -17,7 +17,8 @@ flowchart LR
 | --- | --- |
 | `public/` | Add/update a public certificate once |
 | `kustomization.yaml` | Publish that file as a source ConfigMap in `cert-manager` |
-| `10-caddy-trust-bundle.yaml` | Both distribution rules: certificates, output filenames and recipient namespaces |
+| `10-rpivn-caddy-trust-bundle.yaml` | Rpivn Caddy certificate sources and recipient namespaces |
+| `20-tantrum-caddy-trust-bundle.yaml` | Tantrum Caddy certificate source and recipient namespaces |
 | App manifest | Reference the distributed ConfigMap; no certificate copy or PKI build inclusion |
 
 `infrastructure/cert-manager` includes this PKI build. Sync it first, wait for the
@@ -26,7 +27,7 @@ distribution to succeed, then roll out an app that needs the resulting ConfigMap
 ## Files and consumers
 
 ```text
-public/caddy-root.crt
+public/rpivn-caddy.crt
   -> Pi rpivn-caddy.crt
   -> control planes: /etc/rancher/k3s/certs/rpivn-caddy.crt (OIDC)
   -> Kubernetes apps/ESO and ACME HTTPS trust
@@ -60,11 +61,13 @@ Certificate sources and destinations:
 
 | Certificate | Source in `cert-manager` | Distribution / recipients |
 | --- | --- | --- |
-| Lab Caddy root | `caddy-root-ca`, key `ca.crt` | [caddy-trust-bundle](10-caddy-trust-bundle.yaml); existing namespaces and public CAs unchanged |
-| Tantrum Caddy root | `tantrum-caddy-root-source`, key `ca.crt` | [tantrum-caddy-root](10-caddy-trust-bundle.yaml); only `monitoring` gets `tantrum-caddy-root`, key `tantrum-caddy.crt` |
+| Rpivn Caddy root | `caddy-root-ca`, key `ca.crt` | [Rpivn distribution](10-rpivn-caddy-trust-bundle.yaml); existing namespaces and public CAs unchanged |
+| Tantrum Caddy root | `tantrum-caddy-root-source`, key `ca.crt` | [Tantrum distribution](20-tantrum-caddy-trust-bundle.yaml); only `monitoring` gets `tantrum-caddy-trust-bundle`, key `tantrum-caddy.crt` |
 
-Both named Bundles live in the same file, separated by `---`. They keep their
-own certificate sources and destination lists.
+Each distribution file names the Caddy machine it belongs to. The existing
+Rpivn objects keep their older names (`caddy-root-ca`, `caddy-trust-bundle`) so
+current applications keep finding them. New Tantrum objects use the
+`tantrum-caddy-` prefix. The public certificate filenames use the machine name too.
 
 The `namespaceSelector` in each distribution controls who receives it. To add a
 namespace, update that rule; do not include the whole PKI build in the app.
@@ -77,7 +80,7 @@ together during an actual CA rotation until clients have moved.
 WSL/Linux, repository root:
 
 ```bash
-openssl x509 -in pki/public/caddy-root.crt -noout -subject -issuer -dates -fingerprint -sha256
+openssl x509 -in pki/public/rpivn-caddy.crt -noout -subject -issuer -dates -fingerprint -sha256
 
 cat pki/public/homelab-root-v1.crt pki/public/homelab-root-v2.crt > pki/bundles/application-trust.pem
 cat pki/public/proxmox-cluster-ca.crt pki/public/endgame-selfsigned.crt > pki/bundles/proxmox-api-trust.pem
@@ -90,7 +93,7 @@ Each bundle should list two certificates. Verify a replacement certificate's fin
 
 ## Kubernetes: only when Caddy's root changes
 
-`infrastructure/cert-manager` references this folder's Kustomization, which reads `public/caddy-root.crt` directly to create `ConfigMap/caddy-root-ca`. No certificate copy is needed.
+`infrastructure/cert-manager` references this folder's Kustomization, which reads `public/rpivn-caddy.crt` directly to create `ConfigMap/caddy-root-ca`. No certificate copy is needed.
 
 The ACME issuer still requires an embedded base64 value. PowerShell, repository root:
 
@@ -133,13 +136,13 @@ After verifying the root, install only if needed. PowerShell, repository root:
 Import-Certificate -FilePath .\pki\public\homelab-root-v2.crt -CertStoreLocation Cert:\CurrentUser\Root
 ```
 
-Use `caddy-root.crt` for Caddy trust. This affects the current user's Windows store; check browser-specific stores separately.
+Use `rpivn-caddy.crt` for Rpivn Caddy trust. This affects the current user's Windows store; check browser-specific stores separately.
 
 ## Maintenance
 
 - Certificate/bundle contents: this folder.
 - Host addresses and users: `ansible/inventory/`.
 - Remote file paths: `ansible/playbooks/certificates/main.yml`.
-- Kubernetes distribution and namespaces: `pki/10-caddy-trust-bundle.yaml`.
+- Kubernetes distribution and namespaces: `pki/*-caddy-trust-bundle.yaml`.
 - Rotation order: distribute old+new trust -> reload/test -> change issuance -> retire old trust.
 - Rollback: restore the previous public file or Ansible backup, then reload its consumer.

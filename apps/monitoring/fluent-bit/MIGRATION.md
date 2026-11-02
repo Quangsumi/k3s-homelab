@@ -28,8 +28,8 @@ flowchart LR
    ```bash
    kubectl kustomize pki
    kubectl apply -k pki
-   kubectl wait --for=condition=Synced bundle/tantrum-caddy-root --timeout=120s
-   kubectl -n monitoring get configmap tantrum-caddy-root
+   kubectl wait --for=condition=Synced bundle/tantrum-caddy-trust-bundle --timeout=120s
+   kubectl -n monitoring get configmap tantrum-caddy-trust-bundle
    ```
 
    trust-manager copies the public root from `cert-manager` to `monitoring`.

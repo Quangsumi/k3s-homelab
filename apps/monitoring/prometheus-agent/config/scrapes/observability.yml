@@ -3,7 +3,7 @@ scrape_configs:
   static_configs:
   - targets: ['localhost:9095']
 - job_name: fluent-bit
-  metrics_path: /api/v1/metrics/prometheus
+  metrics_path: /api/v2/metrics/prometheus
   kubernetes_sd_configs:
   - role: endpointslice
     namespaces:

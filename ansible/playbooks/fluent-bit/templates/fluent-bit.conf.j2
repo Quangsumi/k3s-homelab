@@ -13,9 +13,13 @@
     storage.max_chunks_up     {{ fluent_bit_settings.storage_max_chunks_up }}
     storage.backlog.mem_limit  {{ fluent_bit_settings.storage_backlog_memory }}
 {% endif %}
+    # Fluent Bit internal monitoring.
+    # Exposes an internal HTTP API on port 2021 (used by health/liveness probes)
     HTTP_Server               On
-    HTTP_Listen               127.0.0.1
+    HTTP_Listen               0.0.0.0
     HTTP_Port                 2021
+
+    Health_Check              On
 
 # One host journal reader. The Kubernetes DaemonSet alone reads pod files.
 # This agent runs on each VM/Proxmox host and reads its journal.

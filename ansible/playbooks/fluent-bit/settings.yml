@@ -1,6 +1,6 @@
 ---
 # Choose a complete profile from PROFILES.md. Nothing applies until you run main.yml.
-fluent_bit_profile: survival
+fluent_bit_profile: buffered
 
 # Overrides belong to ONE named profile, never to the previously selected profile.
 # Example under light: {rate_records: 80, rate_bytes: 96K}
@@ -15,7 +15,7 @@ fluent_bit_settings: >-
 
 # The same playbook applies every profile. Package installation is opt-in.
 fluent_bit_install_package: false
-fluent_bit_verify_delivery: false
+fluent_bit_verify_delivery: true
 fluent_bit_observe_load: false
 fluent_bit_observe_seconds: 30
 fluent_bit_position_action: ask          # On parked state: ask, resume, or new_entries.

@@ -1,0 +1,23 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: external-services
+  namespace: argocd
+  labels:
+    app.kubernetes.io/part-of: homelab-gitops
+    homelab.quangsumi.io/tier: workload
+spec:
+  project: homelab-workloads
+
+  source:
+    repoURL: https://github.com/Quangsumi/k3s-homelab.git
+    targetRevision: main
+    path: external-services
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: external-services
+
+  syncPolicy:
+    syncOptions:
+      - CreateNamespace=true

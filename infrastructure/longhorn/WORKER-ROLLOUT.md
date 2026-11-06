@@ -56,12 +56,13 @@ Longhorn documents stopping workloads and detaching volumes before changing comp
 
 ## 5. Publish the reviewed changes and update the Application
 
-When you choose to deploy later, review and commit/push only the intended Longhorn changes to the repository's `main` branch. Do not include unrelated local edits. The Application's second source reads GitHub `main`, so local file edits alone do not update OAuth2 proxy.
+Publish reviewed Longhorn changes on a feature branch and open a pull request. The Application's second source reads GitHub `main`, so branch changes take effect only after the pull request is merged and the Application is synced. Do not include unrelated local edits.
 
 Update the existing Application from the local manifest if your parent GitOps application does not manage it:
 
 ```powershell
-kubectl apply -f infrastructure/longhorn/argocd-app.yaml
+# After seeding the AppProjects/root (see bootstrap/README.md):
+kubectl apply -f bootstrap/homelab/applications/longhorn.yaml
 ```
 
 If a parent application owns this Application, sync that parent instead so it does not overwrite the local update. Then refresh the `longhorn` Application in Argo CD, inspect its diff, and manually Sync. Confirm the diff includes worker selectors, CSI replica counts/anti-affinity, and the OAuth2 proxy placement change. The Application currently has no automated sync configured.

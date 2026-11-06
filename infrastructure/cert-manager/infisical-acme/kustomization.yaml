@@ -1,6 +1,6 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
-# REVIEW ONLY: deliberately not referenced by the parent kustomization.
+# Separate manual-sync infisical-acme Application; excluded from the parent.
 resources:
   - 01-eab-external-secret.yaml
   - 05-cluster-issuer.yaml

@@ -1,0 +1,40 @@
+- name: Open a fresh certificate connection without a multiplexed socket or agent
+  ansible.builtin.command:
+    argv:
+      - ssh
+      - -vv
+      - -F
+      - /dev/null
+      - -o
+      - BatchMode=yes
+      - -o
+      - IdentitiesOnly=yes
+      - -o
+      - IdentityAgent=none
+      - -o
+      - StrictHostKeyChecking=yes
+      - -o
+      - ControlMaster=no
+      - -o
+      - ControlPath=none
+      - -o
+      - PreferredAuthentications=publickey
+      - -o
+      - ConnectTimeout=10
+      - -o
+      - "CertificateFile={{ ssh_ca_test_certificate }}"
+      - -p
+      - "{{ ansible_port | default(22) | string }}"
+      - -i
+      - "{{ ssh_ca_test_private_key }}"
+      - "{{ ssh_ca_account.key }}@{{ ansible_host }}"
+      - id
+      - -un
+  delegate_to: localhost
+  become: false
+  changed_when: false
+  register: ssh_ca_fresh_login
+  failed_when: >-
+    ssh_ca_fresh_login.rc != 0 or
+    ssh_ca_fresh_login.stdout | trim != ssh_ca_account.key or
+    ssh_ca_fresh_login.stderr is not search('Server accepts key:.*-CERT')

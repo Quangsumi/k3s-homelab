@@ -1,0 +1,22 @@
+# Deliberate opt-in; review principal and local user names before setting true.
+ssh_ca_rollout_enabled: false
+ssh_ca_identity_reviewed: false
+
+# EXAMPLE identity "quang": replace with the administrator-managed Keycloak
+# ssh_principal attribute. Keys inside each host are EXISTING Linux accounts.
+# This repository has seven general Linux VMs, one NAS VM, two Proxmox hosts.
+ssh_ca_principal_map_by_host:
+  tombstone:
+    tombstone: [quang]
+  whyachi:
+    whyachi: [quang]
+  biteforce:
+    biteforce: [quang]
+  huge:
+    huge: [quang]
+  minotaur:
+    minotaur: [quang]
+  valkyrie:
+    valkyrie: [quang]
+  tantrum:
+    tantrum: [quang]

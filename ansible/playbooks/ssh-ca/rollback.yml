@@ -1,0 +1,27 @@
+- name: Remove this kit's certificate trust configuration
+  hosts: linux_vms:!nas_appliances
+  become: true
+  gather_facts: false
+  serial: 1
+  any_errors_fatal: true
+  tasks:
+    - name: Require explicit rollback selection
+      ansible.builtin.assert:
+        that:
+          - ssh_ca_rollback_enabled | default(false) | bool
+        fail_msg: Connect using your retained public key and set ssh_ca_rollback_enabled=true.
+
+    - name: Remove only the managed global block
+      ansible.builtin.blockinfile:
+        path: /etc/ssh/sshd_config
+        marker: '# {mark} ANSIBLE HOMELAB SSH CA'
+        state: absent
+        backup: true
+        validate: /usr/sbin/sshd -t -f %s
+      register: ssh_ca_removed
+
+    - name: Reload SSH after validated removal
+      ansible.builtin.service:
+        name: ssh
+        state: reloaded
+      when: ssh_ca_removed.changed

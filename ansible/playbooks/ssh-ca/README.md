@@ -2,7 +2,8 @@
 
 First deploy [Step CA and Keycloak on the Pi](https://github.com/Quangsumi/rpivn-app/blob/main/step-ca/README.md)
 and [configure your workstation](https://github.com/Quangsumi/rpivn-app/blob/main/step-ca/docs/clients.md).
-The shared service is `ca.lab:9000`, preserving the existing Homelab TLS chain.
+The shared service is `https://ca.lab` through Pi Caddy; Step preserves the
+existing Homelab signing chain and publishes no host port.
 Infisical remains the vault; this playbook does not switch website issuers.
 Run the commands below from this repository's `ansible/` directory in WSL/Ubuntu.
 
@@ -48,8 +49,8 @@ Use a new path; **never install its raw public key on a VM**:
 umask 077
 ssh-keygen -t ed25519 -N '' -f "$HOME/.ssh/ssh-ca-check"
 step ssh certificate YOUR_VERIFIED_KEYCLOAK_EMAIL "$HOME/.ssh/ssh-ca-check.pub" \
-  --sign --no-agent --context homelab-ca --provisioner keycloak-ssh \
-  --not-after 1h --force
+  --sign --no-agent --provisioner keycloak-ssh --ca-url https://ca.lab \
+  --root "$HOME/.config/homelab/rpivn-caddy.crt" --not-after 1h --force
 ```
 
 Create a local YAML file outside Git, e.g. `~/.config/homelab/ssh-ca-rollout.yml`.

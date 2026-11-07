@@ -2,6 +2,8 @@
 
 First deploy [Step CA and Keycloak on the Pi](https://github.com/Quangsumi/rpivn-app/blob/main/step-ca/README.md)
 and [configure your workstation](https://github.com/Quangsumi/rpivn-app/blob/main/step-ca/docs/clients.md).
+The shared service is `ca.lab:9000`, preserving the existing Homelab TLS chain.
+Infisical remains the vault; this playbook does not switch website issuers.
 Run the commands below from this repository's `ansible/` directory in WSL/Ubuntu.
 
 ## 1. Review targets and trust
@@ -10,9 +12,9 @@ The playbook targets Debian/Ubuntu systemd guests in `linux_vms:!nas_appliances`
 tombstone, whyachi, biteforce, huge, minotaur, valkyrie and tantrum.
 Hydra, Proxmox hosts and the Pi are excluded. Add missing VMs explicitly.
 
-Copy the **SSH user CA public key** from the initialization workstation into
+Copy the **SSH user CA public key** from the CA import workstation into
 `playbooks/ssh-ca/files/ssh_user_ca_key.pub`. Compare its fingerprint with your
-initialization record:
+verified CA fingerprint record:
 
 ```sh
 ssh-keygen -lf playbooks/ssh-ca/files/ssh_user_ca_key.pub
@@ -46,7 +48,7 @@ Use a new path; **never install its raw public key on a VM**:
 umask 077
 ssh-keygen -t ed25519 -N '' -f "$HOME/.ssh/ssh-ca-check"
 step ssh certificate YOUR_VERIFIED_KEYCLOAK_EMAIL "$HOME/.ssh/ssh-ca-check.pub" \
-  --sign --no-agent --context homelab-ssh --provisioner keycloak-ssh \
+  --sign --no-agent --context homelab-ca --provisioner keycloak-ssh \
   --not-after 1h --force
 ```
 

@@ -1,0 +1,243 @@
+# Standalone opt-in; never imported by baseline or ssh-keys.
+- name: Manage SSH user CA trust and explicit account authorization
+  hosts: linux_vms:!nas_appliances
+  become: true
+  gather_facts: true
+  serial: 1
+  any_errors_fatal: true
+  vars:
+    ssh_ca_base: /etc/ssh/homelab-ssh-ca
+    ssh_ca_public_key_file: "{{ playbook_dir }}/files/ssh_user_ca_key.pub"
+    ssh_ca_principals: "{{ ssh_ca_principal_map_by_host[inventory_hostname] }}"
+  tasks:
+    - name: Check scope, review gates, and required controller inputs
+      ansible.builtin.assert:
+        that:
+          - ssh_ca_rollout_enabled | default(false) | bool
+          - ssh_ca_identity_reviewed | default(false) | bool
+          - ansible_os_family == 'Debian'
+          - ansible_service_mgr == 'systemd'
+          - inventory_hostname in (ssh_ca_principal_map_by_host | default({}))
+          - ssh_ca_test_private_key is defined
+          - ssh_ca_test_certificate is defined
+        fail_msg: Review inventory mappings, enable the two review gates, and supply the dedicated certificate test key and certificate paths. Debian/Ubuntu VMs only.
+
+    - name: Require explicit non-root account mappings
+      ansible.builtin.assert:
+        that:
+          - ssh_ca_principals is mapping
+          - ssh_ca_principals | length > 0
+          - "'root' not in ssh_ca_principals"
+
+    - name: Validate account names and principal lists
+      ansible.builtin.assert:
+        that:
+          - item.key is match('^[a-z_][a-z0-9_-]{0,31}$')
+          - item.value is sequence and item.value is not string and item.value is not mapping
+          - item.value | length > 0
+          - item.value | unique | length == item.value | length
+          - item.value | select('match', '^[a-z][a-z0-9_-]{0,31}$') | list | length == item.value | length
+      loop: "{{ ssh_ca_principals | dict2items }}"
+
+    - name: Require existing login accounts (this playbook creates none)
+      ansible.builtin.command:
+        argv: [getent, passwd, "{{ item.key }}"]
+      loop: "{{ ssh_ca_principals | dict2items }}"
+      changed_when: false
+      check_mode: false
+      register: ssh_ca_accounts
+      failed_when: ssh_ca_accounts.rc != 0 or ssh_ca_accounts.stdout is search('/(nologin|false)$')
+
+    - name: Read the reviewed CA public key from the controller
+      ansible.builtin.set_fact:
+        ssh_ca_public_key: "{{ lookup('ansible.builtin.file', ssh_ca_public_key_file) | trim }}"
+
+    - name: Check that this is a single OpenSSH public key
+      ansible.builtin.assert:
+        that:
+          - ssh_ca_public_key is match('^(ssh-ed25519|ecdsa-sha2-nistp256|ssh-rsa) [A-Za-z0-9+/=]+( [^\n]*)?$')
+          - "'\n' not in ssh_ca_public_key"
+
+    - name: Validate the CA key with OpenSSH
+      ansible.builtin.command:
+        argv: [ssh-keygen, -lf, "{{ ssh_ca_public_key_file }}"]
+      delegate_to: localhost
+      become: false
+      changed_when: false
+      check_mode: false
+
+    - name: Require test key and certificate on controller
+      ansible.builtin.stat:
+        path: "{{ item }}"
+      loop: ["{{ ssh_ca_test_private_key }}", "{{ ssh_ca_test_certificate }}"]
+      delegate_to: localhost
+      become: false
+      register: ssh_ca_test_files
+
+    - name: Stop if a verification file is absent
+      ansible.builtin.assert:
+        that:
+          - ssh_ca_test_files.results | selectattr('stat.exists', 'equalto', true) | list | length == 2
+
+    - name: Read incoming client address for effective SSH policy checks
+      ansible.builtin.command: printenv SSH_CONNECTION
+      become: false
+      changed_when: false
+      check_mode: false
+      register: ssh_ca_connection
+
+    - name: Validate existing SSH configuration
+      ansible.builtin.command: /usr/sbin/sshd -t
+      changed_when: false
+      check_mode: false
+
+    - name: Read existing effective policy before taking ownership
+      ansible.builtin.command: /usr/sbin/sshd -T
+      changed_when: false
+      check_mode: false
+      register: ssh_ca_before
+
+    - name: Refuse to replace another CA or principal policy silently
+      ansible.builtin.assert:
+        that:
+          - >-
+            ('trustedusercakeys none' in ssh_ca_before.stdout_lines) or
+            ('trustedusercakeys ' ~ ssh_ca_base ~ '/current/ca.pub' in ssh_ca_before.stdout_lines)
+          - >-
+            ('authorizedprincipalsfile none' in ssh_ca_before.stdout_lines) or
+            ('authorizedprincipalsfile ' ~ ssh_ca_base ~ '/current/principals/%u' in ssh_ca_before.stdout_lines)
+          - "'authorizedprincipalscommand none' in ssh_ca_before.stdout_lines"
+        fail_msg: Another certificate authorization policy exists. Review and integrate it manually before using this playbook.
+
+    - name: Save original SSH configuration
+      ansible.builtin.slurp:
+        src: /etc/ssh/sshd_config
+      register: ssh_ca_original_config
+
+    - name: Inspect current generation link
+      ansible.builtin.stat:
+        path: "{{ ssh_ca_base }}/current"
+        follow: false
+      register: ssh_ca_original_link
+
+    - name: Refuse to replace a non-symlink current path
+      ansible.builtin.assert:
+        that:
+          - not ssh_ca_original_link.stat.exists or ssh_ca_original_link.stat.islnk | default(false)
+
+    - name: Compute deterministic generation (removed mappings cannot linger)
+      ansible.builtin.set_fact:
+        ssh_ca_generation: "{{ ssh_ca_base }}/generations/{{ ((ssh_ca_principals | to_json(sort_keys=true)) ~ ssh_ca_public_key) | hash('sha256') }}"
+        ssh_ca_client_address: "{{ ssh_ca_connection.stdout.split()[0] }}"
+
+    - name: Prepare immutable-in-use generation directories
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        owner: root
+        group: root
+        mode: '0755'
+      loop:
+        - "{{ ssh_ca_base }}"
+        - "{{ ssh_ca_base }}/generations"
+        - "{{ ssh_ca_generation }}"
+        - "{{ ssh_ca_generation }}/principals"
+
+    - name: Stage public user CA trust
+      ansible.builtin.copy:
+        content: "{{ ssh_ca_public_key }}\n"
+        dest: "{{ ssh_ca_generation }}/ca.pub"
+        owner: root
+        group: root
+        mode: '0644'
+      when: not ansible_check_mode
+
+    - name: Stage explicit per-account principal files
+      ansible.builtin.copy:
+        content: "{{ item.value | join('\n') }}\n"
+        dest: "{{ ssh_ca_generation }}/principals/{{ item.key }}"
+        owner: root
+        group: root
+        mode: '0644'
+      loop: "{{ ssh_ca_principals | dict2items }}"
+      when: not ansible_check_mode
+
+    - name: Activate and verify one VM with rollback on failure
+      when: not ansible_check_mode
+      block:
+        - name: Atomically select reviewed trust and account mappings
+          ansible.builtin.file:
+            src: "{{ ssh_ca_generation }}"
+            dest: "{{ ssh_ca_base }}/current"
+            state: link
+            owner: root
+            group: root
+          register: ssh_ca_link_change
+
+        - name: Put global certificate settings before Includes and Match sections
+          ansible.builtin.blockinfile:
+            path: /etc/ssh/sshd_config
+            insertbefore: BOF
+            marker: '# {mark} ANSIBLE HOMELAB SSH CA'
+            backup: true
+            validate: /usr/sbin/sshd -t -f %s
+            block: |
+              TrustedUserCAKeys {{ ssh_ca_base }}/current/ca.pub
+              AuthorizedPrincipalsFile {{ ssh_ca_base }}/current/principals/%u
+              PubkeyAuthentication yes
+          register: ssh_ca_config_change
+
+        - name: Verify effective policy for each authorized account
+          ansible.builtin.include_tasks: tasks/verify-policy.yml
+          loop: "{{ ssh_ca_principals | dict2items }}"
+          loop_control:
+            loop_var: ssh_ca_account
+
+        - name: Reload validated SSH policy
+          ansible.builtin.service:
+            name: ssh
+            state: reloaded
+          when: ssh_ca_config_change.changed or ssh_ca_link_change.changed
+
+        - name: Prove a new connection accepted a certificate for every mapped user
+          ansible.builtin.include_tasks: tasks/verify-login.yml
+          loop: "{{ ssh_ca_principals | dict2items }}"
+          loop_control:
+            loop_var: ssh_ca_account
+
+      rescue:
+        - name: Restore previous generation link
+          ansible.builtin.file:
+            src: "{{ ssh_ca_original_link.stat.lnk_source }}"
+            dest: "{{ ssh_ca_base }}/current"
+            state: link
+          when: ssh_ca_original_link.stat.exists
+
+        - name: Remove newly introduced link when no prior generation existed
+          ansible.builtin.file:
+            path: "{{ ssh_ca_base }}/current"
+            state: absent
+          when: not ssh_ca_original_link.stat.exists
+
+        - name: Restore original SSH configuration
+          ansible.builtin.copy:
+            content: "{{ ssh_ca_original_config.content | b64decode }}"
+            dest: /etc/ssh/sshd_config
+            owner: root
+            group: root
+            mode: '0600'
+            validate: /usr/sbin/sshd -t -f %s
+
+        - name: Reload restored SSH configuration
+          ansible.builtin.service:
+            name: ssh
+            state: reloaded
+
+        - name: Stop rollout after rollback
+          ansible.builtin.fail:
+            msg: Certificate activation or fresh login failed. Prior SSH configuration and generation were restored; inspect the failed task. Existing authorized_keys were retained.
+
+    - name: Explain check mode limits
+      ansible.builtin.debug:
+        msg: Check mode validates inputs and preflight only. Staging, sshd policy activation, reload and fresh certificate login require a real run.
+      when: ansible_check_mode

@@ -10,6 +10,7 @@ Ansible connects over SSH and applies the instructions in a playbook.
 
 | Job | What it does |
 |---|---|
+| [SSH CA](playbooks/ssh-ca/README.md) | Trust the Pi SSH user CA and map short principals to existing VM accounts |
 | [SSH keys](playbooks/ssh-keys/README.md) | Add or remove public keys for existing login accounts |
 | [Root access](playbooks/root-access/README.md) | Enable root keys, set its password and configure root SSH |
 | [Baseline](playbooks/baseline/README.md) | Install common packages and the QEMU guest agent inside VMs |

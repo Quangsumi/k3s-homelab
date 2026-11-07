@@ -1,0 +1,2 @@
+# Install CA public key, sshd trust configuration and required account mappings.
+- import_playbook: main.yml

@@ -1,0 +1,3 @@
+# Reconcile principal mappings using the same validated transaction as trust.
+# This also verifies the CA key, preventing mismatched trust and authorization.
+- import_playbook: main.yml

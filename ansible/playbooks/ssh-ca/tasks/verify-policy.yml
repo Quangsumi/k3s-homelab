@@ -1,0 +1,18 @@
+- name: Read effective policy including existing Match sections
+  ansible.builtin.command:
+    argv:
+      - /usr/sbin/sshd
+      - -T
+      - -C
+      - "user={{ ssh_ca_account.key }},host={{ ssh_ca_client_address }},addr={{ ssh_ca_client_address }}"
+  changed_when: false
+  register: ssh_ca_effective
+
+- name: Require intended trust and account authorization
+  ansible.builtin.assert:
+    that:
+      - "'trustedusercakeys ' ~ ssh_ca_base ~ '/current/ca.pub' in ssh_ca_effective.stdout_lines"
+      - "'authorizedprincipalsfile ' ~ ssh_ca_base ~ '/current/principals/%u' in ssh_ca_effective.stdout_lines"
+      - "'authorizedprincipalscommand none' in ssh_ca_effective.stdout_lines"
+      - "'pubkeyauthentication yes' in ssh_ca_effective.stdout_lines"
+    fail_msg: An existing SSH rule overrides the certificate policy for this account.

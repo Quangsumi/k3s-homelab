@@ -73,6 +73,11 @@ ConfigMap
      │
 trust-manager
 ```
+## Development workspaces
+
+[Coder setup and manual rollout](apps/coder/README.md): central repository
+workspaces on K3s, using the existing PostgreSQL service and Longhorn storage.
+
 ## Authentication And Logout
 
 Keycloak at `auth.lab` is the OIDC provider. Application authorization remains

@@ -20,6 +20,12 @@ spec:
               app.kubernetes.io/name: traefik
         - namespaceSelector:
             matchLabels:
+              kubernetes.io/metadata.name: coder
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: coder
+        - namespaceSelector:
+            matchLabels:
               kubernetes.io/metadata.name: litellm
           podSelector:
             matchLabels:

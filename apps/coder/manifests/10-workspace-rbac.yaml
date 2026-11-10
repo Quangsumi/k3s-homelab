@@ -1,0 +1,40 @@
+# Workspace processes receive no Kubernetes API credentials.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: coder-workspace
+  namespace: coder-workspaces
+automountServiceAccountToken: false
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: coder-provisioner
+  namespace: coder-workspaces
+rules:
+  - apiGroups: [""]
+    resources: [persistentvolumeclaims]
+    verbs: [get, list, watch, create, update, patch, delete]
+  - apiGroups: [apps]
+    resources: [deployments]
+    verbs: [get, list, watch, create, update, patch, delete]
+  - apiGroups: [""]
+    resources: [pods, pods/log, events]
+    verbs: [get, list, watch]
+  - apiGroups: [apps]
+    resources: [replicasets]
+    verbs: [get, list, watch]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: coder-provisioner
+  namespace: coder-workspaces
+subjects:
+  - kind: ServiceAccount
+    name: coder
+    namespace: coder
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: coder-provisioner

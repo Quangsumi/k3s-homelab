@@ -15,7 +15,7 @@
         fail_msg: Use --limit rpivn, tombstone, whyachi or biteforce, one at a time.
 
     # The Pi user owns this existing directory; keep the filenames consumers use.
-    - name: Copy the Pi public trust files
+    - name: Copy certs to rpivn
       ansible.builtin.copy:
         src: "{{ pki_dir }}/{{ item.src }}"
         dest: "/home/pi/Desktop/rpivn-app/ca/{{ item.dest }}"
@@ -28,7 +28,21 @@
         - { src: bundles/application-trust.pem, dest: homelab-root-ca.pem }
         - { src: public/k3s-server-ca.crt, dest: k3s-ca.pem }
         - { src: bundles/proxmox-api-trust.pem, dest: proxmox-trust.pem }
+        - { src: public/tantrum-caddy.crt, dest: tantrum-caddy.pem }
       when: inventory_hostname == 'rpivn'
+
+    - name: Copy certs to valkyrie
+      ansible.builtin.copy:
+        src: "{{ pki_dir }}/{{ item.src }}"
+        dest: "/home/valkyrie/ca/{{ item.dest }}"
+        owner: valkyrie
+        group: valkyrie
+        mode: '0644'
+        backup: false
+      loop:
+        # arcane-agent on valkyrie use this to communicate with arcane-server which is behind the Caddy on tantrum
+        - { src: public/tantrum-caddy.crt, dest: tantrum-caddy.pem }
+      when: inventory_hostname == 'valkyrie'
 
     # Only OIDC trust is copied. K3s internal CA files are not managed here.
     - name: Copy Caddy trust for control-plane OIDC

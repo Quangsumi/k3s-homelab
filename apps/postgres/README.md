@@ -6,6 +6,7 @@ Each application connects to PostgreSQL with its own user/role/identity and cont
 | --- | --- |
 | `litellm_user` | Owns and manages only the `litellm` database |
 | `normal_ass_note_user` | Owns and manages only the `normal-ass-note` database |
+| `coder_user` | Owns and manages only the `coder` database; [manual setup](../coder/README.md) |
 | `postgres_exporter` | Reads monitoring statistics through `pg_monitor` |
 | `quangsumi` | Superuser used only for administration |
 

@@ -5,8 +5,13 @@ kind: Kustomization
 resources:
   - 10-rpivn-caddy-trust-bundle.yaml
   - 20-tantrum-caddy-trust-bundle.yaml
+  - 30-coder-trust-bundle.yaml
 
 configMapGenerator:
+  - name: homelab-application-roots
+    namespace: cert-manager
+    files:
+      - ca-bundle.pem=bundles/application-trust.pem
   # Rpivn Caddy: keep the existing object name for current readers.
   - name: caddy-root-ca
     namespace: cert-manager

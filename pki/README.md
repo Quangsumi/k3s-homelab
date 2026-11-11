@@ -25,6 +25,7 @@ flowchart TD
 | --- | --- | --- | --- |
 | `caddy-root-ca` (`ca.crt`) | `caddy-trust-bundle` | `argocd`, `external-secrets`, `postgres`, `monitoring`, `longhorn-system`, `litellm` | `ca-bundle.pem` |
 | `tantrum-caddy-root-source` (`ca.crt`) | `tantrum-caddy-trust-bundle` | `monitoring`, `kube-system` | `tantrum-caddy.crt` |
+| `homelab-application-roots` (`ca-bundle.pem`) + `caddy-root-ca` (`ca.crt`) + public Internet CAs | `coder-trust-bundle` | `coder`, `coder-workspaces` | `ca-bundle.pem` |
 
 **Names:** `configMapGenerator.name` names the source; `Bundle.metadata.name`
 names the destination; `namespaceSelector` chooses its namespaces. Source

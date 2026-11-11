@@ -4,9 +4,9 @@ coder:
   resources:
     requests:
       cpu: "1"
-      memory: 2Gi
+      memory: 1Gi
     limits:
-      memory: 4Gi
+      memory: 2Gi
   service:
     type: ClusterIP
   serviceAccount:

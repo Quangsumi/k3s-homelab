@@ -1,5 +1,10 @@
 coder:
   replicaCount: 1
+  # In 2.38.6 the equivalent CODER_EXTERNAL_AUTH_* env name collides with
+  # the numbered-provider parser. Keep this setting as a CLI flag.
+  commandArgs:
+    - server
+    - --external-auth-github-default-provider-enable=false
   priorityClassName: homelab-dev
   resources:
     requests:
@@ -26,8 +31,6 @@ coder:
           name: coder-db
           key: url
     - name: CODER_OAUTH2_GITHUB_DEFAULT_PROVIDER_ENABLE
-      value: "false"
-    - name: CODER_EXTERNAL_AUTH_GITHUB_DEFAULT_PROVIDER_ENABLE
       value: "false"
     - name: CODER_TELEMETRY_ENABLE
       value: "false"

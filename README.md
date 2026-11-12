@@ -114,5 +114,3 @@ function Get-HomelabLogoutUrl($app) {
 Get-HomelabLogoutUrl "prometheus"
 Get-HomelabLogoutUrl "longhorn"
 ```
-
-test git credentials

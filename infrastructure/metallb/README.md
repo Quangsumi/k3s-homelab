@@ -24,3 +24,7 @@ nodeSelectors:
 -> result: advertisement will only happen at node rpivn
 
 ```
+
+
+Argo CD Application definition: `bootstrap/homelab/applications/metallb.yaml`
+(from the repository root). See [bootstrap recovery and migration](../../bootstrap/README.md).

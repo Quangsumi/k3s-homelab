@@ -4,6 +4,7 @@ metadata:
   name: traefik-tailscale-ha
   namespace: kube-system
   annotations:
+    argocd.argoproj.io/sync-wave: "1"
     tailscale.com/hostname: homelab-traefik-ha
     tailscale.com/proxy-group: traefik-ingress-proxies
 spec:

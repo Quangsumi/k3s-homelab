@@ -61,7 +61,7 @@ The laptop OIDC exec configuration must use the same issuer and client ID:
 
 ```text
 --oidc-issuer-url=https://auth.lab/realms/homelab
---oidc-client-id=kubernetes
+--oidc-client-id=k3s-client
 --certificate-authority=C:\Users\<user>\.kube\rpivn-caddy.crt
 ```
 
@@ -94,7 +94,6 @@ rbac/
 |-- namespace/
 |   |-- apps/            # RoleBindings for application namespaces
 |   `-- infrastructure/  # RoleBindings for infrastructure namespaces
-|-- argocd-app.yaml
 `-- kustomization.yaml
 ```
 
@@ -165,3 +164,9 @@ Until namespace-label generation is introduced:
 
 Do not create a namespace wildcard Role. The built-in roles are the baseline;
 small exceptions should describe the actual missing permission.
+
+
+Argo CD Application definition: `bootstrap/homelab/applications/rbac.yaml`
+(from the repository root). PriorityClasses are managed separately by
+`infrastructure/priority-classes` and must be synced before workloads.
+See [bootstrap recovery and migration](../bootstrap/README.md).

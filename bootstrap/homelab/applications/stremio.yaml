@@ -1,0 +1,20 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: stremio
+  namespace: argocd
+  labels:
+    app.kubernetes.io/part-of: homelab-gitops
+    homelab.quangsumi.io/tier: workload
+spec:
+  project: homelab-workloads
+  source:
+    repoURL: https://github.com/Quangsumi/k3s-homelab.git
+    targetRevision: main
+    path: apps/stremio
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: stremio
+  syncPolicy:
+    syncOptions:
+      - CreateNamespace=true

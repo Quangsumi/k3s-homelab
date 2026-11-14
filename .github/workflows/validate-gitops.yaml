@@ -1,0 +1,32 @@
+name: Validate GitOps
+on:
+  pull_request:
+  push:
+    branches: [main, codex/bootstrap-app-of-apps]
+permissions:
+  contents: read
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: azure/setup-helm@v4
+        with:
+          version: v4.2.3
+      - name: Install verified Kustomize
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/kustomize"
+          gh release download kustomize/v5.8.1 --repo kubernetes-sigs/kustomize \
+            --pattern kustomize_v5.8.1_linux_amd64.tar.gz --pattern checksums.txt \
+            --dir "$RUNNER_TEMP/kustomize"
+          cd "$RUNNER_TEMP/kustomize"
+          sha256sum --check --ignore-missing checksums.txt
+          tar -xzf kustomize_v5.8.1_linux_amd64.tar.gz kustomize
+          echo "$RUNNER_TEMP/kustomize" >> "$GITHUB_PATH"
+      - run: python -m pip install -r scripts/requirements-gitops.txt
+      - run: python scripts/validate-gitops.py --helm

@@ -1,7 +1,4 @@
-oauth:
-  clientId: xxx
-  clientSecret: xxx
-
+# OAuth credentials are provided by ESO through Secret/operator-oauth.
 operatorConfig:
   priorityClassName: homelab-foundation
   resources:

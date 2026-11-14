@@ -46,3 +46,11 @@ kubectl -n cert-manager get certificaterequest,order,challenge
 Setup order: Traefik HTTP routing -> enrollment Secret -> ACME issuer -> canary -> websites individually. Verify the certificate actually served as well as Certificate readiness. Keep website Secret names unchanged; deleting them is unnecessary for an issuer migration.
 
 Keep Caddy's HTTPS for Infisical independent of this issuing path. Back up Infisical's database and original `ENCRYPTION_KEY` together for recovery.
+
+## GitOps ownership
+
+`Application/infisical-acme` is defined in
+`bootstrap/homelab/applications/infisical-acme.yaml` and remains manual-sync.
+The root creates its definition but does not activate the issuer. Complete the
+prerequisite checks before syncing, then verify the issuer with the separate
+canary before enabling consuming sites. See [bootstrap order](../../../bootstrap/README.md).

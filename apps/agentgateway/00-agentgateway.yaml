@@ -26,6 +26,9 @@ spec:
     - secretKey: AGENTGATEWAY_CLIENT_KEY
       remoteRef:
         key: /agentgateway/AGENTGATEWAY_CLIENT_KEY
+    - secretKey: UI_HTPASSWD
+      remoteRef:
+        key: /agentgateway/UI_HTPASSWD
 ---
 apiVersion: v1
 kind: ConfigMap
@@ -40,13 +43,26 @@ data:
         url: "$DATABASE_URL"
       storage:
         mode: hybrid
+
     frontendPolicies:
       accessLog:
         database:
           llm: full
+
     gateways:
       default:
         port: 4000
+      ui-gateway:
+        port: 4001
+
+    ui:
+      gateways: [ui-gateway]
+      policies:
+        basicAuth:
+          mode: strict
+          htpasswd:
+            file: /etc/agentgateway/ui-auth/htpasswd
+
     llm:
       policies:
         apiKey:
@@ -107,11 +123,26 @@ spec:
           ports:
             - name: http
               containerPort: 4000
+            - name: ui
+              containerPort: 4001
             - name: health
               containerPort: 15021
-          envFrom:
-            - secretRef:
-                name: agentgateway-secret-infisical
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: agentgateway-secret-infisical
+                  key: DATABASE_URL
+            - name: OPENROUTER_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: agentgateway-secret-infisical
+                  key: OPENROUTER_API_KEY
+            - name: AGENTGATEWAY_CLIENT_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: agentgateway-secret-infisical
+                  key: AGENTGATEWAY_CLIENT_KEY
           startupProbe:
             httpGet:
               path: /healthz/ready
@@ -132,10 +163,19 @@ spec:
             - name: config
               mountPath: /config
               readOnly: true
+            - name: ui-auth
+              mountPath: /etc/agentgateway/ui-auth
+              readOnly: true
       volumes:
         - name: config
           configMap:
             name: agentgateway-config
+        - name: ui-auth
+          secret:
+            secretName: agentgateway-secret-infisical
+            items:
+              - key: UI_HTPASSWD
+                path: htpasswd
 ---
 apiVersion: v1
 kind: Service
@@ -150,6 +190,9 @@ spec:
     - name: http
       port: 4000
       targetPort: http
+    - name: ui
+      port: 4001
+      targetPort: ui
 ---
 apiVersion: networking.k8s.io/v1
 kind: Ingress
@@ -177,4 +220,11 @@ spec:
               service:
                 name: agentgateway
                 port:
-                  number: 4000
+                  name: http
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: agentgateway
+                port:
+                  name: ui

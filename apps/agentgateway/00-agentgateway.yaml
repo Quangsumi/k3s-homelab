@@ -1,0 +1,180 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: agentgateway
+---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: agentgateway-credentials
+  namespace: agentgateway
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    name: infisical
+    kind: ClusterSecretStore
+  target:
+    name: agentgateway-secret-infisical
+    creationPolicy: Owner
+  data:
+    - secretKey: DATABASE_URL
+      remoteRef:
+        key: /agentgateway/DATABASE_URL
+    - secretKey: OPENROUTER_API_KEY
+      remoteRef:
+        key: /agentgateway/OPENROUTER_API_KEY
+    - secretKey: AGENTGATEWAY_CLIENT_KEY
+      remoteRef:
+        key: /agentgateway/AGENTGATEWAY_CLIENT_KEY
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: agentgateway-config
+  namespace: agentgateway
+data:
+  config.yaml: |
+    config:
+      adminAddr: "127.0.0.1:15000"
+      database:
+        url: "$DATABASE_URL"
+      storage:
+        mode: hybrid
+    frontendPolicies:
+      accessLog:
+        database:
+          llm: full
+    gateways:
+      default:
+        port: 4000
+    llm:
+      policies:
+        apiKey:
+          mode: strict
+          keys:
+            - key: "$AGENTGATEWAY_CLIENT_KEY"
+              metadata:
+                name: homelab-pilot
+                user: homelab
+              allowedModels: [chat-fast]
+      models:
+        - name: openrouter-primary
+          visibility: internal
+          provider: openrouter
+          params:
+            apiKey: "$OPENROUTER_API_KEY"
+            model: openai/gpt-4o-mini
+        - name: openrouter-backup
+          visibility: internal
+          provider: openrouter
+          params:
+            apiKey: "$OPENROUTER_API_KEY"
+            model: openai/gpt-4.1-mini
+      virtualModels:
+        - name: chat-fast
+          routing:
+            failover:
+              targets:
+                - model: openrouter-primary
+                  priority: 0
+                - model: openrouter-backup
+                  priority: 1
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: agentgateway
+  namespace: agentgateway
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: agentgateway
+  template:
+    metadata:
+      labels:
+        app: agentgateway
+    spec:
+      priorityClassName: homelab-dev
+      automountServiceAccountToken: false
+      containers:
+        - name: agentgateway
+          image: cr.agentgateway.dev/agentgateway:v1.7.0
+          imagePullPolicy: IfNotPresent
+          args: ["-f", "/config/config.yaml"]
+          ports:
+            - name: http
+              containerPort: 4000
+            - name: health
+              containerPort: 15021
+          envFrom:
+            - secretRef:
+                name: agentgateway-secret-infisical
+          startupProbe:
+            httpGet:
+              path: /healthz/ready
+              port: health
+            periodSeconds: 2
+            failureThreshold: 60
+          readinessProbe:
+            httpGet:
+              path: /healthz/ready
+              port: health
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              memory: 512Mi
+          volumeMounts:
+            - name: config
+              mountPath: /config
+              readOnly: true
+      volumes:
+        - name: config
+          configMap:
+            name: agentgateway-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: agentgateway
+  namespace: agentgateway
+spec:
+  type: ClusterIP
+  selector:
+    app: agentgateway
+  ports:
+    - name: http
+      port: 4000
+      targetPort: http
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: agentgateway
+  namespace: agentgateway
+  annotations:
+    cert-manager.io/cluster-issuer: infisical-acme
+    cert-manager.io/private-key-algorithm: RSA
+    cert-manager.io/private-key-size: "2048"
+    cert-manager.io/private-key-rotation-policy: Always
+spec:
+  ingressClassName: traefik
+  tls:
+    - hosts:
+        - agentgateway.lab
+      secretName: agentgateway-lab-tls
+  rules:
+    - host: agentgateway.lab
+      http:
+        paths:
+          - path: /v1
+            pathType: Prefix
+            backend:
+              service:
+                name: agentgateway
+                port:
+                  number: 4000

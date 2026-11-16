@@ -52,11 +52,9 @@ data:
     gateways:
       default:
         port: 4000
-      ui-gateway:
-        port: 4001
 
     ui:
-      gateways: [ui-gateway]
+      gateways: [default]
       policies:
         basicAuth:
           mode: strict
@@ -64,6 +62,7 @@ data:
             file: /etc/agentgateway/ui-auth/htpasswd
 
     llm:
+      gateways: [default]
       policies:
         apiKey:
           mode: strict
@@ -79,13 +78,13 @@ data:
           provider: openrouter
           params:
             apiKey: "$OPENROUTER_API_KEY"
-            model: baidu/ernie-5.5-flash-preview:free
+            model: openai/gpt-4o-mini
         - name: openrouter-backup
           visibility: internal
           provider: openrouter
           params:
             apiKey: "$OPENROUTER_API_KEY"
-            model: nvidia/nemotron-3.5-lightning:free
+            model: openai/gpt-4.1-mini
       virtualModels:
         - name: chat-fast
           routing:
@@ -123,8 +122,6 @@ spec:
           ports:
             - name: http
               containerPort: 4000
-            - name: ui
-              containerPort: 4001
             - name: health
               containerPort: 15021
           env:
@@ -190,9 +187,6 @@ spec:
     - name: http
       port: 4000
       targetPort: http
-    - name: ui
-      port: 4001
-      targetPort: ui
 ---
 apiVersion: networking.k8s.io/v1
 kind: Ingress
@@ -214,17 +208,10 @@ spec:
     - host: agentgateway.lab
       http:
         paths:
-          - path: /v1
-            pathType: Prefix
-            backend:
-              service:
-                name: agentgateway
-                port:
-                  name: http
           - path: /
             pathType: Prefix
             backend:
               service:
                 name: agentgateway
                 port:
-                  name: ui
+                  name: http

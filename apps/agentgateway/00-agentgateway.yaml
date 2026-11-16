@@ -63,13 +63,13 @@ data:
           provider: openrouter
           params:
             apiKey: "$OPENROUTER_API_KEY"
-            model: openai/gpt-4o-mini
+            model: baidu/ernie-5.5-flash-preview:free
         - name: openrouter-backup
           visibility: internal
           provider: openrouter
           params:
             apiKey: "$OPENROUTER_API_KEY"
-            model: openai/gpt-4.1-mini
+            model: nvidia/nemotron-3.5-lightning:free
       virtualModels:
         - name: chat-fast
           routing:

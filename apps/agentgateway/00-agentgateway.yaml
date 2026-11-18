@@ -108,26 +108,26 @@ data:
                 user: homelab
               allowedModels: [chat-fast]
       models:
-        - name: openrouter-primary
+        - name: nvidia/nemotron-3-ultra-550b-a55b:free
           visibility: internal
           provider: openrouter
           params:
             apiKey: "$OPENROUTER_API_KEY"
-            model: openai/gpt-4o-mini
-        - name: openrouter-backup
+            model: nvidia/nemotron-3-ultra-550b-a55b:free
+        - name: nvidia/nemotron-3.5-super-vl:free
           visibility: internal
           provider: openrouter
           params:
             apiKey: "$OPENROUTER_API_KEY"
-            model: openai/gpt-4.1-mini
+            model: nvidia/nemotron-3.5-super-vl:free
       virtualModels:
         - name: chat-fast
           routing:
             failover:
               targets:
-                - model: openrouter-primary
+                - model: nvidia/nemotron-3-ultra-550b-a55b:free
                   priority: 0
-                - model: openrouter-backup
+                - model: nvidia/nemotron-3.5-super-vl:free
                   priority: 1
 ---
 apiVersion: apps/v1
@@ -145,7 +145,7 @@ spec:
   template:
     metadata:
       annotations:
-        homelab/config-revision: "20261118-response-body-capture"
+        homelab/config-revision: "20261119-update-config"
       labels:
         app: agentgateway
     spec:

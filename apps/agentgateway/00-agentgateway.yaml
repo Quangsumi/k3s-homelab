@@ -48,6 +48,19 @@ data:
       accessLog:
         database:
           llm: full
+          add:
+            debug.request_body: 'request.body'
+            debug.response_body: 'response.body'
+            debug.tool_calls: 'llm.toolCalls'
+            debug.parameters: 'llm.params'
+            debug.requested_model: 'llm.requestModel'
+            debug.actual_model: 'llm.responseModel'
+            debug.streaming: 'llm.streaming'
+            debug.origin: 'request.headers["origin"]'
+            debug.key_name: 'apiKey.name'
+            debug.backend: 'backend.name'
+            debug.upstream_duration: 'proxy.upstreamDuration'
+            debug.time_to_first_token: 'llm.timeToFirstToken'
 
     gateways:
       default:

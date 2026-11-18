@@ -94,6 +94,11 @@ data:
     llm:
       gateways: [default]
       policies:
+        # v1.7.0 loses the response body snapshot when it re-encodes compressed LLM replies.
+        transformations:
+          request:
+            set:
+              accept-encoding: '"identity"'
         apiKey:
           mode: strict
           keys:
@@ -139,6 +144,8 @@ spec:
       app: agentgateway
   template:
     metadata:
+      annotations:
+        homelab/config-revision: "20261118-response-body-capture"
       labels:
         app: agentgateway
     spec:

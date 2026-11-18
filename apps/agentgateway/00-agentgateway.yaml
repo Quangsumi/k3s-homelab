@@ -45,22 +45,39 @@ data:
         mode: hybrid
 
     frontendPolicies:
+      http:
+        maxBufferSize: 8388608
+
       accessLog:
         database:
           llm: full
           add:
-            debug.request_body: 'request.body'
-            debug.response_body: 'response.body'
-            debug.tool_calls: 'llm.toolCalls'
-            debug.parameters: 'llm.params'
-            debug.requested_model: 'llm.requestModel'
-            debug.actual_model: 'llm.responseModel'
-            debug.streaming: 'llm.streaming'
-            debug.origin: 'request.headers["origin"]'
-            debug.key_name: 'apiKey.name'
-            debug.backend: 'backend.name'
-            debug.upstream_duration: 'proxy.upstreamDuration'
-            debug.time_to_first_token: 'llm.timeToFirstToken'
+            debug.request_body: >-
+              request.path.startsWith("/v1/")
+              ? default(string(request.body), "[body unavailable]")
+              : null
+
+            debug.response_body: >-
+              request.path.startsWith("/v1/")
+              ? default(string(response.body), "[body unavailable]")
+              : null
+
+            debug.response_body_prefix: >-
+              request.path.startsWith("/v1/")
+              ? default(string(response.bodyPrefix), "[prefix unavailable]")
+              : null
+
+            debug.tool_calls: 'default(llm.toolCalls, [])'
+            debug.parameters: 'default(llm.params, {})'
+            debug.requested_model: 'default(llm.requestModel, "")'
+            debug.actual_model: 'default(llm.responseModel, "")'
+            debug.streaming: 'default(llm.streaming, false)'
+
+            debug.origin: 'default(request.headers["origin"], "")'
+            debug.key_name: 'default(apiKey.name, "")'
+            debug.backend: 'default(backend.name, "")'
+            debug.upstream_duration: 'default(proxy.upstreamDuration, "")'
+            debug.time_to_first_token: 'default(llm.timeToFirstToken, "")'
 
     gateways:
       default:

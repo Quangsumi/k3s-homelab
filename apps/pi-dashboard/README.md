@@ -1,21 +1,11 @@
 ### Pod Security Admission (PSA) - Pod YAML validator at creation time.
 
-#### recollect biteforce incident
+#### Recollect Biteforce Incident
 
-Tombstone submitted the Pod JSON on stdin with `k3s kubectl -n kube-system create -f -`. The privileged Pod ran on Biteforce and mounted the host’s `/` at `/host`.
-
-```text
-Biteforce host     /etc/rancher/k3s
-Inside the Pod     /host/etc/rancher/k3s   ← hostPath mount
-After chroot       /etc/rancher/k3s        ← chroot /host
-```
-
-All three paths point to Biteforce’s K3s config. The script edited it and restarted K3s.
-
-Send the Biteforce Pod’s host-access settings to `pi-dashboard` as a dry run.
+Tombstone submitted a privileged Pod. The privileged Pod ran on Biteforce and mounted the Biteforce's whole filesystem `/` at `/host` inside the pod.
 
 ```bash
-kubectl -n pi-dashboard create --dry-run=server -f - <<'YAML'
+kubectl -n pi-dashboard create -f - <<'YAML'
 apiVersion: v1
 kind: Pod
 metadata:
@@ -37,7 +27,15 @@ spec:
 YAML
 ```
 
-With Pod-create permission, expect `Forbidden` with `violates PodSecurity "restricted:latest"`. In `pi-dashboard`, `enforce` blocks the privileged Pod and its host mount. `warn` and `audit` only report. The dry run starts no Pod.
+```text
+Biteforce host     /
+Inside the Pod     /host                   ← hostPath mount
+After chroot       /                       ← chroot /host
+```
+
+All three paths point to Biteforce’s `/`. The script from Tombstone then can manipulate Biteforce.
+
+With Pod Security Admission (PSA), it can block the privileged Pod and its host mount.
 
 ```
 Argo CD submits Deployment

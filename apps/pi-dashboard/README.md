@@ -1,25 +1,26 @@
 ### Pod Security Admission (PSA) - Pod YAML validator at creation time.
 
-#### Biteforce maintenance in three steps
+#### Biteforce maintenance
 
-| Where | What happened |
-|---|---|
-| Tombstone | `k3s kubectl -n kube-system create -f -` read the temporary Pod’s JSON from stdin. |
-| Pod on Biteforce | A writable `hostPath` mount exposed Biteforce’s `/` at `/host`. `privileged: true` let the script run `chroot /host`. |
-| Biteforce host | After `chroot`, `/etc/rancher/k3s` pointed to Biteforce’s config. The script edited it and restarted K3s through systemd. |
+Tombstone submitted the Pod JSON on stdin with `k3s kubectl -n kube-system create -f -`. The privileged Pod ran on Biteforce and mounted the host’s `/` at `/host`.
 
-**In `pi-dashboard`**, `enforce: restricted` blocks privileged mode and host mounts even when RBAC allows Pod creation. `warn` shows a warning. `audit` adds an audit annotation.
+```text
+Biteforce host     /etc/rancher/k3s
+Inside the Pod     /host/etc/rancher/k3s   ← hostPath mount
+After chroot       /etc/rancher/k3s        ← chroot /host
+```
+
+All three paths point to Biteforce’s K3s config. The script edited it and restarted K3s.
+
+**In `pi-dashboard`, `enforce: restricted` rejects either `privileged: true` or a `hostPath` mount.** `warn` and `audit` only report.
 
 ```bash
-# See the namespace policy
-kubectl get namespace pi-dashboard --show-labels
-
-# Test the privileged request without starting a Pod
-kubectl -n pi-dashboard run psa-privileged-check --image=busybox:1.36.1 \
+kubectl get ns pi-dashboard --show-labels
+kubectl -n pi-dashboard run psa-check --image=busybox:1.36.1 \
   --privileged --restart=Never --dry-run=server
 ```
 
-**Expected with Pod-create permission** · `Forbidden` with `violates PodSecurity "restricted:latest"`.
+With permission to create Pods, expect `Forbidden` with `violates PodSecurity "restricted:latest"`. The dry run starts no Pod.
 
 ```
 Argo CD submits Deployment

@@ -1,10 +1,11 @@
 # From ansible/: ansible-playbook playbooks/certificates/main.yml --limit rpivn --check --diff
-# Copy public trust files only. No issuance, Kubernetes changes or service restarts.
-- name: Copy public CA bundles to one selected host
+# Distribute public trust files and render K3s OIDC configuration.
+- name: Distribute public trust to one selected host
   hosts: pki_consumers
   gather_facts: false
   vars:
     pki_dir: "{{ playbook_dir }}/../../../pki"
+    rpivn_caddy_ca_src: "{{ pki_dir }}/public/rpivn-caddy.crt"
 
   tasks:
     - name: Require one explicitly selected host
@@ -44,14 +45,29 @@
         - { src: public/tantrum-caddy.crt, dest: tantrum-caddy.pem }
       when: inventory_hostname == 'valkyrie'
 
-    # Only OIDC trust is copied. K3s internal CA files are not managed here.
-    - name: Copy Caddy trust for control-plane OIDC
+    # Both destinations use the same public CA from the repository.
+    - name: Distribute Caddy trust for control-plane OIDC
       become: "{{ ansible_user != 'root' }}"
-      ansible.builtin.copy:
-        src: "{{ pki_dir }}/public/rpivn-caddy.crt"
-        dest: /etc/rancher/k3s/certs/rpivn-caddy.crt
-        owner: root
-        group: root
-        mode: '0644'
-        backup: true
       when: inventory_hostname in groups['control_planes']
+      block:
+        - name: Copy the standalone Caddy CA
+          ansible.builtin.copy:
+            src: "{{ rpivn_caddy_ca_src }}"
+            dest: /etc/rancher/k3s/certs/rpivn-caddy.crt
+            owner: root
+            group: root
+            mode: '0644'
+            backup: true
+
+        # Kubernetes expects inline PEM in certificateAuthority. The template
+        # reads the same source as the copy task, so a CA rotation updates both.
+        # K3s reads this host file via --authentication-config and can reload it
+        # when its contents change.
+        - name: Render K3s authentication config with the Caddy CA
+          ansible.builtin.template:
+            src: authentication.yaml.j2
+            dest: /etc/rancher/k3s/authentication.yaml
+            owner: root
+            group: root
+            mode: '0600'
+            backup: true

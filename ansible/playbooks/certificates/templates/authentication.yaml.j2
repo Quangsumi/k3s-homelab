@@ -1,0 +1,18 @@
+apiVersion: apiserver.config.k8s.io/v1
+kind: AuthenticationConfiguration
+jwt:
+  - issuer:
+      url: https://auth.lab/realms/homelab
+      certificateAuthority: |
+{{ lookup('ansible.builtin.file', rpivn_caddy_ca_src) | indent(8, true) }}
+      audiences:
+        - kubelogin-standard-flow
+        - kubelogin-device-flow
+      audienceMatchPolicy: MatchAny
+    claimMappings:
+      username:
+        claim: preferred_username
+        prefix: "oidc:"
+      groups:
+        claim: groups
+        prefix: "oidc:"

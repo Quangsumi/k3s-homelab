@@ -1,4 +1,25 @@
 ### Pod Security Admission (PSA) - Pod YAML validator at creation time.
+
+#### Biteforce maintenance example
+
+During K3s maintenance on Biteforce, the script on Tombstone sent a temporary Pod definition to the API using `kubectl create`.
+
+```bash
+k3s kubectl -n kube-system create -f -
+```
+
+`-f -` read the Pod JSON from standard input. The JSON assigned the Pod to Biteforce, set `privileged: true`, and mounted Biteforce’s `/` at `/host` using a writable `hostPath` volume. Running `chroot /host` inside the Pod made `/etc/rancher/k3s` resolve to Biteforce’s host files. The maintenance script used that access to update the host config and restart K3s.
+
+Check the namespace labels, then test admission with a server-side dry run using an account that can create Pods in `pi-dashboard`.
+
+```bash
+kubectl get namespace pi-dashboard --show-labels
+kubectl -n pi-dashboard run psa-privileged-check --image=busybox:1.36.1 \
+  --privileged --restart=Never --dry-run=server
+```
+
+The second command requests privileged mode without mounting host files. Expect `Forbidden` with `violates PodSecurity "restricted:latest"`. The API server evaluates the request without creating a Pod. `enforce: restricted` blocks the request even when RBAC permits Pod creation, while `warn` and `audit` report violations.
+
 ```
 Argo CD submits Deployment
         ↓
@@ -42,7 +63,3 @@ pod-security.kubernetes.io/enforce: restricted
 If insecure pod was already running before adding labels: PSA does not kill existing pods
 But when that pod is deleted/restarted/rescheduled/replaced: PSA checks it and rejects it
 ```
-
-#### Why the labels matter
-
-During K3s maintenance on Biteforce, a temporary privileged Pod in `kube-system` mounted the node’s root filesystem with `hostPath`. That let the operator edit host configuration and restart K3s. In `pi-dashboard`, `enforce: restricted` rejects that Pod spec at admission even when RBAC allows Pod creation. The `warn` and `audit` labels report violations without blocking the request.

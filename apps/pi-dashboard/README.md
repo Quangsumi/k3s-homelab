@@ -42,3 +42,7 @@ pod-security.kubernetes.io/enforce: restricted
 If insecure pod was already running before adding labels: PSA does not kill existing pods
 But when that pod is deleted/restarted/rescheduled/replaced: PSA checks it and rejects it
 ```
+
+#### Why the labels matter
+
+During K3s maintenance on Biteforce, a temporary privileged Pod in `kube-system` mounted the node’s root filesystem with `hostPath`. That let the operator edit host configuration and restart K3s. In `pi-dashboard`, `enforce: restricted` rejects that Pod spec at admission even when RBAC allows Pod creation. The `warn` and `audit` labels report violations without blocking the request.

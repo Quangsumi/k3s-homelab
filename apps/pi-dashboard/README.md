@@ -1,6 +1,6 @@
 ### Pod Security Admission (PSA) - Pod YAML validator at creation time.
 
-#### Biteforce maintenance
+#### recollect biteforce incident
 
 Tombstone submitted the Pod JSON on stdin with `k3s kubectl -n kube-system create -f -`. The privileged Pod ran on Biteforce and mounted the host’s `/` at `/host`.
 

@@ -1,4 +1,42 @@
 ### Pod Security Admission (PSA) - Pod YAML validator at creation time.
+
+#### Recollect Biteforce Incident
+
+Tombstone submitted a privileged Pod. The privileged Pod ran on Biteforce and mounted the Biteforce's whole filesystem `/` at `/host` inside the pod.
+
+```bash
+kubectl -n pi-dashboard create -f - <<'YAML'
+apiVersion: v1
+kind: Pod
+metadata:
+  name: biteforce-maintenance-check
+spec:
+  nodeName: biteforce
+  hostNetwork: true
+  hostPID: true
+  automountServiceAccountToken: false
+  containers:
+    - name: maintenance
+      image: busybox:1.36.1
+      securityContext: {privileged: true}
+      volumeMounts:
+        - {name: host-root, mountPath: /host}
+  volumes:
+    - name: host-root
+      hostPath: {path: /, type: Directory}
+YAML
+```
+
+```text
+Biteforce host     /
+Inside the Pod     /host                   ← hostPath mount
+After chroot       /                       ← chroot /host
+```
+
+All three paths point to Biteforce’s `/`. The script from Tombstone then can manipulate Biteforce.
+
+With Pod Security Admission (PSA), it can block the privileged Pod and its host mount.
+
 ```
 Argo CD submits Deployment
         ↓

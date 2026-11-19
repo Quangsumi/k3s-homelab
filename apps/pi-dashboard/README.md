@@ -12,15 +12,32 @@ After chroot       /etc/rancher/k3s        ← chroot /host
 
 All three paths point to Biteforce’s K3s config. The script edited it and restarted K3s.
 
-**In `pi-dashboard`, `enforce: restricted` rejects either `privileged: true` or a `hostPath` mount.** `warn` and `audit` only report.
+Send the Biteforce Pod’s host-access settings to `pi-dashboard` as a dry run.
 
 ```bash
-kubectl get ns pi-dashboard --show-labels
-kubectl -n pi-dashboard run psa-check --image=busybox:1.36.1 \
-  --privileged --restart=Never --dry-run=server
+kubectl -n pi-dashboard create --dry-run=server -f - <<'YAML'
+apiVersion: v1
+kind: Pod
+metadata:
+  name: biteforce-maintenance-check
+spec:
+  nodeName: biteforce
+  hostNetwork: true
+  hostPID: true
+  automountServiceAccountToken: false
+  containers:
+    - name: maintenance
+      image: busybox:1.36.1
+      securityContext: {privileged: true}
+      volumeMounts:
+        - {name: host-root, mountPath: /host}
+  volumes:
+    - name: host-root
+      hostPath: {path: /, type: Directory}
+YAML
 ```
 
-With permission to create Pods, expect `Forbidden` with `violates PodSecurity "restricted:latest"`. The dry run starts no Pod.
+With Pod-create permission, expect `Forbidden` with `violates PodSecurity "restricted:latest"`. In `pi-dashboard`, `enforce` blocks the privileged Pod and its host mount. `warn` and `audit` only report. The dry run starts no Pod.
 
 ```
 Argo CD submits Deployment

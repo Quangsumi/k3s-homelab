@@ -1,24 +1,25 @@
 ### Pod Security Admission (PSA) - Pod YAML validator at creation time.
 
-#### Biteforce maintenance example
+#### Biteforce maintenance in three steps
 
-During K3s maintenance on Biteforce, the script on Tombstone sent a temporary Pod definition to the API using `kubectl create`.
+| Where | What happened |
+|---|---|
+| Tombstone | `k3s kubectl -n kube-system create -f -` read the temporary Pod’s JSON from stdin. |
+| Pod on Biteforce | A writable `hostPath` mount exposed Biteforce’s `/` at `/host`. `privileged: true` let the script run `chroot /host`. |
+| Biteforce host | After `chroot`, `/etc/rancher/k3s` pointed to Biteforce’s config. The script edited it and restarted K3s through systemd. |
 
-```bash
-k3s kubectl -n kube-system create -f -
-```
-
-`-f -` read the Pod JSON from standard input. The JSON assigned the Pod to Biteforce, set `privileged: true`, and mounted Biteforce’s `/` at `/host` using a writable `hostPath` volume. Running `chroot /host` inside the Pod made `/etc/rancher/k3s` resolve to Biteforce’s host files. The maintenance script used that access to update the host config and restart K3s.
-
-Check the namespace labels, then test admission with a server-side dry run using an account that can create Pods in `pi-dashboard`.
+**In `pi-dashboard`**, `enforce: restricted` blocks privileged mode and host mounts even when RBAC allows Pod creation. `warn` shows a warning. `audit` adds an audit annotation.
 
 ```bash
+# See the namespace policy
 kubectl get namespace pi-dashboard --show-labels
+
+# Test the privileged request without starting a Pod
 kubectl -n pi-dashboard run psa-privileged-check --image=busybox:1.36.1 \
   --privileged --restart=Never --dry-run=server
 ```
 
-The second command requests privileged mode without mounting host files. Expect `Forbidden` with `violates PodSecurity "restricted:latest"`. The API server evaluates the request without creating a Pod. `enforce: restricted` blocks the request even when RBAC permits Pod creation, while `warn` and `audit` report violations.
+**Expected with Pod-create permission** · `Forbidden` with `violates PodSecurity "restricted:latest"`.
 
 ```
 Argo CD submits Deployment

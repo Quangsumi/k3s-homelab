@@ -16,6 +16,10 @@ kind: Deployment
 metadata:
   name: kanboard
   namespace: kanboard
+  annotations:
+    # Argo CD applies the proxy and NetworkPolicies in the default wave (0).
+    # Enable trusted-header login in wave 1, after the policies are in place.
+    argocd.argoproj.io/sync-wave: "1"
 spec:
   replicas: 1
   # SQLite and the RWO volume must have only one application writer.
@@ -45,6 +49,21 @@ spec:
               value: "false"
             - name: LOG_DRIVER
               value: stderr
+            - name: REVERSE_PROXY_AUTH
+              value: "true"
+            # PHP exposes the proxy's X-Forwarded-Preferred-Username and
+            # X-Forwarded-Email headers under these HTTP_* names.
+            - name: REVERSE_PROXY_USER_HEADER
+              value: HTTP_X_FORWARDED_PREFERRED_USERNAME
+            - name: REVERSE_PROXY_EMAIL_HEADER
+              value: HTTP_X_FORWARDED_EMAIL
+            # Kanboard requires a trusted source IP before it accepts the
+            # identity headers. Use the K3s pod CIDR because proxy IPs can change.
+            # The NetworkPolicy allows only Kanboard's proxy pods in that range.
+            - name: TRUSTED_PROXY_NETWORKS
+              value: 10.42.0.0/16
+            - name: HIDE_LOGIN_FORM
+              value: "true"
           startupProbe:
             httpGet:
               path: /healthcheck.php
@@ -100,6 +119,9 @@ metadata:
   name: kanboard
   namespace: kanboard
   annotations:
+    # Wave 1 also moves the public route to the proxy after the wave 0 setup.
+    # The Ingress and Deployment have no separate wait between them.
+    argocd.argoproj.io/sync-wave: "1"
     # cert-manager.io/cluster-issuer: homelab-ca
     cert-manager.io/cluster-issuer: infisical-acme
     cert-manager.io/private-key-algorithm: RSA
@@ -119,6 +141,7 @@ spec:
             pathType: Prefix
             backend:
               service:
-                name: kanboard
+                # Both the app paths and /oauth2/callback reach the proxy.
+                name: kanboard-oauth2-proxy
                 port:
-                  number: 80
+                  number: 4180

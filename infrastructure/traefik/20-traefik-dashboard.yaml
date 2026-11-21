@@ -1,6 +1,54 @@
-# normal Ingress works with cert-manager.io/cluster-issuer: infisical-acme
-# cert-manager's ingress-shim watches standard Kubernetes Ingress resources. 
-# It does not automatically do the same thing for Traefik's IngressRoute CRD.
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: traefik-dashboard
+  namespace: kube-system
+spec:
+  entryPoints:
+    - websecure
+
+  # Each request matches its own route. YAML order is for reading.
+  routes:
+    # Check auth before serving either the dashboard or its API.
+    - match: Host(`traefik.lab`) && (PathPrefix(`/dashboard`) || PathPrefix(`/api`))
+      kind: Rule
+      middlewares:
+        - name: dashboard-oauth2-proxy
+      services:
+        - name: api@internal
+          kind: TraefikService
+    # Keycloak's callback and other OAuth endpoints go directly to the
+    # proxy Service so the proxy can establish the browser session.
+    - match: Host(`traefik.lab`) && PathPrefix(`/oauth2/`)
+      kind: Rule
+      services:
+        - name: traefik-dashboard-oauth2-proxy
+          port: 4180
+
+  tls:
+    secretName: traefik-lab-tls
+
+---
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: dashboard-oauth2-proxy
+  namespace: kube-system
+spec:
+  forwardAuth:
+    # Send an auth subrequest to the OAuth2 Proxy Service. On 202, Traefik
+    # serves api@internal. On a login redirect, Traefik returns it to the browser.
+    address: http://traefik-dashboard-oauth2-proxy.kube-system.svc.cluster.local:4180/
+    # OAuth2 Proxy can split large sessions into multiple cookies.
+    addAuthCookiesToResponse:
+      - __Host-traefik_dashboard_oauth2
+      - __Host-traefik_dashboard_oauth2_0
+      - __Host-traefik_dashboard_oauth2_1
+      - __Host-traefik_dashboard_oauth2_2
+      - __Host-traefik_dashboard_oauth2_3
+
+---
+# cert-manager provisions the TLS Secret referenced by the route.
 apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
@@ -20,23 +68,3 @@ spec:
 
   dnsNames:
     - traefik.lab
-
----
-apiVersion: traefik.io/v1alpha1
-kind: IngressRoute
-metadata:
-  name: traefik-dashboard
-  namespace: kube-system
-spec:
-  entryPoints:
-    - websecure
-
-  routes:
-    - match: Host(`traefik.lab`) && (PathPrefix(`/dashboard`) || PathPrefix(`/api`))
-      kind: Rule
-      services:
-        - name: api@internal
-          kind: TraefikService
-
-  tls:
-    secretName: traefik-lab-tls

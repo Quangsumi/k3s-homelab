@@ -4,3 +4,10 @@ resources:
   - 05-otel-gateway-app-auth.yaml
   - 10-resource-config.yaml
   - 20-traefik-dashboard.yaml
+  - 25-dashboard-oauth2-proxy.yaml
+
+configMapGenerator:
+  - name: traefik-dashboard-oauth2-proxy-config
+    namespace: kube-system
+    files:
+      - oauth2-proxy.cfg

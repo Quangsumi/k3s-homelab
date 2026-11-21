@@ -8,7 +8,11 @@ jwt:
       audiences:
         - kubelogin-standard-flow
         - kubelogin-device-flow
-      audienceMatchPolicy: MatchAny
+      
+      # aud claim matches either audience is accepted
+      audienceMatchPolicy: MatchAny  
+    
+    # Authentication: extract these claims from id token (preferred_username and groups)
     claimMappings:
       username:
         claim: preferred_username
@@ -16,3 +20,6 @@ jwt:
       groups:
         claim: groups
         prefix: "oidc:"
+
+    # Authorization: k3s RBAC mapping succeeds if role bindings are configured for them, Group or User or both
+    # see ../../rbac/cluster/ 

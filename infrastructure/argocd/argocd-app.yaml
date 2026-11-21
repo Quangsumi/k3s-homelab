@@ -95,11 +95,11 @@ spec:
               policy.default: ''
               scopes: '[argocd_roles]'
               policy.csv: |
-                p, role:deployer, applications, sync, default/*, allow
-                g, role:deployer, role:readonly
-                g, argocd-viewer, role:readonly
-                g, argocd-deployer, role:deployer
-                g, argocd-admin, role:admin
+                  p, role:deployer, applications, sync, default/*, allow
+                  g, role:deployer, role:readonly
+                  g, cr-argocd-view, role:readonly
+                  g, cr-argocd-deploy, role:deployer
+                  g, cr-argocd-admin, role:admin
           
     - repoURL: https://github.com/Quangsumi/k3s-homelab.git
       targetRevision: main

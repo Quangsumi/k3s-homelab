@@ -25,7 +25,7 @@ OAUTH2_CONFIG = [
         "OAUTH2_SCOPE": "openid email profile",
         "OAUTH2_USERNAME_CLAIM": "preferred_username",
         "OAUTH2_ADDITIONAL_CLAIMS": {
-            "pgadmin_roles": ["pgadmin-access"],
+            "pgadmin_roles": ["cr-pgadmin-access"],
         },
         "OAUTH2_SSL_CERT_VERIFICATION": True,
         "OAUTH2_CHALLENGE_METHOD": "S256",

@@ -24,7 +24,12 @@ kind: Deployment
 metadata:
   name: kanboard-oauth2-proxy
 spec:
-  replicas: 1
+  replicas: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 1
+      maxSurge: 0
   selector:
     matchLabels:
       app.kubernetes.io/name: oauth2-proxy
@@ -35,7 +40,17 @@ spec:
         app.kubernetes.io/name: oauth2-proxy
         app.kubernetes.io/instance: kanboard
     spec:
-      priorityClassName: homelab-dev
+      priorityClassName: homelab-optional
+
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchLabels:
+                  app.kubernetes.io/name: oauth2-proxy
+                  app.kubernetes.io/instance: kanboard
+              topologyKey: kubernetes.io/hostname
+
       automountServiceAccountToken: false
       securityContext:
         runAsNonRoot: true

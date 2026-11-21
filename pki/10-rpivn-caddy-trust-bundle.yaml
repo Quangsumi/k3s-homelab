@@ -23,3 +23,6 @@ spec:
         - monitoring
         - longhorn-system
         - litellm
+        - agentgateway
+        - kanboard
+        - kube-system

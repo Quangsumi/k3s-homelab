@@ -26,9 +26,12 @@ spec:
     - secretKey: AGENTGATEWAY_CLIENT_KEY
       remoteRef:
         key: /agentgateway/AGENTGATEWAY_CLIENT_KEY
-    - secretKey: UI_HTPASSWD
+    - secretKey: OIDC_CLIENT_SECRET
       remoteRef:
-        key: /agentgateway/UI_HTPASSWD
+        key: /agentgateway/OIDC_CLIENT_SECRET
+    - secretKey: OIDC_COOKIE_SECRET
+      remoteRef:
+        key: /agentgateway/OIDC_COOKIE_SECRET
 ---
 apiVersion: v1
 kind: ConfigMap
@@ -86,10 +89,17 @@ data:
     ui:
       gateways: [default]
       policies:
-        basicAuth:
-          mode: strict
-          htpasswd:
-            file: /etc/agentgateway/ui-auth/htpasswd
+        oidc:
+          issuer: https://auth.lab/realms/homelab
+          clientId: agentgateway-ui
+          clientSecret: "$OIDC_CLIENT_SECRET"
+          redirectURI: https://agentgateway.lab/oauth/callback
+          scopes: [profile, email]
+          credentials: session
+        authorization:
+          # Keycloak adds this client-role claim to the browser's ID token.
+          rules:
+            - '"cr-agentgateway-ui-access" in default(jwt.agentgateway_roles, [])'
 
     llm:
       gateways: [default]
@@ -145,7 +155,7 @@ spec:
   template:
     metadata:
       annotations:
-        homelab/config-revision: "20261119-update-config"
+        homelab/config-revision: "keycloak-ui-oidc"
       labels:
         app: agentgateway
     spec:
@@ -177,6 +187,18 @@ spec:
                 secretKeyRef:
                   name: agentgateway-secret-infisical
                   key: AGENTGATEWAY_CLIENT_KEY
+            - name: OIDC_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: agentgateway-secret-infisical
+                  key: OIDC_CLIENT_SECRET
+            - name: OIDC_COOKIE_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: agentgateway-secret-infisical
+                  key: OIDC_COOKIE_SECRET
+            - name: SSL_CERT_FILE
+              value: /etc/homelab/trust/ca-bundle.pem
           startupProbe:
             httpGet:
               path: /healthz/ready
@@ -197,19 +219,16 @@ spec:
             - name: config
               mountPath: /config
               readOnly: true
-            - name: ui-auth
-              mountPath: /etc/agentgateway/ui-auth
+            - name: trust
+              mountPath: /etc/homelab/trust
               readOnly: true
       volumes:
         - name: config
           configMap:
             name: agentgateway-config
-        - name: ui-auth
-          secret:
-            secretName: agentgateway-secret-infisical
-            items:
-              - key: UI_HTPASSWD
-                path: htpasswd
+        - name: trust
+          configMap:
+            name: caddy-trust-bundle
 ---
 apiVersion: v1
 kind: Service

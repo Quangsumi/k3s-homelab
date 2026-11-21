@@ -13,7 +13,7 @@
         that:
           - ansible_limit | default('') | length > 0
           - ansible_play_hosts_all | length == 1
-        fail_msg: Use --limit rpivn, tombstone, whyachi or biteforce, one at a time.
+        fail_msg: Select one PKI consumer by inventory hostname with --limit.
 
     # The Pi user owns this existing directory; keep the filenames consumers use.
     - name: Copy certs to rpivn
@@ -44,6 +44,23 @@
         # arcane-agent on valkyrie use this to communicate with arcane-server which is behind the Caddy on tantrum
         - { src: public/tantrum-caddy.crt, dest: tantrum-caddy.pem }
       when: inventory_hostname == 'valkyrie'
+
+    - name: Trust Keycloak's HTTPS issuer on Proxmox VE
+      when: inventory_hostname in groups['proxmox_hosts']
+      block:
+        # Proxmox uses the host trust store when it contacts auth.lab.
+        - name: Install the public rpivn Caddy CA
+          ansible.builtin.copy:
+            src: "{{ rpivn_caddy_ca_src }}"
+            dest: /usr/local/share/ca-certificates/rpivn-caddy.crt
+            owner: root
+            group: root
+            mode: '0644'
+
+        - name: Refresh the system CA bundle
+          ansible.builtin.command: update-ca-certificates
+          register: proxmox_pki_refresh
+          changed_when: "'0 added, 0 removed' not in proxmox_pki_refresh.stdout"
 
     # Both destinations use the same public CA from the repository.
     - name: Distribute Caddy trust for control-plane OIDC

@@ -38,6 +38,20 @@ coder:
       value: "1"
     - name: CODER_SECURE_AUTH_COOKIE
       value: "true"
+    - name: CODER_OIDC_ISSUER_URL
+      value: https://auth.lab/realms/homelab
+    - name: CODER_OIDC_CLIENT_ID
+      value: coder
+    - name: CODER_OIDC_SIGN_IN_TEXT
+      value: Sign in with Keycloak
+    - name: CODER_OIDC_CLIENT_SECRET
+      valueFrom:
+        secretKeyRef:
+          name: coder-oidc
+          key: client-secret
+    # An administrator provisions accounts and assigns Coder permissions.
+    - name: CODER_OIDC_ALLOW_SIGNUPS
+      value: "false"
     - name: SSL_CERT_FILE
       value: /etc/homelab/trust/ca-bundle.pem
   volumes:

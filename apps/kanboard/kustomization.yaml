@@ -4,3 +4,10 @@ namespace: kanboard
 resources:
   - 00-namespace.yaml
   - 05-deployment.yaml
+  - 10-oauth2-proxy.yaml
+  - 20-network-policies.yaml
+
+configMapGenerator:
+  - name: kanboard-oauth2-proxy-config
+    files:
+      - oauth2-proxy.cfg

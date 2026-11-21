@@ -8,8 +8,9 @@ jwt:
       audiences:
         - kubelogin-standard-flow
         - kubelogin-device-flow
+        - headlamp-tantrum
       
-      # aud claim matches either audience is accepted
+      # Accept ID tokens with an audience from the list above.
       audienceMatchPolicy: MatchAny  
     
     # Authentication: extract these claims from id token (preferred_username and groups)

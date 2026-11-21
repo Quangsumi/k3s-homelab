@@ -17,6 +17,7 @@ spec:
       services:
         - name: api@internal
           kind: TraefikService
+          
     # Keycloak's callback and other OAuth endpoints go directly to the
     # proxy Service so the proxy can establish the browser session.
     - match: Host(`traefik.lab`) && PathPrefix(`/oauth2/`)
@@ -48,7 +49,9 @@ spec:
       - __Host-traefik_dashboard_oauth2_3
 
 ---
-# cert-manager provisions the TLS Secret referenced by the route.
+# normal Ingress works with cert-manager.io/cluster-issuer: infisical-acme
+# cert-manager's ingress-shim watches standard Kubernetes Ingress resources. 
+# It does not automatically do the same thing for Traefik's IngressRoute CRD.
 apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:

@@ -45,6 +45,18 @@
         - { src: public/tantrum-caddy.crt, dest: tantrum-caddy.pem }
       when: inventory_hostname == 'valkyrie'
 
+    # Tantrum containers mount the outbound bundle to verify Keycloak and lab services.
+    - name: Publish the outbound CA bundle for Tantrum monitoring
+      become: true
+      ansible.builtin.template:
+        src: tantrum-outbound-ca-bundle.pem.j2
+        dest: /home/tantrum/tantrum-monitoring/shared/trust/outbound-ca-bundle.pem
+        owner: root
+        group: root
+        mode: '0644'
+        backup: true
+      when: inventory_hostname == 'tantrum'
+
     - name: Trust Keycloak's HTTPS issuer on Proxmox VE
       when: inventory_hostname in groups['proxmox_hosts']
       block:

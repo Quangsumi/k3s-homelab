@@ -34,3 +34,21 @@ ansible-playbook playbooks/certificates/main.yml --limit tombstone --diff --ask-
 Replace `tombstone` with `whyachi` or `biteforce`; omit the password prompt where sudo is passwordless. Existing vault options also work.
 
 Exactly one host is required. Changed file contents are backed up; no services restart and no Kubernetes resources change. Test the affected connection after any needed manual reload.
+
+## Tantrum monitoring
+
+Ansible combines the Homelab application roots and Rpivn Caddy root from
+`pki/` into `shared/trust/outbound-ca-bundle.pem` in the existing
+`/home/tantrum/tantrum-monitoring` checkout. Containers use it to verify
+outbound HTTPS. Browsers and agents verify Tantrum HTTPS using Tantrum's Caddy
+root.
+
+From `ansible/`, preview the update and then publish the bundle:
+
+```bash
+ansible-playbook playbooks/certificates/main.yml --limit tantrum --check --diff --ask-become-pass
+ansible-playbook playbooks/certificates/main.yml --limit tantrum --diff --ask-become-pass
+```
+
+Omit `--ask-become-pass` if sudo is passwordless. Recreate any consuming
+containers that need to reload the CA file after an update.

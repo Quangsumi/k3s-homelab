@@ -6,6 +6,8 @@ metadata:
 spec:
   secretName: coder-workspace-apps-tls
   # The coder.lab ingress uses the HTTP-01 issuer, which cannot issue wildcards.
+  # infisical-acme issuer uses HTTP-01, which cannot issue wildcard certificates like test.coder.lab
+  # use this issuer homelab-ca instead, this is local sign issuer, sign by cert-manager using Homelab CA private key saved as secret on this cluster
   issuerRef:
     kind: ClusterIssuer
     name: homelab-ca

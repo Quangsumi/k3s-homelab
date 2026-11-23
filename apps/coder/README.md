@@ -141,11 +141,85 @@ kubectl -n coder-workspaces describe pod <workspace-pod>
 
 ## Shared workspace access
 
-1. In Pi-hole, resolve `*.coder.lab` to the same Traefik IP as `coder.lab`.
-   In Pi-hole v6, append `address=/coder.lab/<Traefik-IP>` to
-   `misc.dnsmasq_lines` to cover the base hostname and its subdomains. Verify
-   from the collaborator's device with `nslookup test.coder.lab`.
-2. After merging, sync **coder** in Argo CD. The wildcard Ingress sends editor
+Coder gives each browser editor its own hostname under `coder.lab`. That
+isolates the editor from the dashboard in the browser, which lets Coder grant
+access to collaborators. Pi-hole answers DNS lookups so the browser knows which
+IP to connect to. One wildcard rule covers all the editor hostnames.
+
+```mermaid
+flowchart TD
+  Browser["Browser opens the VS Code hostname"]
+  DNS["Pi-hole DNS on rpivn"]
+  Tailscale["Tailscale ingress at 100.85.79.219"]
+  Traefik["Traefik in K3s"]
+  Coder["Coder checks workspace sharing permissions"]
+  Editor["VS Code Browser in the owner's running workspace"]
+
+  Browser -->|"1. Look up the editor hostname"| DNS
+  DNS -->|"2. Reply with 100.85.79.219"| Browser
+  Browser -->|"3. Connect over HTTPS using the editor hostname"| Tailscale
+  Tailscale -->|"4. Forward to the cluster"| Traefik
+  Traefik -->|"5. Use the *.coder.lab route"| Coder
+  Coder -->|"6. Forward the allowed user's connection"| Editor
+```
+
+### 1. Check Pi-hole DNS
+
+Run these commands in PowerShell or a terminal on the device that will open the shared editor.
+
+```bash
+nslookup coder.lab       # Find the IP used by the Coder dashboard.
+nslookup test.coder.lab  # Check whether a subdomain gets the same IP.
+```
+
+If both return the same IP, proceed to the Coder rollout below. The current
+[Tailscale ingress](../../infrastructure/tailscale/10-traefik-tailscale-service.yaml)
+address for Traefik is `100.85.79.219`. To look up the dashboard record in Pi-hole,
+open `https://pihole.lab/admin/`, sign in, then click **Settings → Local DNS
+Records** and look for `coder.lab`.
+
+If the subdomain fails to resolve, try `nslookup test.coder.lab 192.168.63.102`.
+This asks Pi-hole on `rpivn` directly. If it returns the expected IP, check that
+the device uses the lab DNS. If Pi-hole itself has no answer, add the wildcard rule
+using the Pi-hole Compose file. **Local DNS Records** edits individual hostnames.
+Pi-hole v6 exposes the
+[wildcard rule setting](https://docs.pi-hole.net/ftldns/configfile/#dnsmasq_lines)
+through host configuration.
+
+1. From PowerShell or a terminal, connect to the Pi and open its Compose file.
+
+   ```bash
+   ssh pi@192.168.63.102
+   cd /home/pi/Desktop/rpivn-app/pi-hole
+   docker compose exec pihole pihole-FTL --config misc.dnsmasq_lines  # Show any existing rules.
+   nano docker-compose.yaml
+   ```
+
+2. In the `pihole` service, find `environment:`. Add these two lines under it,
+   aligned with the existing `FTLCONF_` settings. Keep any existing custom lines
+   under the same `FTLCONF_misc_dnsmasq_lines` entry. If the Coder dashboard IP
+   has changed, use the one returned by `nslookup coder.lab`.
+
+   ```yaml
+         FTLCONF_misc_dnsmasq_lines: |-
+           address=/coder.lab/100.85.79.219
+   ```
+
+   `address=/coder.lab/100.85.79.219` tells Pi-hole to answer with that IP for
+   `coder.lab` and its subdomains. Press **Ctrl+O**, **Enter**, then **Ctrl+X**
+   to save and close nano.
+
+3. From the same directory, check the file and apply it to Pi-hole.
+
+   ```bash
+   docker compose config --quiet && docker compose up -d --no-deps pihole
+   ```
+
+   Back on the device that will open the editor, rerun `nslookup test.coder.lab`.
+
+### 2. Sync Coder and share the workspace
+
+1. After merging, sync **coder** in Argo CD. The wildcard Ingress sends editor
    requests to Coder. cert-manager issues its certificate from the existing
    `homelab-ca` ClusterIssuer. The collaborator's browser needs to trust the
    [Homelab v1 root](../../pki/public/homelab-root-v1.crt) for that hostname.
@@ -157,10 +231,10 @@ kubectl -n coder-workspaces describe pod <workspace-pod>
    kubectl -n coder rollout status deployment/coder --timeout=300s
    ```
 
-3. Publish `homelab-multi-repo-template.zip` as a **new version of the existing
+2. Publish `homelab-multi-repo-template.zip` as a **new version of the existing
    template** and select **Update** on the existing workspace so it picks up the
    new VS Code Browser URL. Updating restarts the workspace.
-4. As workspace owner, select **Share**, add the collaborator, and grant **Use**.
+3. As workspace owner, select **Share**, add the collaborator, and grant **Use**.
    Have them sign in as themselves and open **Workspaces → Shared → your
    workspace → VS Code Browser**. The editor URL should now be under `*.coder.lab`.
    The **Use** role includes access to the workspace files and terminal.

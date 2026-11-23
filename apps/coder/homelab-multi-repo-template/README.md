@@ -112,3 +112,5 @@ terraform -chdir=apps/coder/template-multi-repo validate
 terraform -chdir=apps/coder/template-multi-repo test
 python3 -m unittest discover -s apps/coder/template-multi-repo/tests -v
 ```
+
+.

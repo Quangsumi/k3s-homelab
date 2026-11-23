@@ -62,9 +62,9 @@ spec:
               value: https://aspire.lab
             - name: DASHBOARD__FRONTEND__AUTHMODE
               value: OpenIdConnect
-            # Aspire's cookie has a sliding 14d lifetime. A request after day 7 renews it.
-            # For a new sign-in, Keycloak can reuse its session within SSO Session Idle
-            # (sliding 12h) and SSO Session Max (hard 7d cap).
+            # Keycloak refresh? No. Aspire uses Keycloak for sign-in only.
+            # Local session? The browser-session cookie holds a sliding 14d ticket.
+            # A request after day 7 starts a fresh 14d. When it ends, sign in again.
             - name: AUTHENTICATION__SCHEMES__OPENIDCONNECT__AUTHORITY
               value: https://auth.lab/realms/homelab
             - name: AUTHENTICATION__SCHEMES__OPENIDCONNECT__CLIENTID

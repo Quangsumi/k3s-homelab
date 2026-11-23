@@ -1,0 +1,10 @@
+# Example of the native Proxmox VE OIDC realm in /etc/pve/domains.cfg.
+# Manage the real entry in Datacenter → Permissions → Realms.
+# Supply the client key there from your secret store.
+openid: keycloak
+    issuer-url https://auth.lab/realms/homelab
+    client-id proxmox-ve
+    username-claim preferred_username
+    # Proxmox issues a 2h login ticket. Its open UI tries to renew it every 15m.
+    # At the next Keycloak sign-in, SSO Session Idle (sliding 12h) and
+    # SSO Session Max (hard 7d cap) govern reuse of the Keycloak login.

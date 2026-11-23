@@ -41,6 +41,10 @@ coder:
       value: "1"
     - name: CODER_SECURE_AUTH_COOKIE
       value: "true"
+    # Coder has a sliding 24h session by default (CODER_SESSION_DURATION).
+    # It tries to refresh expired Keycloak tokens on use (Access Token Lifespan = 5m).
+    # Client Session Idle and Client Session Max inherit SSO Session Idle
+    # (sliding 12h) and SSO Session Max (hard 7d cap). Sign in again if refresh fails.
     - name: CODER_OIDC_ISSUER_URL
       value: https://auth.lab/realms/homelab
     - name: CODER_OIDC_CLIENT_ID

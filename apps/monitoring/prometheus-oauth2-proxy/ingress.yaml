@@ -39,6 +39,8 @@ metadata:
   name: prometheus-forward-auth
 spec:
   forwardAuth:
+    # Without addAuthCookiesToResponse, Traefik drops the renewed cookie.
+    # The browser keeps the 8h cookie from sign-in.
     address: http://prometheus-oauth2-proxy.monitoring.svc.cluster.local:4180/
 
 ---

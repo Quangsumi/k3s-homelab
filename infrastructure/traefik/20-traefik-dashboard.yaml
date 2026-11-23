@@ -40,7 +40,7 @@ spec:
     # Send an auth subrequest to the OAuth2 Proxy Service. On 202, Traefik
     # serves api@internal. On a login redirect, Traefik returns it to the browser.
     address: http://traefik-dashboard-oauth2-proxy.kube-system.svc.cluster.local:4180/
-    # Send the browser a new 8h cookie after each refresh.
+    # Forward renewed cookies to restart the 12h expiry.
     # OAuth2 Proxy can split large sessions into multiple cookies.
     addAuthCookiesToResponse:
       - __Host-traefik_dashboard_oauth2

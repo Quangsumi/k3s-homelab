@@ -4,9 +4,14 @@ metadata:
   name: longhorn-forward-auth
 spec:
   forwardAuth:
-    # Without addAuthCookiesToResponse, Traefik drops the renewed cookie.
-    # The browser keeps the 8h cookie from sign-in.
     address: http://longhorn-oauth2-proxy.longhorn-system.svc.cluster.local:4180/
+    # Forward renewed cookies, including split cookies, to restart the 12h expiry.
+    addAuthCookiesToResponse:
+      - __Host-longhorn_oauth2
+      - __Host-longhorn_oauth2_0
+      - __Host-longhorn_oauth2_1
+      - __Host-longhorn_oauth2_2
+      - __Host-longhorn_oauth2_3
 
 ---
 apiVersion: networking.k8s.io/v1

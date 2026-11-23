@@ -41,13 +41,10 @@ coder:
       value: "1"
     - name: CODER_SECURE_AUTH_COOKIE
       value: "true"
-    # Coder starts a 24h session by default (CODER_SESSION_DURATION). Requests
-    # extend it unless CODER_DISABLE_SESSION_EXPIRY_REFRESH is enabled. An
-    # expired Keycloak access token triggers a refresh on use (Access Token
-    # Lifespan is 5m). Client Session Idle and Client Session Max inherit
-    # SSO Session Idle (12h without a refresh for Coder) and SSO Session Max
-    # (7d from Keycloak login even with activity). If Keycloak rejects refresh,
-    # Coder asks for a new sign-in even within its own 24h.
+    # Coder extends its default 24h session on activity (CODER_SESSION_DURATION).
+    # It tries to refresh expired Keycloak tokens on use (Access Token Lifespan = 5m).
+    # Client Session Idle and Client Session Max inherit SSO Session Idle (12h)
+    # and SSO Session Max (7d). If Keycloak refuses refresh, sign in again.
     - name: CODER_OIDC_ISSUER_URL
       value: https://auth.lab/realms/homelab
     - name: CODER_OIDC_CLIENT_ID

@@ -62,11 +62,9 @@ spec:
               value: https://aspire.lab
             - name: DASHBOARD__FRONTEND__AUTHMODE
               value: OpenIdConnect
-            # Aspire uses a local cookie with a 14d login ticket by default. A request
-            # after its halfway point (7d) can renew it for another 14d. Aspire keeps
-            # this ticket independently of Keycloak's 5m Access Token Lifespan.
-            # On a new sign-in, Keycloak can reuse its login within SSO Session Idle
-            # (12h since Keycloak activity) and SSO Session Max (7d from login).
+            # Aspire's own login lasts 14d per cookie by default. A request after day 7 renews it.
+            # For a new sign-in, Keycloak can reuse its session within SSO Session Idle (12h)
+            # and SSO Session Max (7d). Aspire renews its cookie locally.
             - name: AUTHENTICATION__SCHEMES__OPENIDCONNECT__AUTHORITY
               value: https://auth.lab/realms/homelab
             - name: AUTHENTICATION__SCHEMES__OPENIDCONNECT__CLIENTID

@@ -4,10 +4,8 @@ metadata:
   name: longhorn-forward-auth
 spec:
   forwardAuth:
-    # The sign-in callback sends the 8h cookie directly to the browser.
-    # On a successful auth check, Traefik copies renewed cookies only when
-    # their names appear in addAuthCookiesToResponse. That list is absent here,
-    # so subsequent refreshes leave the browser's original expiry in place.
+    # Without addAuthCookiesToResponse, Traefik drops the renewed cookie.
+    # The browser keeps the 8h cookie from sign-in.
     address: http://longhorn-oauth2-proxy.longhorn-system.svc.cluster.local:4180/
 
 ---

@@ -132,12 +132,10 @@ spec:
               value: "INFO"
             - name: STORE_MODEL_IN_DB
               value: "True"
-            # SSO puts a LiteLLM UI key in a browser-session cookie. The key
-            # stops working 24h after issue by default (LITELLM_UI_SESSION_DURATION).
-            # LiteLLM does not use Keycloak refresh tokens to extend the UI key.
-            # At the next SSO sign-in, Keycloak can reuse its login within
-            # SSO Session Idle (12h since Keycloak activity) and SSO Session Max
-            # (7d from login). Those limits do not end an existing LiteLLM session.
+            # SSO creates a UI key that lasts 24h by default (LITELLM_UI_SESSION_DURATION).
+            # The browser cookie carries that key. LiteLLM sends you to Keycloak
+            # for a new SSO login. SSO Session Idle (12h) and SSO Session Max (7d)
+            # determine whether Keycloak can reuse the previous login.
             - name: GENERIC_CLIENT_ID
               value: "litellm"
             - name: GENERIC_AUTHORIZATION_ENDPOINT

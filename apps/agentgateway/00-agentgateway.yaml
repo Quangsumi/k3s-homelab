@@ -98,7 +98,8 @@ data:
           # The sign-in state cookie lasts 5m. Session cookies default to 7d.
           # The gateway tries to refresh on use after the ID token expires
           # (Keycloak Access Token Lifespan = 5m). Client Session Idle and
-          # Client Session Max inherit SSO Session Idle (12h) and SSO Session Max (7d).
+          # Client Session Max inherit SSO Session Idle (sliding 12h) and
+          # SSO Session Max (hard 7d cap).
           credentials: session
         authorization:
           # Keycloak adds this client-role claim to the browser's ID token.

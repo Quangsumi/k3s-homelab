@@ -17,7 +17,7 @@ PROXY_X_PORT_COUNT = 1
 # pgAdmin's cookie lasts 1 day per issue (SESSION_EXPIRATION_TIME).
 # USER_INACTIVITY_TIMEOUT = 0 by default, so pgAdmin leaves idle users signed in
 # until the cookie expires. At the next SSO login, Keycloak checks
-# SSO Session Idle (12h) and SSO Session Max (7d).
+# SSO Session Idle (sliding 12h) and SSO Session Max (hard 7d cap).
 OAUTH2_CONFIG = [
     {
         "OAUTH2_NAME": "keycloak",

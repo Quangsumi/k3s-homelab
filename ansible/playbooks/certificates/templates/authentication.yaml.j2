@@ -7,8 +7,8 @@ jwt:
 {{ lookup('ansible.builtin.file', rpivn_caddy_ca_src) | indent(8, true) }}
       # K3s checks ID token expiry (Keycloak Access Token Lifespan = up to 5m).
       # On the next kubectl command after expiry, kubelogin tries to refresh.
-      # Client Session Idle and Client Session Max inherit SSO Session Idle (12h)
-      # and SSO Session Max (7d). If refresh fails, kubelogin starts sign-in.
+      # Client Session Idle and Client Session Max inherit SSO Session Idle
+      # (sliding 12h) and SSO Session Max (hard 7d cap). If refresh fails, sign in again.
       # OAuth 2.0 Device Code Lifespan is 10m. OAuth 2.0 Device Polling Interval is 5s.
       # Login timeout is 30m total. Login action timeout is 5m per step.
       # Client Login Timeout gives the app 1m to exchange the sign-in code.

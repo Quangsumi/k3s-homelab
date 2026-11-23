@@ -6,5 +6,5 @@ openid: keycloak
     client-id proxmox-ve
     username-claim preferred_username
     # Proxmox issues a 2h login ticket. Its open UI tries to renew it every 15m.
-    # On the next Keycloak sign-in, SSO Session Idle (12h) and SSO Session Max (7d)
-    # determine whether Keycloak can reuse its previous login.
+    # At the next Keycloak sign-in, SSO Session Idle (sliding 12h) and
+    # SSO Session Max (hard 7d cap) govern reuse of the Keycloak login.

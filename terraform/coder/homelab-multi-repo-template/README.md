@@ -5,13 +5,17 @@ share its CPU, RAM, tools and Git identity. Each repository keeps its own Git hi
 
 ## Publish through the Coder UI
 
-1. Download `homelab-multi-repo-template.zip`, or create it from the repository root:
+If Coder already has `homelab-multi-repo`, upload the ZIP as a new version of
+that template.
+
+1. Download [homelab-multi-repo-template.zip](../homelab-multi-repo-template.zip),
+   or create it from the repository root.
 
    ```bash
    python3 - <<'PY'
    from pathlib import Path
    from zipfile import ZipFile, ZIP_DEFLATED
-   root = Path('apps/coder/homelab-multi-repo-template')
+   root = Path('terraform/coder/homelab-multi-repo-template')
    with ZipFile('/tmp/homelab-multi-repo-template.zip', 'w', ZIP_DEFLATED) as archive:
        for name in ('main.tf', 'startup.sh', '.terraform.lock.hcl', 'README.md'):
            archive.write(root / name, name)
@@ -106,11 +110,9 @@ can supply the SSH integration instead. Your device must trust the lab CA and re
 ## Local checks (no cluster access)
 
 ```bash
-terraform -chdir=apps/coder/template-multi-repo init -backend=false -lockfile=readonly
-terraform -chdir=apps/coder/template-multi-repo fmt -check
-terraform -chdir=apps/coder/template-multi-repo validate
-terraform -chdir=apps/coder/template-multi-repo test
-python3 -m unittest discover -s apps/coder/template-multi-repo/tests -v
+cd terraform/coder/homelab-multi-repo-template
+terraform init -backend=false -lockfile=readonly # Load the modules and pinned providers.
+terraform fmt -check                            # Check the Terraform formatting.
+terraform validate                              # Verify the template configuration.
+bash -n startup.sh                              # Check the startup script syntax.
 ```
-
-.

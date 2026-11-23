@@ -105,18 +105,13 @@ export PATH="$HOME/.local/bin:$PATH"  # CLI downloaded from this server matches 
 coder login https://coder.lab
 coder publickey
 # Add that public key to GitHub → Settings → SSH and GPG keys before private clones.
-coder templates push homelab-repo --directory apps/coder/template
+# Publish the source as a template version.
+coder templates push homelab-multi-repo --directory terraform/coder/homelab-multi-repo-template
 ```
 
-In Coder: **Create workspace → homelab-repo**. Name it after the repository and
-enter an HTTPS public-repo URL or SSH URL such as
-`git@github.com:Quangsumi/k3s-homelab.git`. Open **VS Code Browser** or **VS Code Desktop**.
-Desktop access requires local VS Code and the Coder extension.
-
-The template clones once to `/home/coder/project`; it never automatically pulls,
-resets, or overwrites existing Git work. The image includes the editor and basic
-tools; for language-specific runtimes, publish a derived image with those tools
-and set template variable `workspace_image` to its pinned tag/digest.
+In Coder, select **Create workspace → homelab-multi-repo** and enter one
+repository URL per line. The [workspace template guide](../../terraform/coder/homelab-multi-repo-template/README.md)
+covers ZIP upload, sizing, and connecting your editor.
 
 ## 5. Verify persistence
 
@@ -186,9 +181,10 @@ nslookup test.coder.lab  # Check whether a subdomain gets the same IP.
    kubectl -n coder rollout status deployment/coder --timeout=300s
    ```
 
-2. Publish `homelab-multi-repo-template.zip` as a **new version of the existing
-   template** and select **Update** on the existing workspace so it picks up the
-   new VS Code Browser URL. Updating restarts the workspace.
+2. Publish [homelab-multi-repo-template.zip](../../terraform/coder/homelab-multi-repo-template.zip)
+   as a **new version of the existing template** and select **Update** on the
+   existing workspace so it picks up the new VS Code Browser URL. Updating
+   restarts the workspace.
 3. As workspace owner, select **Share**, add the collaborator, and grant **Use**.
    Have them sign in as themselves and open **Workspaces → Shared → your
    workspace → VS Code Browser**. The editor URL should now be under `*.coder.lab`.
@@ -203,6 +199,6 @@ kustomize build apps/coder/manifests
 kustomize build apps/postgres
 kustomize build infrastructure/cert-manager
 kustomize build rbac
-terraform -chdir=apps/coder/template init -backend=false
-terraform -chdir=apps/coder/template validate
+terraform -chdir=terraform/coder/homelab-multi-repo-template init -backend=false -lockfile=readonly
+terraform -chdir=terraform/coder/homelab-multi-repo-template validate
 ```

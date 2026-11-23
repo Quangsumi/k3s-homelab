@@ -1,12 +1,14 @@
 # Terraform for the home lab
 
-These configurations are run by hand. Each folder has its own plan and state
-so you can review and apply one change at a time.
+Each Keycloak configuration has its own plan and state. Coder uses Terraform
+to build workspaces from the template you publish to Coder.
 
 | Configuration | What it creates |
 | --- | --- |
 | [Authenticator codes](keycloak/otp-browser/README.md) | A password-and-code sign-in flow in the existing `homelab` realm. |
+| [Passkeys](keycloak/passkey-browser/README.md) | The shared passkey flow and two choices for which device can enroll a new key. |
 | [Guest access for one app](keycloak/guest-access/README.md) | A guest realm, an app sign-in client, a viewer group, and invitation-only GitHub linking. |
+| [Coder workspace template](coder/homelab-multi-repo-template/README.md) | The multi-repository workspace template published to Coder. |
 
 Add future independent changes under `terraform/<system>/<change>/` with their
 own guide and state. Keep the state between runs. It records what Terraform

@@ -17,7 +17,10 @@ metadata:
   name: keycloak-cluster-admins
 subjects:
   - kind: Group
-    name: oidc:grp-kubernetes-cluster-admin
+    name: oidc:grp-kubernetes-api-admin
+    apiGroup: rbac.authorization.k8s.io
+  - kind: Group
+    name: oidc:grp-homelab-admin
     apiGroup: rbac.authorization.k8s.io
 roleRef:
   kind: ClusterRole

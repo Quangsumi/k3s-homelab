@@ -4,7 +4,10 @@ metadata:
   name: keycloak-cluster-viewers
 subjects:
   - kind: Group
-    name: oidc:grp-kubernetes-cluster-view
+    name: oidc:grp-kubernetes-api-viewer
+    apiGroup: rbac.authorization.k8s.io
+  - kind: Group
+    name: oidc:grp-homelab-viewer
     apiGroup: rbac.authorization.k8s.io
 roleRef:
   kind: ClusterRole

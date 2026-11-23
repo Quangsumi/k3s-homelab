@@ -95,8 +95,8 @@ data:
           clientSecret: "$OIDC_CLIENT_SECRET"
           redirectURI: https://agentgateway.lab/oauth/callback
           scopes: [profile, email]
-          # Keycloak refresh? Yes. The gateway tries it on use after the ID token
-          # expires (Access Token Lifespan = 5m).
+          # Keycloak refresh? Yes. After the ID token expires (Access Token
+          # Lifespan = 5m), the next request uses the separate refresh cookie.
           # Success reissues the session and refresh cookies for 7d. If the gateway
           # cannot renew the session, a new browser visit starts sign-in.
           # Local session? A 7d cookie (sessionTtl default) still needs a valid ID token.

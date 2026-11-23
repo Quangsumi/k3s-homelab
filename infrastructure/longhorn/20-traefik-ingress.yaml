@@ -4,6 +4,9 @@ metadata:
   name: longhorn-forward-auth
 spec:
   forwardAuth:
+    # The callback sets the first cookie. On a successful auth check Traefik
+    # only sends refreshed cookies to the browser if addAuthCookiesToResponse
+    # lists their names. This middleware currently leaves that list empty.
     address: http://longhorn-oauth2-proxy.longhorn-system.svc.cluster.local:4180/
 
 ---

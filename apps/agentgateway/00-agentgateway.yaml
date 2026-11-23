@@ -95,6 +95,10 @@ data:
           clientSecret: "$OIDC_CLIENT_SECRET"
           redirectURI: https://agentgateway.lab/oauth/callback
           scopes: [profile, email]
+          # Default sessionTtl is 7d for cookies. The session also checks the
+          # Keycloak ID token expiry and refreshes on a request when needed.
+          # Keycloak Realm settings → Sessions and client Advanced overrides
+          # cap refresh. The temporary sign-in cookie lasts 5m by default.
           credentials: session
         authorization:
           # Keycloak adds this client-role claim to the browser's ID token.

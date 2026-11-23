@@ -5,6 +5,10 @@ jwt:
       url: https://auth.lab/realms/homelab
       certificateAuthority: |
 {{ lookup('ansible.builtin.file', rpivn_caddy_ca_src) | indent(8, true) }}
+      # K3s checks token expiry on each authentication. This config issues
+      # no cookie or refresh token. kubelogin can renew in the client when it
+      # has a refresh token. Check Keycloak Realm settings → Tokens and Sessions
+      # and Clients → each kubelogin or Headlamp client → Advanced.
       audiences:
         - kubelogin-standard-flow
         - kubelogin-device-flow

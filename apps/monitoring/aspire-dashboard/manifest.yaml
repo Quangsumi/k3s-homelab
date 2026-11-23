@@ -62,6 +62,10 @@ spec:
               value: https://aspire.lab
             - name: DASHBOARD__FRONTEND__AUTHMODE
               value: OpenIdConnect
+            # Web sign-in uses a local ASP.NET cookie ticket (14d by default, renewed
+            # on activity past halfway). Aspire does not refresh Keycloak tokens for it.
+            # Keycloak Realm settings → Sessions and client Advanced overrides affect
+            # the next trip to Keycloak. Login Action Timeout governs completing sign-in.
             - name: AUTHENTICATION__SCHEMES__OPENIDCONNECT__AUTHORITY
               value: https://auth.lab/realms/homelab
             - name: AUTHENTICATION__SCHEMES__OPENIDCONNECT__CLIENTID

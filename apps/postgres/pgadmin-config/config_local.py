@@ -14,6 +14,10 @@ PROXY_X_PROTO_COUNT = 1
 PROXY_X_HOST_COUNT = 1
 PROXY_X_PORT_COUNT = 1
 
+# The pgAdmin session cookie expires 1 day after issue (SESSION_EXPIRATION_TIME
+# in server mode). USER_INACTIVITY_TIMEOUT defaults to 0, so the separate idle
+# logout is disabled. Keycloak Realm settings → Sessions and the pgadmin
+# client’s Advanced overrides govern the next Keycloak sign-in.
 OAUTH2_CONFIG = [
     {
         "OAUTH2_NAME": "keycloak",

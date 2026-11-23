@@ -89,14 +89,16 @@ spec:
                 clientSecret: $argocd-oidc-secret:clientSecret
                 allowedAudiences: ["argocd-ui", "argocd-cli"]
                 requestedScopes: ["openid", "profile", "email"]
-                # On a UI request with less than 2m left on the ID token,
-                # Argo CD can renew it using its cached Keycloak refresh token.
-                # Keycloak Realm settings → Tokens controls token lifespan.
-                # Sessions → SSO/Client Session Idle and Max and client
-                # Advanced overrides govern whether Keycloak still renews it.
+                # Keycloak's Access Token Lifespan also sets the ID token
+                # lifetime (5m). On a UI request with less than 2m left, Argo CD
+                # can renew the ID token using its cached refresh token.
+                # Client Session Idle and Client Session Max inherit
+                # SSO Session Idle (12h) and SSO Session Max (7d). If you return
+                # after the UI's ID token expires, Argo CD can send you back
+                # to Keycloak, which can sign you in if its session is still live.
                 refreshTokenThreshold: 2m
-                # argocd login --sso stores its own token locally. The CLI
-                # can refresh an expired ID token when it has a refresh token.
+                # argocd login --sso stores a separate token on disk. The CLI
+                # tries to refresh an expired ID token when it has a refresh token.
                 logoutURL: https://auth.lab/realms/homelab/protocol/openid-connect/logout?id_token_hint={{token}}&post_logout_redirect_uri={{logoutRedirectURL}}
             rbac:
               policy.default: ''

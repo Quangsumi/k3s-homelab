@@ -39,9 +39,10 @@ metadata:
   name: prometheus-forward-auth
 spec:
   forwardAuth:
-    # The callback sets the first cookie. On a successful auth check Traefik
-    # only sends refreshed cookies to the browser if addAuthCookiesToResponse
-    # lists their names. This middleware currently leaves that list empty.
+    # The sign-in callback sends the 8h cookie directly to the browser.
+    # On a successful auth check, Traefik copies renewed cookies only when
+    # their names appear in addAuthCookiesToResponse. That list is absent here,
+    # so subsequent refreshes leave the browser's original expiry in place.
     address: http://prometheus-oauth2-proxy.monitoring.svc.cluster.local:4180/
 
 ---

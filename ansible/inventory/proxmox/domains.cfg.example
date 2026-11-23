@@ -5,7 +5,9 @@ openid: keycloak
     issuer-url https://auth.lab/realms/homelab
     client-id proxmox-ve
     username-claim preferred_username
-    # Proxmox issues its own 2h PVEAuthCookie ticket after Keycloak sign-in.
-    # The UI tries to renew that ticket locally every 15m while it is open.
-    # Keycloak Realm settings → Sessions and the proxmox-ve client’s Advanced
-    # settings affect the next Keycloak sign-in. They cannot expire the PVE ticket.
+    # After Keycloak signs you in, Proxmox puts its own 2h ticket in PVEAuthCookie.
+    # The open Proxmox UI attempts to renew that ticket every 15m. It renews
+    # with Proxmox, so this can continue past Keycloak's SSO Session Max (7d).
+    # If the PVE ticket expires, choose the Keycloak realm to sign in again.
+    # Keycloak can reuse its login within SSO Session Idle (12h since Keycloak
+    # activity) and SSO Session Max (7d from login).

@@ -8,7 +8,7 @@ Browser and desktop VS Code connect to the same files. Git push triggers existin
 | Coder | Official chart/image `2.38.6`; 1 replica; request 1 CPU / 2 GiB RAM |
 | Database | Existing `postgres.postgres.svc.cluster.local:5432`; database `coder`, role `coder_user` |
 | Workspace | AMD64 worker; request 1 CPU / 2 GiB, limit 2 CPU / 4 GiB; 20 GiB Longhorn home |
-| Access | Traefik + `infisical-acme`; initial Coder email/password login; no wildcard DNS needed |
+| Access | Traefik + `infisical-acme` for `coder.lab`; `*.coder.lab` with `homelab-ca` for workspace browser apps |
 | Secrets | ESO `ClusterSecretStore/infisical`; no credentials in Git |
 
 **Commands below are manual rollout steps after PR review and merge.** Run from
@@ -32,6 +32,7 @@ storage requests consume additional physical space according to replica count.
 
 Add `coder.lab` in Pi-hole pointing to the same reachable Traefik address as
 `grafana.lab`. Devices need the existing lab DNS, CA trust, and LAN/Tailscale access.
+For VS Code Browser on shared workspaces, follow [Shared workspace access](#shared-workspace-access).
 
 ## 2. Create the database and role once
 
@@ -137,6 +138,32 @@ kubectl -n coder logs deployment/coder --tail=100
 kubectl -n coder-workspaces get pods,pvc
 kubectl -n coder-workspaces describe pod <workspace-pod>
 ```
+
+## Shared workspace access
+
+1. In Pi-hole, resolve `*.coder.lab` to the same Traefik IP as `coder.lab`.
+   In Pi-hole v6, append `address=/coder.lab/<Traefik-IP>` to
+   `misc.dnsmasq_lines` to cover the base hostname and its subdomains. Verify
+   from the collaborator's device with `nslookup test.coder.lab`.
+2. After merging, sync **coder** in Argo CD. The wildcard Ingress sends editor
+   requests to Coder. cert-manager issues its certificate from the existing
+   `homelab-ca` ClusterIssuer. The collaborator's browser needs to trust the
+   [Homelab v1 root](../../pki/public/homelab-root-v1.crt) for that hostname.
+
+   ```bash
+   kubectl wait --for=condition=Ready clusterissuer/homelab-ca --timeout=180s
+   argocd app sync coder
+   kubectl -n coder wait --for=condition=Ready certificate/coder-workspace-apps --timeout=180s
+   kubectl -n coder rollout status deployment/coder --timeout=300s
+   ```
+
+3. Publish `homelab-multi-repo-template.zip` as a **new version of the existing
+   template** and select **Update** on the existing workspace so it picks up the
+   new VS Code Browser URL. Updating restarts the workspace.
+4. As workspace owner, select **Share**, add the collaborator, and grant **Use**.
+   Have them sign in as themselves and open **Workspaces → Shared → your
+   workspace → VS Code Browser**. The editor URL should now be under `*.coder.lab`.
+   The **Use** role includes access to the workspace files and terminal.
 
 ## Local validation (no cluster access)
 

@@ -25,6 +25,9 @@ coder:
   env:
     - name: CODER_ACCESS_URL
       value: https://coder.lab
+    # Shared workspace apps need a separate browser origin from the Coder UI.
+    - name: CODER_WILDCARD_ACCESS_URL
+      value: "*.coder.lab"
     - name: CODER_PG_CONNECTION_URL
       valueFrom:
         secretKeyRef:

@@ -1,0 +1,43 @@
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: coder-workspace-apps
+  namespace: coder
+spec:
+  secretName: coder-workspace-apps-tls
+  # The coder.lab ingress uses the HTTP-01 issuer, which cannot issue wildcards.
+  issuerRef:
+    kind: ClusterIssuer
+    name: homelab-ca
+  privateKey:
+    algorithm: RSA
+    size: 2048
+    rotationPolicy: Always
+  dnsNames:
+    - "*.coder.lab"
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: coder-workspace-apps
+  namespace: coder
+  annotations:
+    traefik.ingress.kubernetes.io/router.entrypoints: websecure
+spec:
+  ingressClassName: traefik
+  tls:
+    - hosts:
+        - "*.coder.lab"
+      secretName: coder-workspace-apps-tls
+  rules:
+    - host: "*.coder.lab"
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              # Coder checks workspace access and proxies to the workspace agent.
+              service:
+                name: coder
+                port:
+                  number: 80

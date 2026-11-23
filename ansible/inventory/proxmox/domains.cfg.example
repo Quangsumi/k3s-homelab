@@ -5,6 +5,7 @@ openid: keycloak
     issuer-url https://auth.lab/realms/homelab
     client-id proxmox-ve
     username-claim preferred_username
-    # Proxmox issues a 2h login ticket. Its open UI tries to renew it every 15m.
-    # At the next Keycloak sign-in, SSO Session Idle (sliding 12h) and
-    # SSO Session Max (hard 7d cap) govern reuse of the Keycloak login.
+    # Keycloak refresh? No. Proxmox uses Keycloak for sign-in only.
+    # Local session? Proxmox issues a 2h login ticket. While the UI is open,
+    # it tries to renew the ticket with Proxmox every 15m. Success starts a
+    # fresh 2h. If the ticket expires, choose the Keycloak realm and sign in again.

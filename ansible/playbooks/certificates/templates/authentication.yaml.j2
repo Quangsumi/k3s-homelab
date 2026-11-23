@@ -5,10 +5,11 @@ jwt:
       url: https://auth.lab/realms/homelab
       certificateAuthority: |
 {{ lookup('ansible.builtin.file', rpivn_caddy_ca_src) | indent(8, true) }}
-      # K3s checks ID token expiry (Keycloak Access Token Lifespan = up to 5m).
-      # On the next kubectl command after expiry, kubelogin tries to refresh.
-      # Client Session Idle and Client Session Max inherit SSO Session Idle
-      # (sliding 12h) and SSO Session Max (hard 7d cap). If refresh fails, sign in again.
+      # Keycloak refresh? kubelogin tries its cached refresh token on the next
+      # kubectl command after the ID token expires (Access Token Lifespan = 5m).
+      # Success replaces the cached token. If refresh fails, kubelogin signs in again.
+      # Local session? The CLI has no app cookie. Keycloak limits refresh by
+      # SSO Session Idle (sliding 12h) and SSO Session Max (hard 7d cap).
       # OAuth 2.0 Device Code Lifespan is 10m. OAuth 2.0 Device Polling Interval is 5s.
       # Login timeout is 30m total. Login action timeout is 5m per step.
       # Client Login Timeout gives the app 1m to exchange the sign-in code.

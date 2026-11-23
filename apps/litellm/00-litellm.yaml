@@ -132,10 +132,10 @@ spec:
               value: "INFO"
             - name: STORE_MODEL_IN_DB
               value: "True"
-            # SSO creates a UI key that lasts 24h by default (LITELLM_UI_SESSION_DURATION).
-            # The browser cookie carries that key. LiteLLM sends you to Keycloak
-            # for a new login. SSO Session Idle (sliding 12h) and SSO Session Max
-            # (hard 7d cap) govern reuse of the Keycloak login.
+            # Keycloak refresh? No. LiteLLM uses Keycloak for sign-in only.
+            # Local session? The browser-session cookie carries a UI key with a fixed
+            # 24h lifetime by default (LITELLM_UI_SESSION_DURATION). When the key expires,
+            # sign in again to get a new one.
             - name: GENERIC_CLIENT_ID
               value: "litellm"
             - name: GENERIC_AUTHORIZATION_ENDPOINT

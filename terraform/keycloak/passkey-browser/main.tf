@@ -23,17 +23,6 @@ provider "keycloak" {
   realm = local.realm
 }
 
-variable "authenticator_attachment" {
-  description = "One realm-wide device choice for new WebAuthn registrations."
-  type        = string
-  nullable    = false
-
-  validation {
-    condition     = contains(["cross-platform", "not specified"], var.authenticator_attachment)
-    error_message = "Select cross-platform or not specified."
-  }
-}
-
 resource "keycloak_authentication_flow" "passkey" {
   realm_id    = local.realm
   alias       = "Critical Infrastructure Browser (Terraform)"
@@ -161,33 +150,4 @@ resource "keycloak_authentication_execution" "deny" {
   authenticator     = "deny-access-authenticator"
   requirement       = "REQUIRED"
   priority          = 20
-}
-
-resource "terraform_data" "enrollment_device" {
-  # Apply the selected realm policy after the new, unbound flow is complete.
-  depends_on = [
-    keycloak_authentication_execution.cookie,
-    keycloak_authentication_execution.password,
-    keycloak_authentication_execution.key_configured,
-    keycloak_authentication_execution.webauthn,
-    keycloak_authentication_execution.deny,
-    keycloak_authentication_execution_config.key_check_skipped,
-    keycloak_authentication_execution_config.level_check,
-  ]
-
-  triggers_replace = {
-    attachment = var.authenticator_attachment
-    script     = filesha256("${path.module}/set-attachment.py")
-  }
-
-  provisioner "local-exec" {
-    working_dir = path.module
-    interpreter = ["python3"]
-    command     = "set-attachment.py"
-    environment = {
-      PASSKEY_KEYCLOAK_URL   = local.keycloak_url
-      PASSKEY_KEYCLOAK_REALM = local.realm
-      PASSKEY_ATTACHMENT     = var.authenticator_attachment
-    }
-  }
 }

@@ -6,7 +6,7 @@ to build workspaces from the template you publish to Coder.
 | Configuration | What it creates |
 | --- | --- |
 | [Authenticator codes](keycloak/otp-browser/README.md) | A password-and-code sign-in flow in the existing `homelab` realm. |
-| [Passkeys](keycloak/passkey-browser/README.md) | The shared passkey flow and two choices for which device can enroll a new key. |
+| [Passkeys](keycloak/passkey-browser/README.md) | A passkey sign-in flow with a five-minute reuse window in the existing `homelab` realm. |
 | [Guest access for one app](keycloak/guest-access/README.md) | A guest realm, an app sign-in client, a viewer group, and invitation-only GitHub linking. |
 | [Coder workspace template](coder/homelab-multi-repo-template/README.md) | The multi-repository workspace template published to Coder. |
 

@@ -5,5 +5,3 @@
 *.tfplan
 *.tfvars
 *.tfvars.json
-!keycloak/passkey-browser/profiles/cross-platform.tfvars
-!keycloak/passkey-browser/profiles/not-specified.tfvars

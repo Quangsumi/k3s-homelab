@@ -188,7 +188,7 @@ resource "coder_app" "browser" {
   display_name = "VS Code Browser"
   icon         = "/icon/code.svg"
   url          = "http://localhost:13337/?folder=${local.repo_root}"
-  subdomain    = false
+  subdomain    = true
   share        = "owner"
   healthcheck {
     url       = "http://localhost:13337/healthz"

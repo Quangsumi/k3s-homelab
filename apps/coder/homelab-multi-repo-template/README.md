@@ -11,7 +11,7 @@ share its CPU, RAM, tools and Git identity. Each repository keeps its own Git hi
    python3 - <<'PY'
    from pathlib import Path
    from zipfile import ZipFile, ZIP_DEFLATED
-   root = Path('apps/coder/template-multi-repo')
+   root = Path('apps/coder/homelab-multi-repo-template')
    with ZipFile('/tmp/homelab-multi-repo-template.zip', 'w', ZIP_DEFLATED) as archive:
        for name in ('main.tf', 'startup.sh', '.terraform.lock.hcl', 'README.md'):
            archive.write(root / name, name)

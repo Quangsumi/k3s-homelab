@@ -5,3 +5,4 @@ resources:
   - 05-external-secret.yaml
   - 10-workspace-rbac.yaml
   - 20-network-policies.yaml
+  - 30-workspace-apps-ingress.yaml

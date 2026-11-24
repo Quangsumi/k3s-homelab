@@ -5,7 +5,7 @@ to build workspaces from the template you publish to Coder.
 
 | Configuration | What it creates |
 | --- | --- |
-| [Password and a second factor](keycloak/mfa-browser/README.md) | One sign-in flow that requires a password and either an authenticator app code or a security key. |
+| [Password and a second factor](keycloak/mfa-browser/README.md) | Step-up sign-in with an authenticator app code or security key, and five-minute reuse across apps. |
 | [Guest access for one app](keycloak/guest-access/README.md) | A guest realm, an app sign-in client, a viewer group, and invitation-only GitHub linking. |
 | [Coder workspace template](coder/homelab-multi-repo-template/README.md) | The multi-repository workspace template published to Coder. |
 

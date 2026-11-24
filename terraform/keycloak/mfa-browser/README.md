@@ -51,8 +51,9 @@ terraform apply mfa.tfplan     # Create the flow. You choose which app uses it i
    Each new sign-in through the combined flow requires a password and one
    second factor.
 4. In a fresh browser, sign in with the password. Test each method in a separate
-   sign-in. With both methods enrolled, select **Try another way** to switch.
-   With neither method enrolled, the correct password alone must fail.
+   sign-in. With both methods enrolled, **Try another way** shows
+   **Authenticator Application** and **Passkey**. With neither method enrolled,
+   the correct password alone must fail.
 
 To roll back, restore the app's previous **Browser** and ACR settings. If the
 older Terraform flow was already applied, keep its state with its original

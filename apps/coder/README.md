@@ -1,7 +1,11 @@
 # Coder
 
-`https://coder.lab` → Coder Community → one persistent workspace per repository.
+`https://coder.lab` → Coder Community → persistent development workspaces.
 Browser and desktop VS Code connect to the same files. Git push triggers existing CI/CD.
+
+For UI resource choices, several repositories in one pod, and Zed, use the new
+[multi-repo template and UI guide](template-multi-repo/README.md). The original
+single-repository template below remains available.
 
 | Component | Configuration |
 | --- | --- |

@@ -6,7 +6,7 @@ to build workspaces from the template you publish to Coder.
 | Configuration | What it creates |
 | --- | --- |
 | [Password and a second factor](keycloak/mfa-browser/README.md) | Step-up sign-in with an authenticator app code or security key, and five-minute reuse across apps. |
-| [Guest access for one app](keycloak/guest-access/README.md) | A guest realm, an app sign-in client, a viewer group, and invitation-only GitHub linking. |
+| [Guest access for existing apps](keycloak/guest-access/README.md) | One shared guest realm with GitHub sign-in and a viewer group mapped into `homelab`. |
 | [Coder workspace template](coder/homelab-multi-repo-template/README.md) | The multi-repository workspace template published to Coder. |
 
 Add future independent changes under `terraform/<system>/<change>/` with their

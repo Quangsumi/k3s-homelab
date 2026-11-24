@@ -1,140 +1,123 @@
-# Invite guests to one app
+# Invite guests to existing apps
 
-Pick a server-side app that supports OpenID Connect and can limit permissions
-using groups. Terraform creates a separate Keycloak realm named
-`guests-<app>` with a sign-in client for that app. The guest's account lives
-in that realm, separate from your private `homelab` accounts. Grafana is an
-example below. The Terraform files take the app name and return URL as inputs.
+Create one Keycloak realm called `guest-realm` for guests. Every app keeps its
+existing `homelab` login. Approve a guest once in `guest-realm` and configure
+each app you want to share to allow `grp-guest-viewer`.
 
 ```mermaid
-flowchart TD
-    A[You create the guest account and add it to the viewer group] --> B[Guest opens the shared app]
-    B --> C[GitHub confirms their outside account]
-    C --> D{First sign-in with this account?}
-    D -->|Yes| E[Keycloak finds the account you created and checks its password]
-    D -->|Already linked| F{Is the account invited?}
-    E --> F
-    F -->|Yes| G[App receives the viewer group]
-    F -->|No| H[Keycloak denies sign-in]
-    G --> I[App shows only what its Viewer permissions allow]
+flowchart LR
+    A[Existing app] -->|Sends guest to sign in| B[homelab]
+    B -->|Guest sign-in| C[guest-realm]
+    C -->|Checks GitHub identity| D[GitHub]
+    D --> C
+    C -->|Checks invitation and sends guest group| B
+    B -->|Issues app token with guest group| A
 ```
 
-Keycloak checks the invitation during the first and later GitHub sign-ins
-and when the app reuses a Keycloak session. The app controls the actual data
-and actions available to its Viewer.
+| Where | What lives there |
+| --- | --- |
+| GitHub | One OAuth app for the shared guest realm. |
+| `guest-realm` | Guest invitations, GitHub sign-in, `grp-guest-viewer`, and one client called `homelab-guest-broker`. |
+| `homelab` | The **Guest sign-in** option, linked guest records, and a matching `grp-guest-viewer` group. |
+| Each shared app | The rule that lets the guest group enter and decides what it can read. |
 
-## 1. Choose the app and register the GitHub sign-in
+Terraform creates the Keycloak setup above. It starts with **Guest sign-in**
+disabled in `homelab` so you can finish the app access rules first. The app
+clients and their secrets are already in `homelab`. Terraform connects the
+realms using the generated secret from `homelab-guest-broker`.
 
-1. Pick a short app ID, such as `status-board`, and find the exact sign-in
-   callback URL in that app's documentation. An example is
-   `https://status-board.lab/login/oauth`. The app needs to support the
-   authorization code flow with PKCE (`S256`). The guest's browser needs
-   access to the app and Keycloak, including DNS and certificate trust. For
-   an app that supports just one OpenID Connect configuration and already
-   serves private users, use a separate guest-facing instance.
-2. Create a **GitHub OAuth App** under **Settings → Developer settings → OAuth
-   Apps**. Use the shared app as its homepage URL. With `status-board` and
-   `https://auth.lab`, the GitHub **Authorization callback URL** is
-   `https://auth.lab/realms/guests-status-board/broker/github/endpoint`.
-   GitHub returns to this Keycloak URL. The callback from step 1 is the
-   separate URL Keycloak uses to return to the app.
-3. Keep the GitHub client ID and generate its secret. This configuration
-   uses GitHub because Google requires a recognized public suffix in its
-   return URL and `auth.lab` uses a private suffix.
+## 1. Register GitHub once
 
-[GitHub OAuth app setup](https://docs.github.com/en/apps/oauth-apps/building-oauth-apps/creating-an-oauth-app) · [Google return URL rules](https://developers.google.com/identity/protocols/oauth2/web-server#uri-validation)
+In GitHub, open **Settings → Developer settings → OAuth Apps → New OAuth App**.
 
-## 2. Create the guest realm
+- **Application name** can be `Homelab Guests`.
+- **Homepage URL** can be `https://auth.lab`.
+- **Authorization callback URL** is
+  `https://auth.lab/realms/guest-realm/broker/github/endpoint`.
 
-1. Follow [Connect Terraform to Keycloak](../../README.md#connect-terraform-to-keycloak).
-   Create `keycloak-terraform` in **master** and assign the `create-realm`
-   realm role. It allows Terraform to create the guest realm and manage the
-   realms it creates.
-2. From the repository root, set the values below. Use one Terraform
-   workspace per app so each invitation setup has its own record of what it
-   created. Keep the same app ID and workspace on later runs.
+Generate a secret and keep the GitHub client ID and secret for step 2.
+If you use a different Keycloak hostname, use it here and set
+`TF_VAR_keycloak_url` before planning. Guests need to be able to open the
+Keycloak and app URLs in their browser.
+[GitHub OAuth app setup](https://docs.github.com/en/apps/oauth-apps/building-oauth-apps/creating-an-oauth-app)
 
-   ```bash
-   cd terraform/keycloak/guest-access
-   export TF_VAR_app_client_id=status-board                          # Names the guest realm and app client.
-   export TF_VAR_app_callback_url=https://status-board.lab/login/oauth # App's exact sign-in callback.
-   export TF_VAR_github_client_id=YOUR_GITHUB_CLIENT_ID              # From GitHub's OAuth App.
-   read -rsp 'GitHub OAuth App secret ' TF_VAR_github_client_secret  # Enter the secret without echoing it.
-   export TF_VAR_github_client_secret
-   printf '\n'
-   terraform init                                                   # Install the Keycloak provider.
-   terraform workspace select -or-create "guests-$TF_VAR_app_client_id" # Use this app's state.
-   terraform plan -out=guest.tfplan                                  # Review the new realm and its settings.
-   ```
+Keycloak calls `https://auth.lab` to exchange tokens between the realms. If
+the Keycloak server does not already trust its Caddy certificate, configure
+Keycloak's trust store with the [rpivn Caddy CA](../../../pki/public/rpivn-caddy.crt).
+[Keycloak certificate trust](https://www.keycloak.org/server/keycloak-truststore)
 
-   For a different Keycloak hostname, set `TF_VAR_keycloak_url` to its HTTPS
-   base URL before planning and use the same hostname in the GitHub callback.
-   The plan and state can contain client secrets. Keep both private.
-3. Review that the plan targets a new `guests-<app>` realm. Apply and read
-   the app settings.
+## 2. Create the Keycloak setup
 
-   ```bash
-   terraform apply guest.tfplan    # Create the reviewed guest settings.
-   terraform output issuer_url     # Address the app uses to discover sign-in endpoints.
-   terraform output app_client_id  # Name the app sends to Keycloak.
-   terraform output viewer_group   # Group name to map to read-only access.
-   ```
+Follow [Connect Terraform to Keycloak](../../README.md#connect-terraform-to-keycloak).
+Use the `keycloak-terraform` client in **master**. Under its **Service accounts
+roles**, assign the realm role **create-realm** and these client roles from
+**homelab-realm**.
 
-## 3. Configure access in the app
+| Role | What Terraform uses it for |
+| --- | --- |
+| `view-realm` | Read the existing `homelab` realm. |
+| `manage-realm` | Build the first guest sign-in steps in `homelab`. |
+| `manage-users` | Create the `homelab` guest group. |
+| `manage-identity-providers` | Add the shared sign-in option and group mapping. |
 
-1. Enter the issuer URL and client ID in the app. In the guest realm, copy
-   the app's Keycloak client secret from **Clients → the app → Credentials**
-   into the app's secret settings. Ask for `openid profile email` and turn
-   on PKCE. If the app asks for individual endpoint URLs, read the issuer's
-   `/.well-known/openid-configuration` page.
-2. Require the output viewer group from the `groups` field and map it to the
-   app's narrow read-only permissions. Set the app to deny users without
-   the required group. The group name is a label Keycloak sends. The app
-   decides what it actually grants.
+Run from the repository root. Use **one** `shared-guests` workspace for all apps.
+If you previously applied a `guests-<app>` workspace, keep its state with its
+original configuration.
 
-### Grafana example
-
-In the guest-facing Grafana, create a `Guest-Dashboards` organization. Add
-these settings to its Generic OAuth configuration, using the viewer group
-from `terraform output viewer_group` in both places.
-
-```ini
-[auth.generic_oauth]
-groups_attribute_path = groups
-allowed_groups = grp-status-board-guest-viewers
-org_attribute_path = groups
-org_mapping = grp-status-board-guest-viewers:Guest-Dashboards:Viewer
-role_attribute_path =
-role_attribute_strict = true
-skip_org_role_sync = false
+```bash
+cd terraform/keycloak/guest-access
+export KEYCLOAK_VERSION=26.7.0                                   # Match your server if Terraform cannot read its version.
+export TF_VAR_github_client_id=YOUR_GITHUB_CLIENT_ID              # From the GitHub OAuth app.
+read -rsp 'GitHub OAuth app secret ' TF_VAR_github_client_secret  # Read it without echoing it.
+export TF_VAR_github_client_secret
+printf '\n'
+terraform init                                                   # Install the pinned Keycloak provider.
+terraform workspace select -or-create shared-guests               # Keep one state for the shared setup.
+terraform plan -out=guest.tfplan                                  # Review the new realm and disabled sign-in option.
+terraform apply guest.tfplan                                      # Create the reviewed Keycloak resources.
+terraform output viewer_group                                     # Name the shared apps should look for.
 ```
 
-`allowed_groups` controls who can enter. `org_mapping` gives those users
-Viewer access in `Guest-Dashboards`. The empty `role_attribute_path` leaves
-the organization mapping in charge of the assignment.
+Keep the state and saved plans private. They can contain OAuth secrets.
+[Keycloak admin permissions](https://www.keycloak.org/docs/26.7.0/server_admin/#_admin_permissions)
 
-Add only the dashboard you chose and a data source restricted to the data
-you intend to share. A Grafana Viewer can query **any** data available to a
-data source in their organization. Check the guest account's organization
-list and data sources before sharing the dashboard link.
+## 3. Decide what guests can open
 
-[Grafana organization mapping](https://grafana.com/docs/grafana/latest/setup-grafana/configure-access/configure-authentication/generic-oauth/#org-roles-mapping-example) · [What a Grafana Viewer can query](https://grafana.com/docs/grafana/latest/setup-grafana/configure-security/#limit-viewer-query-permissions)
+1. In each shared app, keep its current `homelab` connection. Add
+   `grp-guest-viewer` to its access rules and give it the intended read-only
+   permissions. If the app reads `groups` from the token, confirm its existing
+   Keycloak client sends that field.
+2. Check the other apps that use `homelab`. A linked guest is a signed-in
+   `homelab` user. Apps that admit every signed-in user need an explicit access
+   rule before you enable guest sign-in.
+3. For Grafana, use an organization such as **Guest Dashboards** inside
+   `grafana.lab`. Map the group to Viewer in that organization only. Add the
+   shared dashboards and use data source credentials limited to the data
+   guests can see. Check the guest has no membership in the private organization.
+   [Grafana organization mapping](https://grafana.com/docs/grafana/latest/setup-grafana/configure-access/configure-authentication/generic-oauth/#org-roles-mapping-example) · [Viewer query access](https://grafana.com/docs/grafana/latest/setup-grafana/configure-security/#limit-viewer-query-permissions)
 
-## 4. Invite and verify
+## 4. Invite a guest and enable sign-in
 
-1. In `guests-<app>`, create the guest user with the **primary email from
-   their GitHub account**, set a unique initial password, and add them to
-   `grp-<app>-guest-viewers`. Give them the app URL and share the password
-   separately. Users and passwords are created here through the admin console.
-2. The first time, the guest signs into GitHub and Keycloak asks for the
-   password of the account you created. On later sign-ins, GitHub identifies
-   the linked account and Keycloak checks the invitation again.
-3. Test with the invited user, an outside GitHub user you did not invite,
-   and a pre-created account without the viewer group. Only the invited user
-   should reach the app. Check what the guest can read and whether the app
-   refuses an edit. Repeat the linked-user test after removing the group.
-4. To revoke an invitation, remove the group and sign out that user's Keycloak
-   sessions. End their existing app sessions as well, if the app keeps its
-   own login session.
+1. In **guest-realm → Users**, create the guest with their primary GitHub
+   email and name. Choose a guest username such as `guest-jamie` and add them to
+   `grp-guest-viewer`. Set a unique initial password with **Temporary** off,
+   then share it separately from the app link. The first visit uses it to
+   confirm the GitHub account link. Later visits use the linked GitHub login.
+   An email or username already used in `homelab` is rejected when the guest
+   first links, to protect existing accounts.
+2. After the app access rules are ready, enable the option.
 
-[Keycloak first sign-in and account linking](https://www.keycloak.org/docs/26.7.0/server_admin/#_identity_broker_first_login)
+   ```bash
+   export TF_VAR_enable_guest_sign_in=true # Keep this value for later runs while guests are enabled.
+   terraform plan -out=guest-enable.tfplan  # Review the Guest sign-in switch.
+   terraform apply guest-enable.tfplan    # Show Guest sign-in in homelab.
+   ```
+3. In a private browser window, open a shared app, choose **Guest sign-in**, and
+   finish the GitHub sign-in and first-time password check. Test that an
+   invited guest can read only what you intended. Also test a linked guest at
+   an unshared app and an uninvited GitHub account at the shared app.
+
+To revoke a guest, remove their group in `guest-realm`, disable their linked
+user in `homelab`, and end their active sessions in both realms and the apps.
+Keycloak syncs the copied group on a fresh sign-in through the guest realm.
+[Keycloak account linking and mapping](https://www.keycloak.org/docs/26.7.0/server_admin/#_identity_broker)
